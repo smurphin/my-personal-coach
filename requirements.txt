@@ -1,0 +1,7 @@
+# requirements.txt
+flask
+markupsafe
+mistune
+requests
+python-dotenv
+google-cloud-aiplatform

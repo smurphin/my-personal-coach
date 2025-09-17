@@ -1,0 +1,146 @@
+import os
+import requests
+import json
+from flask import Flask, request, redirect
+from dotenv import load_dotenv
+
+import vertexai
+from vertexai.generative_models import GenerativeModel
+
+load_dotenv()
+
+app = Flask(__name__)
+
+# --- Configuration ---
+STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
+STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
+STRAVA_API_URL = "https://www.strava.com/api/v3"
+REDIRECT_URI = "http://127.0.0.1:5000/callback"
+SCOPES = "read,activity:read_all,profile:read_all"
+
+GCP_PROJECT_ID = "my-personal-coach-472007"
+GCP_LOCATION = "europe-west1"  # Belgium
+
+# --- Initialize Vertex AI ---
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
+model = GenerativeModel(model_name="gemini-1.5-pro")
+
+# --- Helper & Analysis Functions ---
+
+def get_strava_api_data(access_token, endpoint):
+    """Generic function to fetch data from Strava API."""
+    headers = {'Authorization': f'Bearer {access_token}'}
+    response = requests.get(f"{STRAVA_API_URL}/{endpoint}", headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+def get_activity_streams(access_token, activity_id):
+    headers = {'Authorization': f'Bearer {access_token}'}
+    params = {'keys': 'heartrate,time,watts', 'key_by_type': True}
+    response = requests.get(f"{STRAVA_API_URL}/activities/{activity_id}/streams", headers=headers, params=params)
+    return response.json() if response.status_code == 200 else None
+
+def map_race_distance(distance_meters):
+    """Maps a race distance to the nearest standard event."""
+    if 4875 <= distance_meters <= 5125: return "5k Race"
+    if 9750 <= distance_meters <= 10250: return "10k Race"
+    if 20570 <= distance_meters <= 21625: return "Half Marathon Race"
+    if 41140 <= distance_meters <= 43250: return "Marathon Race"
+    return "Race (Non-Standard Distance)"
+
+def analyze_activity(activity, streams, zones):
+    """Analyzes a single activity and its streams to create a rich object."""
+    analyzed = {
+        "id": activity['id'],
+        "name": activity['name'],
+        "type": activity['type'],
+        "distance_km": activity['distance'] / 1000,
+        "moving_time_minutes": activity['moving_time'] / 60,
+        "start_date": activity['start_date_local'],
+        "is_race": activity.get('workout_type') == 1,
+        "time_in_hr_zones": {i: 0 for i in range(5)},
+        "time_in_power_zones": {i: 0 for i in range(7)}
+    }
+
+    if analyzed["is_race"]:
+        analyzed["race_tag"] = map_race_distance(activity['distance'])
+
+    if not streams:
+        return analyzed
+
+    time_data = streams.get('time', {}).get('data', [])
+    if not time_data:
+        return analyzed
+
+    # Analyze HR stream
+    if 'heartrate' in streams:
+        hr_data = streams['heartrate']['data']
+        hr_zones = zones.get('heart_rate', {}).get('zones', [])
+        for i in range(1, len(hr_data)):
+            duration = time_data[i] - time_data[i-1]
+            hr = hr_data[i-1]
+            zone_index = 0
+            for j, zone in enumerate(hr_zones):
+                if hr >= zone['min']: zone_index = j
+                else: break
+            analyzed["time_in_hr_zones"][zone_index] += duration
+
+    # Analyze Power stream
+    if 'watts' in streams:
+        power_data = streams['watts']['data']
+        power_zones = zones.get('power', {}).get('zones', [])
+        for i in range(1, len(power_data)):
+            duration = time_data[i] - time_data[i-1]
+            power = power_data[i-1]
+            zone_index = 0
+            for j, zone in enumerate(power_zones):
+                if power >= zone['min']: zone_index = j
+                else: break
+            analyzed["time_in_power_zones"][zone_index] += duration
+            
+    return analyzed
+
+# --- Flask Routes ---
+
+@app.route("/")
+def home():
+    return '<a href="/login">Login with Strava to build fitness baseline</a>'
+
+@app.route("/login")
+def login():
+    auth_redirect_url = (f"https://www.strava.com/oauth/authorize?client_id={STRAVA_CLIENT_ID}"
+                       f"&redirect_uri={REDIRECT_URI}&response_type=code&scope={SCOPES}")
+    return redirect(auth_redirect_url)
+
+@app.route("/callback")
+def callback():
+    try:
+        auth_code = request.args.get('code')
+        token_payload = {"client_id": STRAVA_CLIENT_ID, "client_secret": STRAVA_CLIENT_SECRET, 
+                         "code": auth_code, "grant_type": "authorization_code"}
+        token_response = requests.post("https://www.strava.com/oauth/token", data=token_payload)
+        token_response.raise_for_status()
+        access_token = token_response.json()['access_token']
+
+        athlete_zones = get_strava_api_data(access_token, "athlete/zones")
+        activities_summary = get_strava_api_data(access_token, "athlete/activities?per_page=60")
+
+        analyzed_activities = []
+        for activity in activities_summary:
+            streams = get_activity_streams(access_token, activity['id'])
+            analyzed_activity = analyze_activity(activity, streams, athlete_zones)
+            analyzed_activities.append(analyzed_activity)
+
+        final_output = {
+            "athlete_zones": athlete_zones,
+            "analyzed_activities": analyzed_activities
+        }
+
+        return f"""<h1>Detailed Per-Activity Analysis Complete</h1>
+                   <pre>{json.dumps(final_output, indent=4)}</pre>"""
+
+    except Exception as e:
+        return f"An error occurred: {e}", 500
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

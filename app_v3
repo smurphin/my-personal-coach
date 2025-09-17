@@ -1,0 +1,286 @@
+import os
+import requests
+import json
+from flask import Flask, request, redirect
+from markupsafe import Markup
+import mistune
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+
+import vertexai
+from vertexai.generative_models import GenerativeModel
+
+load_dotenv()
+
+app = Flask(__name__)
+
+# --- Configuration ---
+STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
+STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
+STRAVA_API_URL = "https://www.strava.com/api/v3"
+REDIRECT_URI = "http://127.0.0.1:5000/callback"
+SCOPES = "read,activity:read_all,profile:read_all"
+
+GCP_PROJECT_ID = "my-personal-coach-472007"
+GCP_LOCATION = "europe-west1"
+DATA_CACHE_FILE = "strava_data.json"
+
+# --- Initialize Vertex AI ---
+vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
+model = GenerativeModel(model_name="gemini-1.5-pro-001")
+
+# --- Helper & Analysis Functions ---
+
+def format_seconds(seconds):
+    """Converts seconds into a human-readable Xh Ym Zs format."""
+    seconds = int(seconds)
+    if seconds == 0: return "0s"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    parts = []
+    if hours > 0: parts.append(f"{hours}h")
+    if minutes > 0: parts.append(f"{minutes}m")
+    if secs > 0: parts.append(f"{secs}s")
+    return " ".join(parts)
+
+def get_strava_api_data(access_token, endpoint):
+    """Generic function to fetch data from Strava API."""
+    headers = {'Authorization': f'Bearer {access_token}'}
+    response = requests.get(f"{STRAVA_API_URL}/{endpoint}", headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+def get_activity_streams(access_token, activity_id):
+    """Fetches streams for a single activity."""
+    headers = {'Authorization': f'Bearer {access_token}'}
+    params = {'keys': 'heartrate,time,watts', 'key_by_type': True}
+    response = requests.get(f"{STRAVA_API_URL}/activities/{activity_id}/streams", headers=headers, params=params)
+    return response.json() if response.status_code == 200 else None
+
+def get_athlete_stats(access_token, athlete_id):
+    """Fetches the athlete's historical stats."""
+    return get_strava_api_data(access_token, f"athletes/{athlete_id}/stats")
+
+def map_race_distance(distance_meters):
+    """Maps a race distance to the nearest standard event."""
+    if 4875 <= distance_meters <= 5125: return "5k Race"
+    if 9750 <= distance_meters <= 10250: return "10k Race"
+    if 20570 <= distance_meters <= 21625: return "Half Marathon Race"
+    if 41140 <= distance_meters <= 43250: return "Marathon Race"
+    return "Race (Non-Standard Distance)"
+
+def calculate_friel_hr_zones(lthr):
+    """Calculates running HR zones based on Joe Friel's method."""
+    return {
+        "zones": [
+            {"min": 0, "max": int(lthr * 0.85), "label": "Zone 1"},
+            {"min": int(lthr * 0.85), "max": int(lthr * 0.90), "label": "Zone 2"},
+            {"min": int(lthr * 0.90), "max": int(lthr * 0.95), "label": "Zone 3"},
+            {"min": int(lthr * 0.95), "max": int(lthr * 1.05), "label": "Zone 4"},
+            {"min": int(lthr * 1.05), "max": -1, "label": "Zone 5"}
+        ],
+        "calculation_method": f"Joe Friel (LTHR: {lthr} bpm)"
+    }
+
+def calculate_friel_power_zones(ftp):
+    """Calculates cycling power zones based on Joe Friel's FTP percentages."""
+    return {
+        "zones": [
+            {"min": 0, "max": int(ftp * 0.55), "label": "Zone 1"},
+            {"min": int(ftp * 0.55), "max": int(ftp * 0.75), "label": "Zone 2"},
+            {"min": int(ftp * 0.75), "max": int(ftp * 0.90), "label": "Zone 3"},
+            {"min": int(ftp * 0.90), "max": int(ftp * 1.05), "label": "Zone 4"},
+            {"min": int(ftp * 1.05), "max": int(ftp * 1.20), "label": "Zone 5"},
+            {"min": int(ftp * 1.20), "max": int(ftp * 1.50), "label": "Zone 6"},
+            {"min": int(ftp * 1.50), "max": -1, "label": "Zone 7"}
+        ],
+        "calculation_method": f"Joe Friel (Estimated FTP: {ftp} W)"
+    }
+
+def analyze_activity(activity, streams, zones):
+    """Analyzes a single activity and its streams to create a rich object."""
+    analyzed = {"id": activity['id'], "name": activity['name'], "type": activity['type'],
+                "start_date": activity['start_date_local'], "is_race": activity.get('workout_type') == 1,
+                "distance_km": round(activity.get('distance', 0) / 1000, 2),
+                "moving_time_minutes": round(activity.get('moving_time', 0) / 60, 2),
+                "time_in_hr_zones": {i: 0 for i in range(5)}, "time_in_power_zones": {i: 0 for i in range(7)}}
+    if analyzed["is_race"]: analyzed["race_tag"] = map_race_distance(activity['distance'])
+    if not streams: return analyzed
+    time_data = streams.get('time', {}).get('data', [])
+    if not time_data: return analyzed
+
+    if 'heartrate' in streams:
+        hr_data = streams['heartrate']['data']
+        hr_zones = zones.get('heart_rate', {}).get('zones', [])
+        for i in range(1, len(hr_data)):
+            duration, hr = time_data[i] - time_data[i-1], hr_data[i-1]
+            zone_index = 0
+            for j, z in enumerate(hr_zones):
+                if z.get('max', -1) == -1:
+                    if hr >= z['min']: zone_index = j
+                elif hr >= z['min'] and hr < z['max']:
+                    zone_index = j
+                    break
+            analyzed["time_in_hr_zones"][zone_index] += duration
+            
+    if 'watts' in streams:
+        power_data = streams['watts']['data']
+        power_zones = zones.get('power', {}).get('zones', [])
+        for i in range(1, len(power_data)):
+            duration, power = time_data[i] - time_data[i-1], power_data[i-1]
+            zone_index = 0
+            for j, z in enumerate(power_zones):
+                 if z.get('max', -1) == -1:
+                    if power >= z['min']: zone_index = j
+                 elif power >= z['min'] and power < z['max']:
+                    zone_index = j
+                    break
+            analyzed["time_in_power_zones"][zone_index] += duration
+
+    return analyzed
+
+def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
+    """Finds a recent, high-intensity race suitable for VDOT calculation."""
+    four_weeks_ago = datetime.now() - timedelta(weeks=4)
+    for activity in activities:
+        activity_date_str = activity['start_date_local'].split('T')[0]
+        activity_date = datetime.strptime(activity_date_str, '%Y-%m-%d')
+        if activity.get('workout_type') == 1 and activity_date > four_weeks_ago:
+            streams = get_activity_streams(access_token, activity['id'])
+            if streams and 'heartrate' in streams:
+                race_analysis = analyze_activity(activity, streams, {"heart_rate": friel_hr_zones})
+                total_time = sum(race_analysis['time_in_hr_zones'].values())
+                high_intensity_time = race_analysis['time_in_hr_zones'][3] + race_analysis['time_in_hr_zones'][4]
+                if total_time > 0 and (high_intensity_time / total_time) > 0.5:
+                    return {"status": "VDOT Ready", "race_basis": f"{activity['name']} ({activity_date_str})"}
+    return {"status": "HR Training Recommended", "reason": "No recent, high-intensity race found to build a reliable VDOT score."}
+
+# --- Flask Routes ---
+
+@app.route("/")
+def home():
+    return '<a href="/login">Login with Strava</a>'
+
+@app.route("/login")
+def login():
+    auth_redirect_url = (f"https://www.strava.com/oauth/authorize?client_id={STRAVA_CLIENT_ID}"
+                       f"&redirect_uri={REDIRECT_URI}&response_type=code&scope={SCOPES}")
+    return redirect(auth_redirect_url)
+
+@app.route("/callback")
+def callback():
+    try:
+        # --- Simulate User Input ---
+        user_goal = "10k road race in under 39 minutes"
+        user_target_race = "Local 10k"
+        user_race_date = "2026-03-15"
+        user_known_lthr = 160
+        user_known_ftp = 200
+
+        # --- Data Caching Logic ---
+        if os.path.exists(DATA_CACHE_FILE):
+            print("--- Loading data from cache file ---")
+            with open(DATA_CACHE_FILE, 'r') as f:
+                final_data_for_ai = json.load(f)
+        else:
+            print("--- Fetching new data from Strava API ---")
+            auth_code = request.args.get('code')
+            if not auth_code:
+                return "Authentication error: No code provided. Please try logging in again."
+                
+            token_payload = {"client_id": STRAVA_CLIENT_ID, "client_secret": STRAVA_CLIENT_SECRET,
+                             "code": auth_code, "grant_type": "authorization_code"}
+            token_response = requests.post("https://www.strava.com/oauth/token", data=token_payload)
+            token_response.raise_for_status()
+            
+            token_data = token_response.json()
+            access_token = token_data['access_token']
+            athlete_id = token_data['athlete']['id']
+
+            strava_zones = get_strava_api_data(access_token, "athlete/zones")
+            activities_summary = get_strava_api_data(access_token, f"athlete/activities?per_page=60")
+            athlete_stats = get_athlete_stats(access_token, athlete_id)
+            
+            friel_hr_zones = calculate_friel_hr_zones(user_known_lthr)
+            friel_power_zones = calculate_friel_power_zones(user_known_ftp)
+
+            vdot_data = find_valid_race_for_vdot(activities_summary, access_token, friel_hr_zones)
+            
+            analyzed_activities = []
+            for activity in activities_summary:
+                streams = get_activity_streams(access_token, activity['id'])
+                all_friel_zones = {"heart_rate": friel_hr_zones, "power": friel_power_zones}
+                analyzed_activity = analyze_activity(activity, streams, all_friel_zones)
+                
+                for i, seconds in analyzed_activity["time_in_hr_zones"].items():
+                    analyzed_activity["time_in_hr_zones"][i] = format_seconds(seconds)
+                for i, seconds in analyzed_activity["time_in_power_zones"].items():
+                    analyzed_activity["time_in_power_zones"][i] = format_seconds(seconds)
+                analyzed_activities.append(analyzed_activity)
+
+            final_data_for_ai = {
+                "athlete_goal": user_goal,
+                "strava_zones": strava_zones,
+                "friel_hr_zones": friel_hr_zones,
+                "friel_power_zones": friel_power_zones,
+                "vdot_data": vdot_data,
+                "vdot_paces": {"Easy": "5:30-6:10 min/km", "Threshold": "4:45 min/km", "Interval": "4:20 min/km"} if vdot_data["status"] == "VDOT Ready" else None,
+                "analyzed_activities": analyzed_activities
+            }
+
+            # Save the new data to the cache file
+            with open(DATA_CACHE_FILE, 'w') as f:
+                json.dump(final_data_for_ai, f, indent=4)
+        
+        # --- Prompt and AI Call ---
+        prompt = f"""
+        You are an elite endurance coach. Your training philosophy is a **synthesis of modern, evidence-based methodologies**.
+
+        - **Structure:** You believe in a **polarized training structure (80/20)**. The athlete's goal is a **running race**, so the plan must prioritize running.
+        - **Effort (HR):** You use **Joe Friel's LTHR-based heart rate zones** as the foundation for gauging effort.
+        - **Pace (Running):** For prescribing running intensity, you use **Dr. Jack Daniels' VDOT-based paces** once an athlete has a reliable baseline.
+        - **Tone:** You are empathetic, realistic, and motivating. Your primary goal is the athlete's long-term health and consistency. However, don't be afraid to be critical of a poorly executed session or general lack of discipline in adhering to target intensities.
+
+        **Your primary task is to generate a personalized training plan based on the athlete's goal, applying this blended methodology.** Structure your response with the following markdown headings:
+
+        ### Fitness Assessment & Goal Viability
+        Briefly assess the athlete's current fitness from the `analyzed_activities`. Based on this, comment on the viability of their stated `athlete_goal`. If a timeframe is given, comment on how realistic this is or if more time and training are needed.
+
+        ### Training Pace & Zone Recommendations
+        - Your first recommendation must be to advise the athlete to update their Strava zones to match the Friel calculations if they differ. Show a clear comparison.
+        - Check the `vdot_data.status`.
+           - If "VDOT Ready", state this clearly, explain what VDOT is, and list the athlete's `vdot_paces`.
+           - If "HR Training Recommended", explain that a solid base must be rebuilt first and recommend a 5k race or time trial in 2-6 weeks depending on where they are in their base fitness.
+
+        ### {final_data_for_ai['athlete_goal']} Training Plan: Weeks 1-6
+        Generate a **6 week**, week-by-week training plan. **DO NOT assign workouts to specific days of the week.** Instead, provide a list of sessions for each week for the athlete to schedule.
+
+        **S&C Plan:**
+        You must provide two distinct, full-body S&C routines. For each routine, list 4-5 specific exercises with sets and reps (e.g., "Bodyweight Squats: 3 sets of 15 reps"). The exercises must require minimal or no equipment, but you should also provide a gym-based alternative for each (e.g., "or Leg Press Machine"). The goal is functional strength and injury resilience.
+        
+        **Plan Structure:**
+        - **Run Focus:** The plan must include **4-5 running sessions** and 1-2 S&C sessions per week.
+        - **Zone Discipline:** Recovery = **Zone 1**. Easy/Aerobic = **Zone 2**. Threshold = **Zone 4**. VO2 Max = **Zone 5**. **DO NOT prescribe workouts with a primary target of Zone 3.**
+        - **Prioritization:** Label sessions as [KEY], [IMPORTANT], or [STRETCH].
+           - **[KEY]** sessions are the 1-2 high-intensity (Zone 4/5 or VDOT pace) runs. These are the most critical for adaptation.
+           - **[IMPORTANT]** sessions are the weekly long run and at least one S&C session.
+           - **[STRETCH]** sessions are all other easy runs, cross-training, and the second S&C session.
+        - **Cautious Progression:** The plan must be appropriate for an athlete rebuilding their base. Start with conservative durations (e.g., initial long run of 60 minutes) and build gradually.
+        
+        Here is the data:
+        ```json
+        {json.dumps(final_data_for_ai, indent=4)}
+        ```
+        IMPORTANT: Your entire response must be in Markdown format. Do not wrap your response in JSON or json tags.
+        """
+        
+        response = model.generate_content(prompt)
+        
+        return Markup(mistune.html(response.text))
+
+    except Exception as e:
+        return f"An error occurred: {e}", 500
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
