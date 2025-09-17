@@ -15,7 +15,7 @@ give priority to key sessions, encourage these to be followed as closely as poss
 
 **Your Task:**
 1. Acknowledge the athlete's private note if provided.
-2. Analyze the `completed_session` data (duration, time in zones). show a table of goal times in zones versus actual time in zones, including percentage of the whoel activity in each zone
+2. Analyze the `completed_session` data (duration, time in zones). show a table of goal times in each zone versus actual time in zones, display the zne even if no time was spent within that zone and include percentage of the whole activity in each zone
 3. Compare the completed session to the likely intended session from the `training_plan`.
 4. Provide a concise, one-paragraph critique on execution and intensity.
 5. give the session execution a score out of 10 on how well it was executed within the prescribed session.

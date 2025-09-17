@@ -5,24 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Personal Coach</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; text-align: center; }
         h1 { color: #1a73e8; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #fc4c02; color: white; text-decoration: none; font-size: 1.2em; border-radius: 5px; }
-        .feedback { margin-top: 20px; }
-        .note { font-size: 0.9em; color: #666; }
+        .button { display: inline-block; padding: 12px 24px; margin-top: 20px; background-color: #fc4c02; color: white; text-decoration: none; font-size: 1.2em; border-radius: 5px; }
+        .profile-img { border-radius: 50%; width: 100px; height: 100px; margin-bottom: 20px; border: 3px solid #fc4c02; }
+        .action-links a { margin: 0 15px; font-size: 1.1em; color: #1a73e8; }
+        .note { font-size: 0.9em; color: #666; margin-top: 30px; }
     </style>
 </head>
 <body>
     <h1>My Personal Coach</h1>
-    <p>Welcome to your AI-powered personal coach. Connect with Strava to analyze your recent training and generate a personalized plan based on your goals and fitness level.</p>
-    <a href="/login" class="button">Generate / Refresh Your Training Plan</a>
-    
+
+    {% if athlete %}
+        <img src="{{ athlete.profile }}" alt="Athlete profile picture" class="profile-img">
+        <h2>Welcome back, {{ athlete.firstname }}!</h2>
+        <p>Ready to train?</p>
+        
+        <div class="action-links">
     {% if plan_exists %}
-    <div class="feedback">
-        <a href="/feedback">Get Feedback on Your Last Session</a>
-    </div>
+        <a href="/plan">View My Plan</a> |
+        <a href="/feedback">Get Feedback on Last Session</a>
+    {% endif %}
+    <a href="/onboarding">Generate a New Plan</a> |
+    <a href="/logout">Logout</a>
+</div>
+
+        <p class="note">Generating a new plan will fetch fresh data from Strava and overwrite your current plan.</p>
+
+    {% else %}
+        <p>Welcome to your AI-powered personal coach. Connect with Strava to analyze your recent training and generate a personalized plan based on your goals and fitness level.</p>
+        <a href="/login" class="button">Login with Strava</a>
     {% endif %}
 
-    <p class="note">Note: Generating a plan will fetch fresh data from Strava and overwrite your local cache.</p>
 </body>
+
 </html>

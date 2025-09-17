@@ -1,0 +1,1723 @@
+{
+    "2117356": {
+        "token": {
+            "token_type": "Bearer",
+            "expires_at": 1758142648,
+            "expires_in": 15862,
+            "refresh_token": "317f3b479e158dcf4fa08f72490edf7d03cc5b7d",
+            "access_token": "3387e2ba4c791d0e3697423a25bcecd94ad7520a",
+            "athlete": {
+                "id": 2117356,
+                "username": "smurphin",
+                "resource_state": 2,
+                "firstname": "Darren",
+                "lastname": "Murphy",
+                "bio": "https://www.justgiving.com/page/darren-murphy-london-bristol",
+                "city": "Chelmsford",
+                "state": "England",
+                "country": "United Kingdom",
+                "sex": "M",
+                "premium": true,
+                "summit": true,
+                "created_at": "2013-05-07T15:43:11Z",
+                "updated_at": "2025-08-12T13:52:40Z",
+                "badge_type_id": 1,
+                "weight": 80.1,
+                "profile_medium": "https://dgalywyr863hv.cloudfront.net/pictures/athletes/2117356/3047893/4/medium.jpg",
+                "profile": "https://dgalywyr863hv.cloudfront.net/pictures/athletes/2117356/3047893/4/large.jpg",
+                "friend": null,
+                "follower": null
+            }
+        },
+        "plan": "Right. Let's get to work.\n\n### Fitness Assessment & Goal Viability\nYour training history shows a strong multisport background, which provides a significant aerobic base. This is an asset. The recent Helvellyn triathlon, while an impressive feat of endurance, was a long, slow-burn effort and not indicative of your current 10k potential on the road.\n\nYour recent running is a mixed picture. The 10 x 400m track session shows you are capable of handling intensity. However, the 22:23 5k parkrun at the end of August suggests your current fitness (VDOT approx. 41) is a considerable way off the VDOT of ~50 required for a sub-40-minute 10k.\n\nThat said, your 20:13 5k race in July (VDOT approx. 48) proves you have the underlying capability. The goal is therefore ambitious but viable. Success hinges entirely on a focused, consistent block of run-specific training over the next 8-10 weeks. We must bridge the gap between your current state and your July peak, then build upon it. Your history of endurance training means you should adapt quickly.\n\n### Training Pace & Zone Recommendations\nYour heart rate zones are largely correct. The primary zones for this plan\u2014Zone 2 for aerobic base and Zones 4/5 for intensity\u2014are aligned between your settings and the Friel calculation. The minor discrepancy in Zone 3 is inconsequential to our training methodology; we will not be targeting it. No update is required.\n\n**HR Zone Comparison (LTHR: 160 bpm)**\n| Zone | Your Strava Zones | Friel Calculated Zones | Status |\n| :--- | :--- | :--- |:---|\n| 1 | < 136 bpm | < 136 bpm | Match |\n| 2 | 136 - 142 bpm | 136 - 142 bpm | Match |\n| 3 | 142 - 152 bpm | 144 - 150 bpm | Minor Discrepancy (Acceptable) |\n| 4 | 152 - 160 bpm | 152 - 160 bpm | Match |\n| 5 | > 160 bpm | > 160 bpm | Match |\n\nYour `vdot_data.status` indicates that we need to establish a current running fitness baseline. For the first three weeks, we will train by Heart Rate. At the end of Week 4, you will perform a 5k time trial. This will provide the data needed to calculate your VDOT and set precise training paces using the Daniels' method for the subsequent block.\n\n### Run a sub 40 minute 10k at the beginning of November Training Plan: Weeks 1-6\nSchedule these sessions as you see fit, but respect the recovery. A hard day must be followed by an easy day or rest. The [KEY] sessions are non-negotiable for performance improvement. Do not perform S&C on the same day as a [KEY] run; place it on an easy run day or rest day.\n\n**Week 1: Re-engagement & Consistency**\n*   **[IMPORTANT] Easy Run:** 45 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Easy Run:** 45 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Long Run:** 60 minutes, strictly in HR Zone 2.\n*   **[STRETCH] Threshold Introduction:** 15 min warm-up (Z1-2), 15 minutes continuous in HR Zone 4, 15 min cool-down (Z1).\n*   **[STRETCH] Recovery Run or Cross-Train:** 30 minutes easy run (Z1-2) OR 45-60 minutes easy cycle/swim.\n*   **[IMPORTANT] S&C:** Routine 1.\n*   **[STRETCH] S&C:** Routine 4.\n\n**Week 2: Building Threshold**\n*   **[KEY] Threshold Run:** 15 min warm-up (Z1-2), 2 x 10 minutes in HR Zone 4 with 3-4 min jog/walk recovery (Z1) between, 15 min cool-down (Z1).\n*   **[IMPORTANT] Easy Run:** 50 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Easy Run:** 45 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Long Run:** 70 minutes, strictly in HR Zone 2.\n*   **[STRETCH] Recovery Run or Cross-Train:** 30-40 minutes easy run (Z1-2) OR 60 minutes easy cycle/swim.\n*   **[IMPORTANT] S&C:** Routine 3.\n*   **[STRETCH] S&C:** Routine 4.\n\n**Week 3: Introducing VO2 Max Stimulus**\n*   **[KEY] Interval Run:** 15 min warm-up (Z1-2), 6 x 3 minutes in HR Zone 5 with equal duration jog recovery (Z1), 15 min cool-down (Z1).\n*   **[IMPORTANT] Easy Run:** 50 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Easy Run:** 50 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Long Run:** 75 minutes, strictly in HR Zone 2.\n*   **[STRETCH] Threshold Maintenance:** 10 min warm-up (Z1-2), 15 minutes continuous in HR Zone 4, 10 min cool-down (Z1).\n*   **[IMPORTANT] S&C:** Routine 1.\n*   **[STRETCH] S&C:** Routine 2.\n\n**Week 4: Baseline Test Week**\n*   **[KEY] 5k Time Trial:** Perform this at the end of the week. Structure: 20 min warm-up with drills & strides, 5k maximal effort, 20 min cool-down. Record your time.\n*   **[IMPORTANT] Easy Run:** 60 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Easy Run:** 45 minutes, strictly in HR Zone 2.\n*   **[IMPORTANT] Pre-TT Run:** 30 minutes easy (Z1-2) with 4 x 20-second strides. Do this 2 days before your time trial.\n*   **[STRETCH] Recovery Run or Cross-Train:** 40 minutes easy run (Z1-2) OR 60 minutes easy cycle.\n*   **[IMPORTANT] S&C:** Routine 3 (perform early in the week).\n*   **[STRETCH] S&C:** Routine 4.\n\n**Week 5: VDOT-Based Training Introduction**\n*(Paces below are based on Daniels' VDOT calculations from your 5k TT result).*\n*   **[KEY] Threshold Run:** 15 min E-pace warm-up, 3 x 1 mile at T-pace with 90-second jog recovery, 15 min E-pace cool-down.\n*   **[IMPORTANT] Easy Run:** 50 minutes at E-pace.\n*   **[IMPORTANT] Easy Run:** 50 minutes at E-pace.\n*   **[IMPORTANT] Long Run:** 80 minutes at E-pace.\n*   **[STRETCH] Recovery Run:** 30 minutes at E-pace.\n*   **[IMPORTANT] S&C:** Routine 1.\n*   **[STRETCH] S&C:** Routine 2.\n\n**Week 6: Increasing Load**\n*   **[KEY] Interval Run:** 15 min E-pace warm-up, 5 x 1000m at I-pace with equal duration jog recovery, 15 min E-pace cool-down.\n*   **[IMPORTANT] Easy Run:** 60 minutes at E-pace.\n*   **[IMPORTANT] Easy Run:** 45 minutes at E-pace.\n*   **[IMPORTANT] Long Run with Quality:** 85 minutes total: 25 mins E-pace, 2 x 15 mins at M-pace with 5 min E-pace jog between, cool-down to 85 mins.\n*   **[STRETCH] Recovery Run:** 30 minutes at E-pace.\n*   **[IMPORTANT] S&C:** Routine 3.\n*   **[STRETCH] S&C:** Routine 4.\n\n*A note on advanced methods: As your fitness progresses, we can explore 'double threshold' days, involving two shorter threshold sessions (AM/PM) on the same day. This is a potent stimulus for 10k performance but requires excellent recovery. We will consider this in the next block.*\n\n### S&C Plan\nPerform two sessions per week. One from Routine 1, 2, or 3 is [IMPORTANT]. One session of Routine 4 is a valuable [STRETCH] goal. Alternate routines weekly to provide a varied stimulus.\n\n**Routine 1: Foundation Strength**\n*   **Bodyweight Squats:** 3 sets of 15 reps. (Gym: Leg Press Machine)\n*   **Glute Bridges:** 3 sets of 15 reps. (Gym: Barbell Hip Thrust or Hip Extension Machine)\n*   **Plank:** 3 sets, hold for 45-60 seconds. (Gym: Abdominal Crunch Machine, focus on bracing)\n*   **Push-ups (from knees if needed):** 3 sets to failure. (Gym: Chest Press Machine)\n*   **Bird-Dog:** 3 sets of 10 reps per side. (Gym: Cable Row, focusing on anti-rotation)\n\n**Routine 2: Power & Plyometrics**\n*   **Jump Squats:** 3 sets of 10 reps. (Gym: Explosive, lighter weight Leg Press)\n*   **Box Jumps (on a low, stable step/curb):** 3 sets of 8 reps. (Gym: Seated Box Jump)\n*   **Walking Lunges:** 3 sets of 20 reps (10 per leg). (Gym: Smith Machine Lunges)\n*   **Russian Twists:** 3 sets of 20 reps (10 per side). (Gym: Torso Rotation Machine)\n\n**Routine 3: Unilateral Stability**\n*   **Single-leg Deadlifts (bodyweight):** 3 sets of 12 reps per leg. (Gym: Cable Single-leg RDL)\n*   **Pistol Squats (to a chair or bench):** 3 sets of 8 reps per leg. (Gym: Single Leg Press Machine)\n*   **Side Plank:** 3 sets, hold for 30-45 seconds per side. (Gym: Pallof Press)\n*   **Bulgarian Split Squats (rear foot on a sofa or chair):** 3 sets of 10 reps per leg. (Gym: same, but with foot on a bench)\n\n**Routine 4: Mobility & Core**\n*   **World's Greatest Stretch:** 2 sets of 8 reps per side.\n*   **Cat-Cow:** 2 sets of 15 reps.\n*   **Dead Bugs:** 3 sets of 20 reps (10 per side).\n*   **Leg Swings (Forward & Sideways):** 2 sets of 15 swings in each direction, per leg.\n*   **90/90 Hip Switches:** 2 sets of 10 reps per side.",
+        "plan_data": {
+            "athlete_goal": "Run a sub 40 minute 10k at the beginning of November",
+            "sessions_per_week": 5,
+            "strava_zones": {
+                "heart_rate": {
+                    "custom_zones": true,
+                    "zones": [
+                        {
+                            "min": 0,
+                            "max": 136
+                        },
+                        {
+                            "min": 136,
+                            "max": 142
+                        },
+                        {
+                            "min": 142,
+                            "max": 152
+                        },
+                        {
+                            "min": 152,
+                            "max": 160
+                        },
+                        {
+                            "min": 160,
+                            "max": -1
+                        }
+                    ]
+                },
+                "power": {
+                    "zones": [
+                        {
+                            "min": 0,
+                            "max": 114
+                        },
+                        {
+                            "min": 115,
+                            "max": 156
+                        },
+                        {
+                            "min": 157,
+                            "max": 187
+                        },
+                        {
+                            "min": 188,
+                            "max": 218
+                        },
+                        {
+                            "min": 219,
+                            "max": 250
+                        },
+                        {
+                            "min": 251,
+                            "max": 312
+                        },
+                        {
+                            "min": 313,
+                            "max": -1
+                        }
+                    ]
+                }
+            },
+            "friel_hr_zones": {
+                "zones": [
+                    {
+                        "min": 0,
+                        "max": 136
+                    },
+                    {
+                        "min": 136,
+                        "max": 142
+                    },
+                    {
+                        "min": 144,
+                        "max": 150
+                    },
+                    {
+                        "min": 152,
+                        "max": 160
+                    },
+                    {
+                        "min": 160,
+                        "max": -1
+                    }
+                ],
+                "calculation_method": "Joe Friel (LTHR: 160 bpm)"
+            },
+            "friel_power_zones": {
+                "zones": [
+                    {
+                        "min": 0,
+                        "max": 110
+                    },
+                    {
+                        "min": 110,
+                        "max": 148
+                    },
+                    {
+                        "min": 150,
+                        "max": 178
+                    },
+                    {
+                        "min": 180,
+                        "max": 208
+                    },
+                    {
+                        "min": 210,
+                        "max": 240
+                    },
+                    {
+                        "min": 240,
+                        "max": 300
+                    },
+                    {
+                        "min": 300,
+                        "max": -1
+                    }
+                ],
+                "calculation_method": "Joe Friel (Estimated FTP: 200 W)"
+            },
+            "vdot_data": {
+                "status": "HR Training Recommended",
+                "reason": "No recent, high-intensity race found."
+            },
+            "analyzed_activities": [
+                {
+                    "id": 15835058678,
+                    "name": "LBRR trails with Claire's group",
+                    "type": "Run",
+                    "start_date": "2025-09-16T19:06:21Z",
+                    "is_race": false,
+                    "distance_km": 9.42,
+                    "moving_time_minutes": 62.87,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 54s",
+                        "Zone 2": "3m 14s",
+                        "Zone 3": "59s",
+                        "Zone 4": "53s",
+                        "Zone 5": "5s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 549,
+                        "1": 49,
+                        "2": 67,
+                        "3": 117,
+                        "4": 194,
+                        "5": 785,
+                        "6": 2204
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15823369739,
+                    "name": "Easy Run",
+                    "type": "Run",
+                    "start_date": "2025-09-15T20:41:10Z",
+                    "is_race": false,
+                    "distance_km": 5.27,
+                    "moving_time_minutes": 26.2,
+                    "time_in_hr_zones": {
+                        "Zone 1": "3m 55s",
+                        "Zone 2": "18m 10s",
+                        "Zone 3": "4m",
+                        "Zone 4": "19s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 736,
+                        "1": 2,
+                        "2": 1,
+                        "3": 1,
+                        "4": 1,
+                        "5": 4,
+                        "6": 839
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15805530673,
+                    "name": "From JPR",
+                    "type": "Run",
+                    "start_date": "2025-09-14T09:52:34Z",
+                    "is_race": false,
+                    "distance_km": 1.33,
+                    "moving_time_minutes": 9.55,
+                    "time_in_hr_zones": {
+                        "Zone 1": "10m 1s",
+                        "Zone 2": "1s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15805530763,
+                    "name": "Junior parkrun with Jake",
+                    "type": "Run",
+                    "start_date": "2025-09-14T09:02:22Z",
+                    "is_race": false,
+                    "distance_km": 1.89,
+                    "moving_time_minutes": 12.63,
+                    "time_in_hr_zones": {
+                        "Zone 1": "12m 42s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15805530619,
+                    "name": "To JPR",
+                    "type": "Run",
+                    "start_date": "2025-09-14T08:45:53Z",
+                    "is_race": false,
+                    "distance_km": 1.12,
+                    "moving_time_minutes": 7.8,
+                    "time_in_hr_zones": {
+                        "Zone 1": "6m 6s",
+                        "Zone 2": "1m 49s",
+                        "Zone 3": "1s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15795063073,
+                    "name": "Track - \u2b06\ufe0f - 10 x 400m Threshold, 200m Recovery - \u2b07\ufe0f",
+                    "type": "Run",
+                    "start_date": "2025-09-13T10:21:07Z",
+                    "is_race": false,
+                    "distance_km": 10.1,
+                    "moving_time_minutes": 59.98,
+                    "time_in_hr_zones": {
+                        "Zone 1": "34m 3s",
+                        "Zone 2": "3m 49s",
+                        "Zone 3": "5m 44s",
+                        "Zone 4": "8m 57s",
+                        "Zone 5": "9m"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15785646411,
+                    "name": "Easy Run",
+                    "type": "Run",
+                    "start_date": "2025-09-12T13:01:32Z",
+                    "is_race": false,
+                    "distance_km": 5.31,
+                    "moving_time_minutes": 30.77,
+                    "time_in_hr_zones": {
+                        "Zone 1": "7m 19s",
+                        "Zone 2": "21m 26s",
+                        "Zone 3": "2m 11s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 600,
+                        "1": 5,
+                        "2": 1,
+                        "3": 1,
+                        "4": 1,
+                        "5": 60,
+                        "6": 1188
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15767039701,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-09-10T18:16:56Z",
+                    "is_race": false,
+                    "distance_km": 2.35,
+                    "moving_time_minutes": 56.75,
+                    "time_in_hr_zones": {
+                        "0": "0s",
+                        "1": "0s",
+                        "2": "0s",
+                        "3": "0s",
+                        "4": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15756201301,
+                    "name": "LBRR trails with Claire's group",
+                    "type": "Run",
+                    "start_date": "2025-09-09T19:08:00Z",
+                    "is_race": false,
+                    "distance_km": 9.27,
+                    "moving_time_minutes": 62.7,
+                    "time_in_hr_zones": {
+                        "Zone 1": "54m 1s",
+                        "Zone 2": "9m 22s",
+                        "Zone 3": "2m 8s",
+                        "Zone 4": "1s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 862,
+                        "1": 88,
+                        "2": 84,
+                        "3": 132,
+                        "4": 213,
+                        "5": 797,
+                        "6": 1756
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15729000353,
+                    "name": "Helvellyn Triathlon - Run",
+                    "type": "Run",
+                    "start_date": "2025-09-07T11:13:43Z",
+                    "is_race": true,
+                    "distance_km": 15.03,
+                    "moving_time_minutes": 140.58,
+                    "time_in_hr_zones": {
+                        "Zone 1": "54m 36s",
+                        "Zone 2": "43m 3s",
+                        "Zone 3": "47m 2s",
+                        "Zone 4": "30s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1884,
+                        "1": 474,
+                        "2": 583,
+                        "3": 661,
+                        "4": 893,
+                        "5": 2326,
+                        "6": 1890
+                    },
+                    "private_note": "",
+                    "race_tag": "Race (Non-Standard Distance)"
+                },
+                {
+                    "id": 15729000263,
+                    "name": "Helvellyn Triathlon - T2",
+                    "type": "Workout",
+                    "start_date": "2025-09-07T11:10:29Z",
+                    "is_race": false,
+                    "distance_km": 0.13,
+                    "moving_time_minutes": 1.22,
+                    "time_in_hr_zones": {
+                        "Zone 1": "2m 50s",
+                        "Zone 2": "24s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15729000327,
+                    "name": "Helvellyn Triathlon - Bike",
+                    "type": "Ride",
+                    "start_date": "2025-09-07T08:43:27Z",
+                    "is_race": false,
+                    "distance_km": 59.49,
+                    "moving_time_minutes": 146.98,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 13m 14s",
+                        "Zone 2": "38m 13s",
+                        "Zone 3": "25m 34s",
+                        "Zone 4": "7m 13s",
+                        "Zone 5": "2m 45s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1835,
+                        "1": 1405,
+                        "2": 1276,
+                        "3": 1314,
+                        "4": 1332,
+                        "5": 1324,
+                        "6": 333
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15729000135,
+                    "name": "Helvellyn Triathlon - T1",
+                    "type": "Workout",
+                    "start_date": "2025-09-07T08:40:30Z",
+                    "is_race": false,
+                    "distance_km": 0.12,
+                    "moving_time_minutes": 0.92,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1m 14s",
+                        "Zone 2": "52s",
+                        "Zone 3": "51s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15729000175,
+                    "name": "Helvellyn Triathlon - Swim",
+                    "type": "Swim",
+                    "start_date": "2025-09-07T08:08:34Z",
+                    "is_race": false,
+                    "distance_km": 1.35,
+                    "moving_time_minutes": 31.92,
+                    "time_in_hr_zones": {
+                        "Zone 1": "31m 48s",
+                        "Zone 2": "7s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15720965650,
+                    "name": "Easy spin to registration and back to campsite",
+                    "type": "Ride",
+                    "start_date": "2025-09-06T15:56:13Z",
+                    "is_race": false,
+                    "distance_km": 21.62,
+                    "moving_time_minutes": 52.22,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 39m 24s",
+                        "Zone 2": "8m 26s",
+                        "Zone 3": "3m 37s",
+                        "Zone 4": "2m 35s",
+                        "Zone 5": "2m 53s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 4923,
+                        "1": 602,
+                        "2": 398,
+                        "3": 294,
+                        "4": 248,
+                        "5": 369,
+                        "6": 181
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15716505138,
+                    "name": "Catbells & Maiden moor hike with Andy",
+                    "type": "Hike",
+                    "start_date": "2025-09-06T10:59:32Z",
+                    "is_race": false,
+                    "distance_km": 9.28,
+                    "moving_time_minutes": 129.0,
+                    "time_in_hr_zones": {
+                        "Zone 1": "2h 15m 43s",
+                        "Zone 2": "5m 18s",
+                        "Zone 3": "6m 52s",
+                        "Zone 4": "1m 32s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15674950899,
+                    "name": "LBRR - anti culture run led by Claire",
+                    "type": "Run",
+                    "start_date": "2025-09-02T19:09:06Z",
+                    "is_race": false,
+                    "distance_km": 9.6,
+                    "moving_time_minutes": 64.53,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 1m 7s",
+                        "Zone 2": "5m 35s",
+                        "Zone 3": "24s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1360,
+                        "1": 78,
+                        "2": 77,
+                        "3": 74,
+                        "4": 130,
+                        "5": 579,
+                        "6": 1728
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15667877328,
+                    "name": "MyWhoosh - Easy money",
+                    "type": "VirtualRide",
+                    "start_date": "2025-09-02T08:50:04Z",
+                    "is_race": false,
+                    "distance_km": 13.19,
+                    "moving_time_minutes": 30.8,
+                    "time_in_hr_zones": {
+                        "Zone 1": "14m 12s",
+                        "Zone 2": "5m 24s",
+                        "Zone 3": "3m 41s",
+                        "Zone 4": "4m 20s",
+                        "Zone 5": "3m 11s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 415,
+                        "1": 754,
+                        "2": 77,
+                        "3": 204,
+                        "4": 16,
+                        "5": 375,
+                        "6": 7
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15662553255,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-09-01T18:27:41Z",
+                    "is_race": false,
+                    "distance_km": 1.97,
+                    "moving_time_minutes": 44.78,
+                    "time_in_hr_zones": {
+                        "Zone 1": "44m 59s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15645170302,
+                    "name": "From JPR",
+                    "type": "Run",
+                    "start_date": "2025-08-31T09:25:38Z",
+                    "is_race": false,
+                    "distance_km": 1.19,
+                    "moving_time_minutes": 8.45,
+                    "time_in_hr_zones": {
+                        "Zone 1": "13m 50s",
+                        "Zone 2": "2m 1s",
+                        "Zone 3": "22s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15645170095,
+                    "name": "Junior parkrun with Jake",
+                    "type": "Run",
+                    "start_date": "2025-08-31T08:59:20Z",
+                    "is_race": false,
+                    "distance_km": 1.9,
+                    "moving_time_minutes": 12.47,
+                    "time_in_hr_zones": {
+                        "Zone 1": "55s",
+                        "Zone 2": "2m 58s",
+                        "Zone 3": "4m 39s",
+                        "Zone 4": "4m 5s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15645170263,
+                    "name": "To JPR",
+                    "type": "Run",
+                    "start_date": "2025-08-31T08:43:39Z",
+                    "is_race": false,
+                    "distance_km": 1.09,
+                    "moving_time_minutes": 8.08,
+                    "time_in_hr_zones": {
+                        "Zone 1": "8m 13s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15635015782,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-08-30T10:28:07Z",
+                    "is_race": false,
+                    "distance_km": 1.57,
+                    "moving_time_minutes": 35.53,
+                    "time_in_hr_zones": {
+                        "Zone 1": "35m 32s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15634084881,
+                    "name": "From parkrun",
+                    "type": "Run",
+                    "start_date": "2025-08-30T09:37:45Z",
+                    "is_race": false,
+                    "distance_km": 1.14,
+                    "moving_time_minutes": 6.47,
+                    "time_in_hr_zones": {
+                        "Zone 1": "5m 10s",
+                        "Zone 2": "1m 34s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 47,
+                        "1": 4,
+                        "2": 0,
+                        "3": 1,
+                        "4": 6,
+                        "5": 22,
+                        "6": 324
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15634084935,
+                    "name": "Chelmsford parkrun",
+                    "type": "Run",
+                    "start_date": "2025-08-30T09:01:13Z",
+                    "is_race": false,
+                    "distance_km": 5.01,
+                    "moving_time_minutes": 22.23,
+                    "time_in_hr_zones": {
+                        "Zone 1": "36s",
+                        "Zone 2": "15s",
+                        "Zone 3": "1m",
+                        "Zone 4": "12m 7s",
+                        "Zone 5": "8m 19s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 173,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 2,
+                        "5": 4,
+                        "6": 1158
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15634078790,
+                    "name": "To parkrun",
+                    "type": "Run",
+                    "start_date": "2025-08-30T08:52:18Z",
+                    "is_race": false,
+                    "distance_km": 1.15,
+                    "moving_time_minutes": 5.4,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1m 37s",
+                        "Zone 2": "34s",
+                        "Zone 3": "3m 7s",
+                        "Zone 4": "6s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 110,
+                        "1": 2,
+                        "2": 0,
+                        "3": 1,
+                        "4": 1,
+                        "5": 2,
+                        "6": 208
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15619433266,
+                    "name": "Tempo Ride",
+                    "type": "Ride",
+                    "start_date": "2025-08-28T18:56:09Z",
+                    "is_race": false,
+                    "distance_km": 32.23,
+                    "moving_time_minutes": 66.32,
+                    "time_in_hr_zones": {
+                        "Zone 1": "24m 39s",
+                        "Zone 2": "19m 4s",
+                        "Zone 3": "14m 19s",
+                        "Zone 4": "6m 5s",
+                        "Zone 5": "2m 35s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 490,
+                        "1": 650,
+                        "2": 717,
+                        "3": 692,
+                        "4": 585,
+                        "5": 579,
+                        "6": 289
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15615215334,
+                    "name": "Lunch Swim - 200 \u2b06\ufe0f, 3 x (100 free, 100 PB, 100 paddles) 100 \u2b07\ufe0f",
+                    "type": "Swim",
+                    "start_date": "2025-08-28T12:31:37Z",
+                    "is_race": false,
+                    "distance_km": 1.23,
+                    "moving_time_minutes": 23.13,
+                    "time_in_hr_zones": {
+                        "Zone 1": "29m 32s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15596871693,
+                    "name": "Evening Run",
+                    "type": "Run",
+                    "start_date": "2025-08-26T19:06:41Z",
+                    "is_race": false,
+                    "distance_km": 10.07,
+                    "moving_time_minutes": 62.5,
+                    "time_in_hr_zones": {
+                        "Zone 1": "20m 40s",
+                        "Zone 2": "13m",
+                        "Zone 3": "8m 30s",
+                        "Zone 4": "9m 11s",
+                        "Zone 5": "18m 34s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 737,
+                        "1": 88,
+                        "2": 91,
+                        "3": 73,
+                        "4": 94,
+                        "5": 513,
+                        "6": 2599
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15582887405,
+                    "name": "Easy Ride",
+                    "type": "Ride",
+                    "start_date": "2025-08-25T16:02:02Z",
+                    "is_race": false,
+                    "distance_km": 49.56,
+                    "moving_time_minutes": 113.28,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 33m 16s",
+                        "Zone 2": "16m 21s",
+                        "Zone 3": "3m 9s",
+                        "Zone 4": "1m 26s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1955,
+                        "1": 2114,
+                        "2": 1178,
+                        "3": 794,
+                        "4": 409,
+                        "5": 291,
+                        "6": 111
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15578579098,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-08-25T10:13:58Z",
+                    "is_race": false,
+                    "distance_km": 1.97,
+                    "moving_time_minutes": 46.58,
+                    "time_in_hr_zones": {
+                        "Zone 1": "46m 13s",
+                        "Zone 2": "21s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15571318275,
+                    "name": "Easy Ride",
+                    "type": "Ride",
+                    "start_date": "2025-08-24T15:01:50Z",
+                    "is_race": false,
+                    "distance_km": 26.45,
+                    "moving_time_minutes": 60.27,
+                    "time_in_hr_zones": {
+                        "Zone 1": "59m 3s",
+                        "Zone 2": "4m 14s",
+                        "Zone 3": "1m 28s",
+                        "Zone 4": "2s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1327,
+                        "1": 965,
+                        "2": 582,
+                        "3": 461,
+                        "4": 291,
+                        "5": 198,
+                        "6": 63
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15567399143,
+                    "name": "Lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-08-24T10:43:50Z",
+                    "is_race": false,
+                    "distance_km": 0.8,
+                    "moving_time_minutes": 18.73,
+                    "time_in_hr_zones": {
+                        "Zone 1": "27m 26s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15561182891,
+                    "name": "Back to reality!",
+                    "type": "Run",
+                    "start_date": "2025-08-23T18:19:42Z",
+                    "is_race": false,
+                    "distance_km": 5.22,
+                    "moving_time_minutes": 31.37,
+                    "time_in_hr_zones": {
+                        "Zone 1": "29m 37s",
+                        "Zone 2": "1m 57s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 504,
+                        "1": 1,
+                        "2": 0,
+                        "3": 3,
+                        "4": 1,
+                        "5": 59,
+                        "6": 1326
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15464935858,
+                    "name": "MyWhoosh - Grinding Halt",
+                    "type": "VirtualRide",
+                    "start_date": "2025-08-15T09:24:10Z",
+                    "is_race": false,
+                    "distance_km": 20.47,
+                    "moving_time_minutes": 42.92,
+                    "time_in_hr_zones": {
+                        "Zone 1": "14m 32s",
+                        "Zone 2": "8m 33s",
+                        "Zone 3": "6m 35s",
+                        "Zone 4": "8m 29s",
+                        "Zone 5": "4m 46s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 576,
+                        "1": 848,
+                        "2": 237,
+                        "3": 382,
+                        "4": 272,
+                        "5": 227,
+                        "6": 33
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15459308856,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-08-14T18:50:57Z",
+                    "is_race": false,
+                    "distance_km": 1.55,
+                    "moving_time_minutes": 35.0,
+                    "time_in_hr_zones": {
+                        "Zone 1": "35m 1s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15443927195,
+                    "name": "MyWhoosh - Best of you",
+                    "type": "VirtualRide",
+                    "start_date": "2025-08-13T12:17:07Z",
+                    "is_race": false,
+                    "distance_km": 16.31,
+                    "moving_time_minutes": 35.6,
+                    "time_in_hr_zones": {
+                        "Zone 1": "9m 46s",
+                        "Zone 2": "2m 56s",
+                        "Zone 3": "6m 56s",
+                        "Zone 4": "6m 21s",
+                        "Zone 5": "9m 37s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 111,
+                        "1": 809,
+                        "2": 228,
+                        "3": 713,
+                        "4": 186,
+                        "5": 87,
+                        "6": 2
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15432070369,
+                    "name": "Easy Run",
+                    "type": "Run",
+                    "start_date": "2025-08-12T12:35:57Z",
+                    "is_race": false,
+                    "distance_km": 5.19,
+                    "moving_time_minutes": 29.85,
+                    "time_in_hr_zones": {
+                        "Zone 1": "11m 11s",
+                        "Zone 2": "17m 39s",
+                        "Zone 3": "1m 30s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 235,
+                        "1": 2,
+                        "2": 2,
+                        "3": 3,
+                        "4": 2,
+                        "5": 46,
+                        "6": 1530
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15424225217,
+                    "name": "Trifarm lake Swim",
+                    "type": "Swim",
+                    "start_date": "2025-08-11T18:58:43Z",
+                    "is_race": false,
+                    "distance_km": 1.2,
+                    "moving_time_minutes": 28.37,
+                    "time_in_hr_zones": {
+                        "Zone 1": "28m 23s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15414833396,
+                    "name": "Easy post holiday plod!",
+                    "type": "Run",
+                    "start_date": "2025-08-10T20:20:57Z",
+                    "is_race": false,
+                    "distance_km": 5.32,
+                    "moving_time_minutes": 32.7,
+                    "time_in_hr_zones": {
+                        "Zone 1": "32m 59s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 520,
+                        "1": 0,
+                        "2": 4,
+                        "3": 7,
+                        "4": 8,
+                        "5": 25,
+                        "6": 1415
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15339019580,
+                    "name": "Lunch Hike with Jake",
+                    "type": "Hike",
+                    "start_date": "2025-08-04T11:02:36Z",
+                    "is_race": false,
+                    "distance_km": 3.02,
+                    "moving_time_minutes": 48.7,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1h 3m 33s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15286370539,
+                    "name": "Afternoon Run",
+                    "type": "Run",
+                    "start_date": "2025-07-30T14:13:31Z",
+                    "is_race": false,
+                    "distance_km": 1.13,
+                    "moving_time_minutes": 6.35,
+                    "time_in_hr_zones": {
+                        "Zone 1": "6m 24s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15286243345,
+                    "name": "Afternoon Weight Training",
+                    "type": "Workout",
+                    "start_date": "2025-07-30T13:50:54Z",
+                    "is_race": false,
+                    "distance_km": 0.0,
+                    "moving_time_minutes": 20.37,
+                    "time_in_hr_zones": {
+                        "Zone 1": "20m 22s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15285961275,
+                    "name": "Afternoon Run",
+                    "type": "Run",
+                    "start_date": "2025-07-30T13:38:42Z",
+                    "is_race": false,
+                    "distance_km": 1.04,
+                    "moving_time_minutes": 5.72,
+                    "time_in_hr_zones": {
+                        "Zone 1": "5m 43s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15278902004,
+                    "name": "LBRR trails with Gav's gang",
+                    "type": "Run",
+                    "start_date": "2025-07-29T19:06:05Z",
+                    "is_race": false,
+                    "distance_km": 10.03,
+                    "moving_time_minutes": 55.53,
+                    "time_in_hr_zones": {
+                        "Zone 1": "32m 47s",
+                        "Zone 2": "3m 51s",
+                        "Zone 3": "9m 15s",
+                        "Zone 4": "8m 16s",
+                        "Zone 5": "8m 26s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 461,
+                        "1": 78,
+                        "2": 41,
+                        "3": 37,
+                        "4": 67,
+                        "5": 290,
+                        "6": 2781
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15242182729,
+                    "name": "Cordes sur ciel touristy trail run",
+                    "type": "Run",
+                    "start_date": "2025-07-26T14:07:17Z",
+                    "is_race": false,
+                    "distance_km": 10.34,
+                    "moving_time_minutes": 67.75,
+                    "time_in_hr_zones": {
+                        "Zone 1": "46m 29s",
+                        "Zone 2": "16m 59s",
+                        "Zone 3": "11m 12s",
+                        "Zone 4": "3m 13s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 768,
+                        "1": 69,
+                        "2": 82,
+                        "3": 115,
+                        "4": 153,
+                        "5": 507,
+                        "6": 2979
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15220711159,
+                    "name": "Brick - Easy run off the bike",
+                    "type": "Run",
+                    "start_date": "2025-07-24T13:33:18Z",
+                    "is_race": false,
+                    "distance_km": 2.4,
+                    "moving_time_minutes": 14.0,
+                    "time_in_hr_zones": {
+                        "Zone 1": "9m 54s",
+                        "Zone 2": "2m 17s",
+                        "Zone 3": "2m 5s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 80,
+                        "1": 0,
+                        "2": 0,
+                        "3": 1,
+                        "4": 2,
+                        "5": 134,
+                        "6": 639
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15220684378,
+                    "name": "Brick - Ride - MyWhoosh - 5 x 4 min Vo2 max intervals",
+                    "type": "VirtualRide",
+                    "start_date": "2025-07-24T13:17:16Z",
+                    "is_race": false,
+                    "distance_km": 19.86,
+                    "moving_time_minutes": 41.2,
+                    "time_in_hr_zones": {
+                        "Zone 1": "15m 54s",
+                        "Zone 2": "4m 46s",
+                        "Zone 3": "6m 46s",
+                        "Zone 4": "7m 25s",
+                        "Zone 5": "6m 21s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 375,
+                        "1": 681,
+                        "2": 156,
+                        "3": 350,
+                        "4": 907,
+                        "5": 3,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15214236792,
+                    "name": "\ud83d\udd3c - 3 x (8min T, 3min E) - \ud83d\udd3d",
+                    "type": "Run",
+                    "start_date": "2025-07-23T20:49:23Z",
+                    "is_race": false,
+                    "distance_km": 9.38,
+                    "moving_time_minutes": 47.8,
+                    "time_in_hr_zones": {
+                        "Zone 1": "18m 4s",
+                        "Zone 2": "5m 43s",
+                        "Zone 3": "7m 32s",
+                        "Zone 4": "16m 37s",
+                        "Zone 5": "1s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 698,
+                        "1": 18,
+                        "2": 18,
+                        "3": 0,
+                        "4": 1,
+                        "5": 94,
+                        "6": 2048
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15190463556,
+                    "name": "Core & mobility finisher",
+                    "type": "Workout",
+                    "start_date": "2025-07-21T20:35:28Z",
+                    "is_race": false,
+                    "distance_km": 0.0,
+                    "moving_time_minutes": 13.87,
+                    "time_in_hr_zones": {
+                        "Zone 1": "13m 52s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15190296697,
+                    "name": "Easy run",
+                    "type": "Run",
+                    "start_date": "2025-07-21T20:00:59Z",
+                    "is_race": false,
+                    "distance_km": 5.36,
+                    "moving_time_minutes": 27.83,
+                    "time_in_hr_zones": {
+                        "Zone 1": "23m 55s",
+                        "Zone 2": "4m 2s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 313,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 1364
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15173324959,
+                    "name": "From JPR",
+                    "type": "Run",
+                    "start_date": "2025-07-20T09:25:20Z",
+                    "is_race": false,
+                    "distance_km": 1.21,
+                    "moving_time_minutes": 9.0,
+                    "time_in_hr_zones": {
+                        "Zone 1": "12m 19s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15173324518,
+                    "name": "Junior parkrun with Jake",
+                    "type": "Run",
+                    "start_date": "2025-07-20T09:00:27Z",
+                    "is_race": false,
+                    "distance_km": 1.9,
+                    "moving_time_minutes": 12.12,
+                    "time_in_hr_zones": {
+                        "Zone 1": "1m 44s",
+                        "Zone 2": "51s",
+                        "Zone 3": "8m 9s",
+                        "Zone 4": "1m 33s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15173318294,
+                    "name": "To JPR",
+                    "type": "Run",
+                    "start_date": "2025-07-20T08:43:56Z",
+                    "is_race": false,
+                    "distance_km": 1.12,
+                    "moving_time_minutes": 8.23,
+                    "time_in_hr_zones": {
+                        "Zone 1": "12m 52s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15147884605,
+                    "name": "Maldon handicap",
+                    "type": "Run",
+                    "start_date": "2025-07-17T19:50:01Z",
+                    "is_race": true,
+                    "distance_km": 5.05,
+                    "moving_time_minutes": 20.13,
+                    "time_in_hr_zones": {
+                        "Zone 1": "16s",
+                        "Zone 2": "3s",
+                        "Zone 3": "21s",
+                        "Zone 4": "42s",
+                        "Zone 5": "18m 49s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 398,
+                        "1": 0,
+                        "2": 0,
+                        "3": 1,
+                        "4": 0,
+                        "5": 2,
+                        "6": 810
+                    },
+                    "private_note": "",
+                    "race_tag": "5k Race"
+                },
+                {
+                    "id": 15125801005,
+                    "name": "LBRR - easy trails with Claire's group",
+                    "type": "Run",
+                    "start_date": "2025-07-15T19:07:27Z",
+                    "is_race": false,
+                    "distance_km": 8.77,
+                    "moving_time_minutes": 58.65,
+                    "time_in_hr_zones": {
+                        "Zone 1": "57m 26s",
+                        "Zone 2": "4m 10s",
+                        "Zone 3": "1m 8s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 705,
+                        "1": 21,
+                        "2": 34,
+                        "3": 78,
+                        "4": 122,
+                        "5": 732,
+                        "6": 2072
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15114994129,
+                    "name": "Gravel Ride from the Galloping Grind",
+                    "type": "Ride",
+                    "start_date": "2025-07-14T21:14:43Z",
+                    "is_race": false,
+                    "distance_km": 12.25,
+                    "moving_time_minutes": 39.1,
+                    "time_in_hr_zones": {
+                        "0": "0s",
+                        "1": "0s",
+                        "2": "0s",
+                        "3": "0s",
+                        "4": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15114693735,
+                    "name": "Gravel Ride to the Galloping Grind",
+                    "type": "Ride",
+                    "start_date": "2025-07-14T17:32:00Z",
+                    "is_race": false,
+                    "distance_km": 12.21,
+                    "moving_time_minutes": 36.02,
+                    "time_in_hr_zones": {
+                        "0": "0s",
+                        "1": "0s",
+                        "2": "0s",
+                        "3": "0s",
+                        "4": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 0,
+                        "1": 0,
+                        "2": 0,
+                        "3": 0,
+                        "4": 0,
+                        "5": 0,
+                        "6": 0
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15098219085,
+                    "name": "To the car",
+                    "type": "Ride",
+                    "start_date": "2025-07-13T08:19:38Z",
+                    "is_race": false,
+                    "distance_km": 14.28,
+                    "moving_time_minutes": 38.4,
+                    "time_in_hr_zones": {
+                        "Zone 1": "39m 22s",
+                        "Zone 2": "0s",
+                        "Zone 3": "0s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 1331,
+                        "1": 575,
+                        "2": 222,
+                        "3": 123,
+                        "4": 59,
+                        "5": 47,
+                        "6": 5
+                    },
+                    "private_note": ""
+                },
+                {
+                    "id": 15095766057,
+                    "name": "Dunwich Dynamo 2025",
+                    "type": "Ride",
+                    "start_date": "2025-07-12T19:31:23Z",
+                    "is_race": false,
+                    "distance_km": 178.41,
+                    "moving_time_minutes": 411.7,
+                    "time_in_hr_zones": {
+                        "Zone 1": "9h 2m 33s",
+                        "Zone 2": "6m 19s",
+                        "Zone 3": "3m 3s",
+                        "Zone 4": "0s",
+                        "Zone 5": "0s"
+                    },
+                    "time_in_power_zones": {
+                        "0": 16904,
+                        "1": 5830,
+                        "2": 4076,
+                        "3": 2587,
+                        "4": 1509,
+                        "5": 1455,
+                        "6": 754
+                    },
+                    "private_note": ""
+                }
+            ]
+        }
+    }
+}

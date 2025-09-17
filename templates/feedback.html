@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Feedback</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+        h1, h3 { color: #1a73e8; }
+        hr { border: 0; height: 1px; background: #ddd; }
+        a { color: #fc4c02; }
+    </style>
+</head>
+<body>
+    <h1>AI Feedback on Your Last Session</h1>
+    <p><a href="/">Back to Home</a> | <a href="/plan">View Your Training Plan</a></p>
+    <hr>
+    {{ feedback_content | safe }}
+</body>
+</html>
