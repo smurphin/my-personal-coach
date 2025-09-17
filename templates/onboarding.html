@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Your Goals</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+        h1 { color: #1a73e8; }
+        form { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        label { font-weight: bold; }
+        input, textarea, select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+        button { padding: 12px 24px; background-color: #fc4c02; color: white; text-decoration: none; font-size: 1.1em; border-radius: 5px; border: none; cursor: pointer; }
+        .note { font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Set Your Training Goal</h1>
+    <p>First, let's get some details about you and what you're training for. This will help the AI create a truly personalized plan.</p>
+    <form action="/generate_plan" method="post">
+        <div>
+            <label for="user_goal">What is your primary goal?</label>
+            <textarea id="user_goal" name="user_goal" rows="3" required placeholder="e.g., Run the London Marathon in under 3:30, or Complete my first Sprint Triathlon"></textarea>
+        </div>
+        <div>
+            <label for="sessions_per_week">How many training sessions can you realistically commit to per week?</label>
+            <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="5">
+        </div>
+        <div>
+            <label for="lthr">What is your Lactate Threshold Heart Rate (LTHR)?</label>
+            <input type="number" id="lthr" name="lthr" required placeholder="e.g., 160" value="160">
+             <p class="note">This is the average heart rate from a 30-minute all-out effort. If unsure, a recent 5k or 10k race average is a good estimate.</p>
+        </div>
+        <div>
+            <label for="ftp">What is your Functional Threshold Power (FTP) for cycling?</label>
+            <input type="number" id="ftp" name="ftp" placeholder="e.g., 200" value="200">
+            <p class="note">Optional. This is your average power from a 20-minute all-out effort.</p>
+        </div>
+        <button type="submit">Analyze My Strava & Build My Plan</button>
+    </form>
+</body>
+</html>

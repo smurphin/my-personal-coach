@@ -1,12 +1,13 @@
 import os
 import requests
 import json
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, render_template
 from markupsafe import Markup
 import mistune
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import jinja2
+import bisect
 
 import vertexai
 from vertexai.generative_models import GenerativeModel
@@ -97,18 +98,20 @@ def analyze_activity(activity, streams, zones):
     if 'heartrate' in streams:
         hr_data = streams['heartrate']['data']
         hr_zones = zones.get('heart_rate', {}).get('zones', [])
+        # Create a list of the minimum heart rate for each zone
+        analyzed["time_in_hr_zones"] = {f"Zone {i+1}": 0 for i in range(len(hr_zones))}
+        zone_mins = [z['min'] for z in hr_zones]
+
         for i in range(1, len(hr_data)):
             duration = time_data[i] - time_data[i-1]
             hr = hr_data[i-1]
-            
-            # --- Refactored with descriptive names ---
-            current_zone_index = 0
-            for zone_index, zone_data in enumerate(hr_zones):
-                if hr >= zone_data['min']:
-                    current_zone_index = zone_index
-                else:
-                    break
-            analyzed["time_in_hr_zones"][current_zone_index] += duration
+
+            # Find the index of the zone this heart rate falls into
+            zone_index = bisect.bisect_right(zone_mins, hr) - 1
+
+            # Use the corrected zone_index to update the human-readable key
+            # We add 1 to the index to match the "Zone X" naming convention
+            analyzed["time_in_hr_zones"][f"Zone {zone_index + 1}"] += duration
             
     if 'watts' in streams:
         power_data = streams['watts']['data']
@@ -168,48 +171,73 @@ def login():
 @app.route("/callback")
 def callback():
     try:
-        # --- Simulate User Input ---
-        user_goal = "10k road race in under 39 minutes"
-        user_known_lthr = 160
-        user_known_ftp = 200
-        user_sessions_per_week = 5
-
-        # --- Data Fetching ---
-        print("--- Fetching new data from Strava API ---")
+        # Step 1: Handle the OAuth callback from Strava
         auth_code = request.args.get('code')
         if not auth_code:
             return "Authentication error: No code provided. Please try logging in again."
-        
-        token_payload = {"client_id": STRAVA_CLIENT_ID, "client_secret": STRAVA_CLIENT_SECRET,
-                         "code": auth_code, "grant_type": "authorization_code"}
+
+        # Step 2: Exchange the auth code for an access token
+        token_payload = {
+            "client_id": STRAVA_CLIENT_ID,
+            "client_secret": STRAVA_CLIENT_SECRET,
+            "code": auth_code,
+            "grant_type": "authorization_code"
+        }
         token_response = requests.post("https://www.strava.com/oauth/token", data=token_payload)
         token_response.raise_for_status()
-        
         token_data = token_response.json()
+
+        # Step 3: Save the token data to our cache file
         with open(TOKEN_CACHE_FILE, 'w') as f:
             json.dump(token_data, f)
-        
+
+        # Step 4: Redirect the user to the new onboarding form to input their goals
+        return redirect("/onboarding")
+
+    except Exception as e:
+        return f"An error occurred during authentication: {e}", 500
+
+@app.route("/onboarding")
+def onboarding():
+    return render_template("onboarding.html")
+
+@app.route("/generate_plan", methods=['POST'])
+def generate_plan():
+    try:
+        # --- Step 1: Get User Input From Form ---
+        user_goal = request.form.get('user_goal')
+        user_sessions_per_week = int(request.form.get('sessions_per_week'))
+        user_known_lthr = int(request.form.get('lthr'))
+        user_known_ftp = int(request.form.get('ftp'))
+
+        # --- Step 2: Load Token and Fetch Strava Data ---
+        if not os.path.exists(TOKEN_CACHE_FILE):
+            return 'No valid session. Please <a href="/login">log in</a> again.'
+        with open(TOKEN_CACHE_FILE, 'r') as f:
+            token_data = json.load(f)
         access_token = token_data['access_token']
         athlete_id = token_data['athlete']['id']
 
+        print("--- Fetching new data from Strava API for plan generation ---")
         strava_zones = get_strava_api_data(access_token, "athlete/zones")
         activities_summary = get_strava_api_data(access_token, "athlete/activities?per_page=60")
         athlete_stats = get_athlete_stats(access_token, athlete_id)
-        
+
+        # --- Step 3: Analyze Data Using User Input ---
         friel_hr_zones = calculate_friel_hr_zones(user_known_lthr)
         friel_power_zones = calculate_friel_power_zones(user_known_ftp)
-
         vdot_data = find_valid_race_for_vdot(activities_summary, access_token, friel_hr_zones)
-        
+
         analyzed_activities = []
         for activity in activities_summary:
             streams = get_activity_streams(access_token, activity['id'])
             all_friel_zones = {"heart_rate": friel_hr_zones, "power": friel_power_zones}
             analyzed_activity = analyze_activity(activity, streams, all_friel_zones)
-            for i, seconds in analyzed_activity["time_in_hr_zones"].items():
-                analyzed_activity["time_in_hr_zones"][i] = format_seconds(seconds)
+            for key, seconds in analyzed_activity["time_in_hr_zones"].items():
+                 analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
             analyzed_activities.append(analyzed_activity)
 
+        # --- Step 4: Prepare Data and Call AI ---
         final_data_for_ai = {
             "athlete_goal": user_goal,
             "sessions_per_week": user_sessions_per_week,
@@ -224,28 +252,28 @@ def callback():
         with open(DATA_CACHE_FILE, 'w') as f:
             json.dump(final_data_for_ai, f, indent=4)
 
-        # --- Prompt and AI Call using Jinja2 ---
         with open('prompts/plan_prompt.txt', 'r') as f:
             prompt_template_string = f.read()
-        
+
         template = jinja2.Template(prompt_template_string)
-        
-        render_data = {
-            'athlete_goal': final_data_for_ai['athlete_goal'],
-            'sessions_per_week': final_data_for_ai['sessions_per_week'],
-            'json_data': json.dumps(final_data_for_ai, indent=4)
-        }
-        prompt = template.render(render_data)
-        
+        prompt = template.render(
+            athlete_goal=final_data_for_ai['athlete_goal'],
+            sessions_per_week=final_data_for_ai['sessions_per_week'],
+            json_data=json.dumps(final_data_for_ai, indent=4)
+        )
+
         response = model.generate_content(prompt)
-        
+
+        # --- Step 5: Save Plan and Display It ---
         with open(PLAN_FILE, 'w') as f:
             f.write(response.text)
-            
-        return Markup(mistune.html(response.text))
+
+        # Convert markdown response to HTML
+        plan_html = mistune.html(response.text)
+        return render_template('plan.html', plan_content=plan_html)
 
     except Exception as e:
-        return f"An error occurred: {e}", 500
+        return f"An error occurred during plan generation: {e}", 500
 
 @app.route("/feedback")
 def feedback():
