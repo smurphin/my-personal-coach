@@ -14,7 +14,47 @@ from data_manager import data_manager
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
+# Load environment variables from .env file for local development
 load_dotenv()
+
+# --- AWS Secrets Manager Integration (for Production) ---
+# If running in production, fetch secrets from AWS Secrets Manager
+if os.getenv('FLASK_ENV') == 'production':
+    secret_name = "my-personal-coach-app-secrets"
+    region_name = "eu-west-1"
+
+    # Create a Secrets Manager client
+    session_boto = boto3.session.Session()
+    client = session_boto.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+        # Decrypts secret using the associated KMS key.
+        secret = get_secret_value_response['SecretString']
+        secrets = json.loads(secret)
+
+        # Set environment variables from the fetched secret
+        os.environ['STRAVA_CLIENT_ID'] = secrets.get('STRAVA_CLIENT_ID')
+        os.environ['STRAVA_CLIENT_SECRET'] = secrets.get('STRAVA_CLIENT_SECRET')
+        os.environ['FLASK_SECRET_KEY'] = secrets.get('FLASK_SECRET_KEY')
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+
+        # Create a temporary file for Google credentials
+        with open("/tmp/gcp_creds.json", "w") as f:
+            f.write(secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON'))
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "/tmp/gcp_creds.json"
+
+
+    except Exception as e:
+        # You should handle this error appropriately in a production app
+        print(f"Error fetching secrets from AWS Secrets Manager: {e}")
+        # Potentially raise the exception to stop the app from starting without secrets
+        raise e
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_default_secret_key_for_development")
