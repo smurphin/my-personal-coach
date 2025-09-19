@@ -5,3 +5,5 @@ mistune
 requests
 python-dotenv
 google-cloud-aiplatform
+gunicorn
+boto3

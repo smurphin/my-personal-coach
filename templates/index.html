@@ -22,13 +22,14 @@
         <p>Ready to train?</p>
         
         <div class="action-links">
-    {% if plan_exists %}
-        <a href="/plan">View My Plan</a> |
-        <a href="/feedback">Get Feedback on Last Session</a>
-    {% endif %}
-    <a href="/onboarding">Generate a New Plan</a> |
-    <a href="/logout">Logout</a>
-</div>
+            {% if plan_exists %}
+            <a href="/plan">View My Plan</a> |
+            <a href="/feedback">Get Latest Feedback</a> |
+            <a href="/log">Coaching Log</a> |
+            {% endif %}
+        <a href="/onboarding">Generate a New Plan</a> |
+        <a href="/logout">Logout</a>
+        </div>
 
         <p class="note">Generating a new plan will fetch fresh data from Strava and overwrite your current plan.</p>
 

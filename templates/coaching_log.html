@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Session Feedback</title>
-        <style>
+    <title>Coaching Log</title>
+    <style>
         body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
         h1, h3 { color: #1a73e8; }
         hr { border: 0; height: 1px; background: #ddd; }
@@ -26,14 +26,26 @@
     </style>
 </head>
 <body>
-    <h1>AI Feedback on Your Last Session</h1>
-    <p><a href="/plan">View Plan</a> | <a href="/log">Coaching Log</a></p>
+    <h1>Coaching Log</h1>
+    <p><a href="/plan">View Plan</a> | <a href="/feedback">Get Latest Feedback</a></p>
     <hr>
-    {{ feedback_content | safe }}
+    
+    {% if log_entries %}
+        {% for entry in log_entries %}
+            <div class="log-entry">
+                <a href="/feedback/{{ entry.activity_id }}">
+                    <h3>{{ entry.activity_name }}</h3>
+                    <p class="log-date">Date: {{ entry.activity_date.split('T')[0] }}</p>
+                </a>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Your coaching log is empty. Get feedback on a session to start building your history!</p>
+    {% endif %}
 
     <footer class="footer">
     <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a>
+    </footer>
 
-</footer>
 </body>
 </html>

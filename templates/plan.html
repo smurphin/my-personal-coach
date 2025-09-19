@@ -10,12 +10,29 @@
         hr { border: 0; height: 1px; background: #ddd; }
         pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
         a { color: #fc4c02; }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .footer a {
+            margin: 0 10px;
+        }
+    
     </style>
 </head>
 <body>
     <h1>Your AI-Generated Training Plan</h1>
-    <p><a href="/">Back to Home</a> | <a href="/feedback">Get Feedback on Last Session</a></p>
+    <p><a href="/log">Coaching Log</a> | <a href="/feedback">Get Latest Feedback</a></p>
     <hr>
     {{ plan_content | safe }}
+
+    <footer class="footer">
+    <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a>
+</footer>
 </body>
 </html>

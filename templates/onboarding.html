@@ -27,6 +27,23 @@
             <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="5">
         </div>
         <div>
+            <label for="hours_per_week">What is the maximum time you can commit to training per week? (in hours)</label>
+            <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="7">
+        </div>
+        <div>
+            <label for="lifestyle_context">Is there any other context about your lifestyle or schedule the coach should know?</label>
+            <textarea id="lifestyle_context" name="lifestyle_context" rows="4" placeholder="e.g., I have a planned 1 week holiday 4 weeks into the training plan, so will only be able to do very minimal training if any that week.">I have childcare every other week, so my available training time alternates between 5 hours on 'off' weeks and 8 hours on 'on' weeks this is my on week</textarea>
+            <p class="note">This is your chance to mention things like shift work, recurring travel, or other commitments that affect your training consistency.</p>
+        </div>
+        <div>
+            <label for="athlete_type">Which athlete type best describes you?</label>
+            <select id="athlete_type" name="athlete_type" required>
+                <option value="The Disciplinarian" selected>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
+                <option value="The Improviser">The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
+                <option value="The Minimalist">The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
+            </select>
+        </div>
+        <div>
             <label for="lthr">What is your Lactate Threshold Heart Rate (LTHR)?</label>
             <input type="number" id="lthr" name="lthr" required placeholder="e.g., 160" value="160">
              <p class="note">This is the average heart rate from a 30-minute all-out effort. If unsure, a recent 5k or 10k race average is a good estimate.</p>

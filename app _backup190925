@@ -19,27 +19,22 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "a_default_secret_key_for_development")
 
-# --- Strava Configuration ---
+# --- Configuration ---
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 STRAVA_API_URL = "https://www.strava.com/api/v3"
+REDIRECT_URI = "http://127.0.0.1:5000/callback"
 SCOPES = "read,activity:read_all,profile:read_all"
-
-if os.getenv('FLASK_ENV') == 'production':
-    # In production, use the App Runner service URL
-    REDIRECT_URI = "https://sqq4gwtjms.eu-west-1.awsapprunner.com/callback"
-else:
-    # In local development, use the localhost address
-    REDIRECT_URI = "http://127.0.0.1:5000/callback"
 
 GCP_PROJECT_ID = "my-personal-coach-472007"
 GCP_LOCATION = "europe-west1"
+USERS_DATA_FILE = "users_data.json"
 
 # --- Initialize Vertex AI ---
 vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
 model = GenerativeModel(model_name="gemini-2.5-pro")
 
-# --- Helper & Analysis Functions (No changes needed in these) ---
+# --- Helper & Analysis Functions ---
 
 def format_seconds(seconds):
     seconds = int(seconds)
@@ -104,12 +99,19 @@ def analyze_activity(activity, streams, zones):
     if 'heartrate' in streams:
         hr_data = streams['heartrate']['data']
         hr_zones = zones.get('heart_rate', {}).get('zones', [])
+        # Create a list of the minimum heart rate for each zone
         analyzed["time_in_hr_zones"] = {f"Zone {i+1}": 0 for i in range(len(hr_zones))}
         zone_mins = [z['min'] for z in hr_zones]
+
         for i in range(1, len(hr_data)):
             duration = time_data[i] - time_data[i-1]
             hr = hr_data[i-1]
+
+            # Find the index of the zone this heart rate falls into
             zone_index = bisect.bisect_right(zone_mins, hr) - 1
+
+            # Use the corrected zone_index to update the human-readable key
+            # We add 1 to the index to match the "Zone X" naming convention
             analyzed["time_in_hr_zones"][f"Zone {zone_index + 1}"] += duration
             
     if 'watts' in streams:
@@ -118,6 +120,8 @@ def analyze_activity(activity, streams, zones):
         for i in range(1, len(power_data)):
             duration = time_data[i] - time_data[i-1]
             power = power_data[i-1]
+            
+            # --- Refactored with descriptive names ---
             current_zone_index = 0
             for zone_index, zone_data in enumerate(power_zones):
                  if power >= zone_data['min']:
@@ -125,6 +129,7 @@ def analyze_activity(activity, streams, zones):
                  else:
                     break
             analyzed["time_in_power_zones"][current_zone_index] += duration
+
     return analyzed
 
 def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
@@ -142,24 +147,41 @@ def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
                     return {"status": "VDOT Ready", "race_basis": f"{activity['name']} ({activity_date_str})"}
     return {"status": "HR Training Recommended", "reason": "No recent, high-intensity race found."}
 
+# --- User Data Management Functions ---
+
+def load_all_user_data():
+    """Loads all user data from the JSON file."""
+    if not os.path.exists(USERS_DATA_FILE):
+        return {}  # Return an empty dict if the file doesn't exist
+    with open(USERS_DATA_FILE, 'r') as f:
+        return json.load(f)
+
+def save_all_user_data(data):
+    """Saves all user data to the JSON file."""
+    with open(USERS_DATA_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
 
 # --- Flask Routes ---
 
 @app.route("/")
 def home():
+    # Check the session to see if a user is logged in
     if 'athlete_id' in session:
         athlete_id = session['athlete_id']
-        user_data = data_manager.load_user_data(athlete_id)
+        all_users_data = load_all_user_data()
+        user_data = all_users_data.get(athlete_id)
+
+        # If the user has a plan, redirect them straight to the latest feedback
         if user_data and 'plan' in user_data:
             return redirect("/feedback")
 
+    # If no user is logged in, or they don't have a plan, show the normal homepage
     athlete_data = None
     plan_exists = False
-    if 'athlete_id' in session:
-        user_data = data_manager.load_user_data(session['athlete_id'])
-        if user_data:
-            athlete_data = user_data.get('token', {}).get('athlete')
-            plan_exists = 'plan' in user_data
+    if 'athlete_id' in session and user_data: # Re-check to pass data to template
+        athlete_data = user_data.get('token', {}).get('athlete')
+        plan_exists = 'plan' in user_data
+
     return render_template('index.html', athlete=athlete_data, plan_exists=plan_exists)
 
 @app.route("/plan")
@@ -168,49 +190,71 @@ def view_plan():
         if 'athlete_id' not in session:
             return "You must be logged in to view a plan.", 401
         athlete_id = session['athlete_id']
-        user_data = data_manager.load_user_data(athlete_id)
+
+        all_users_data = load_all_user_data()
+        user_data = all_users_data.get(athlete_id)
+
         if not user_data or 'plan' not in user_data:
             return 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
+
         plan_text = user_data['plan']
         plan_html = mistune.html(plan_text)
         return render_template('plan.html', plan_content=plan_html)
+
     except Exception as e:
         return f"An error occurred while retrieving the plan: {e}", 500
 
 @app.route("/login")
 def login():
+    # This route now simply redirects to Strava for authentication.
     auth_redirect_url = (f"https://www.strava.com/oauth/authorize?client_id={STRAVA_CLIENT_ID}"
                        f"&redirect_uri={REDIRECT_URI}&response_type=code&scope={SCOPES}")
     return redirect(auth_redirect_url)
 
 @app.route("/logout")
 def logout():
-    session.clear()
+    session.clear() # Clear the user's session
     return redirect("/")
 
 @app.route("/callback")
 def callback():
     try:
+        # Step 1: Exchange auth code for a token
         auth_code = request.args.get('code')
         token_payload = {
-            "client_id": STRAVA_CLIENT_ID, "client_secret": STRAVA_CLIENT_SECRET,
-            "code": auth_code, "grant_type": "authorization_code"
+            "client_id": STRAVA_CLIENT_ID,
+            "client_secret": STRAVA_CLIENT_SECRET,
+            "code": auth_code,
+            "grant_type": "authorization_code"
         }
         token_response = requests.post("https://www.strava.com/oauth/token", data=token_payload)
         token_response.raise_for_status()
         token_data = token_response.json()
         
-        athlete_id = str(token_data['athlete']['id'])
-        user_data = data_manager.load_user_data(athlete_id)
-        user_data['token'] = token_data
-        data_manager.save_user_data(athlete_id, user_data)
+        athlete_id = str(token_data['athlete']['id']) # Use athlete_id as the key
 
+        # Step 2: Load existing user data and update it
+        all_users_data = load_all_user_data()
+        
+        # Find the user or create a new entry
+        if athlete_id not in all_users_data:
+            all_users_data[athlete_id] = {} # Create a new user record
+        
+        # Update the user's record with the new token
+        all_users_data[athlete_id]['token'] = token_data
+        
+        # Save the updated data back to the file
+        save_all_user_data(all_users_data)
+
+        # Step 3: Store the user's ID in the session to "log them in"
         session['athlete_id'] = athlete_id
         
-        if 'plan' in user_data:
+        # Step 4: Check if they have a plan, if not, redirect to onboarding
+        if 'plan' in all_users_data[athlete_id]:
              return redirect("/")
         else:
              return redirect("/onboarding")
+
     except Exception as e:
         return f"An error occurred during authentication: {e}", 500
 
@@ -221,13 +265,18 @@ def onboarding():
 @app.route("/generate_plan", methods=['POST'])
 def generate_plan():
     try:
+        # --- Step 1: Check for Logged-in User ---
         if 'athlete_id' not in session:
             return "You must be logged in to generate a plan.", 401
         athlete_id = session['athlete_id']
 
-        user_data = data_manager.load_user_data(athlete_id)
+        # --- Step 1a: Summarize & Archive Previous Plan (if it exists) ---
+        all_users_data = load_all_user_data()
+        user_data = all_users_data.get(athlete_id, {})
         if 'plan' in user_data and 'feedback_log' in user_data:
             print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
+            
+            # Call the summarizer AI
             with open('prompts/summarize_prompt.txt', 'r') as f:
                 template = jinja2.Template(f.read())
             prompt = template.render(
@@ -236,16 +285,28 @@ def generate_plan():
             )
             response = model.generate_content(prompt)
             summary_text = response.text
+
+            # Prepend the summary to a new 'training_history' log
             training_history = user_data.get('training_history', [])
             training_history.insert(0, {"summary": summary_text})
-            user_data['training_history'] = training_history
-            if 'archive' not in user_data:
-                user_data['archive'] = []
-            user_data['archive'].insert(0, {'plan': user_data['plan'], 'feedback_log': user_data['feedback_log']})
-            del user_data['plan']
-            del user_data['feedback_log']
-            data_manager.save_user_data(athlete_id, user_data)
+            all_users_data[athlete_id]['training_history'] = training_history
 
+            # Archive the old plan and log
+            if 'archive' not in all_users_data[athlete_id]:
+                all_users_data[athlete_id]['archive'] = []
+            all_users_data[athlete_id]['archive'].insert(0, {
+                'plan': user_data['plan'],
+                'feedback_log': user_data['feedback_log']
+            })
+
+            # Clear the current plan and log for the new cycle
+            del all_users_data[athlete_id]['plan']
+            del all_users_data[athlete_id]['feedback_log']
+            
+            # Save the changes before proceeding
+            save_all_user_data(all_users_data)
+
+        # --- Step 2: Get User Input & Load User Data ---
         user_goal = request.form.get('user_goal')
         user_sessions_per_week = int(request.form.get('sessions_per_week'))
         user_hours_per_week = float(request.form.get('hours_per_week'))
@@ -254,12 +315,14 @@ def generate_plan():
         user_known_lthr = int(request.form.get('lthr'))
         user_known_ftp = int(request.form.get('ftp'))
 
-        user_data = data_manager.load_user_data(athlete_id)
+        all_users_data = load_all_user_data()
+        user_data = all_users_data.get(athlete_id)
         if not user_data or 'token' not in user_data:
             return 'Could not find your session data. Please <a href="/login">log in</a> again.'
         
         access_token = user_data['token']['access_token']
 
+        # --- Step 3: Fetch Strava Data & Analyze ---
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
         strava_zones = get_strava_api_data(access_token, "athlete/zones")
         activities_summary = get_strava_api_data(access_token, "athlete/activities?per_page=60")
@@ -277,31 +340,41 @@ def generate_plan():
                  analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
             analyzed_activities.append(analyzed_activity)
 
+        # --- Step 4: Prepare Data and Call AI ---
         final_data_for_ai = {
-            "athlete_goal": user_goal, "sessions_per_week": user_sessions_per_week,
-            "hours_per_week": user_hours_per_week, "lifestyle_context": user_lifestyle_context,
-            "athlete_type": user_athlete_type, "athlete_stats": athlete_stats,
-            "strava_zones": strava_zones, "friel_hr_zones": friel_hr_zones,
-            "friel_power_zones": friel_power_zones, "vdot_data": vdot_data,
+            "athlete_goal": user_goal,
+            "sessions_per_week": user_sessions_per_week,
+            "hours_per_week": user_hours_per_week,
+            "lifestyle_context": user_lifestyle_context,
+            "athlete_type": user_athlete_type,
+            "athlete_stats": athlete_stats,
+            "strava_zones": strava_zones,
+            "friel_hr_zones": friel_hr_zones,
+            "friel_power_zones": friel_power_zones,
+            "vdot_data": vdot_data,
             "analyzed_activities": analyzed_activities
         }
 
         with open('prompts/plan_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         prompt = template.render(
-            athlete_goal=final_data_for_ai['athlete_goal'], sessions_per_week=final_data_for_ai['sessions_per_week'],
-            athlete_type=final_data_for_ai['athlete_type'], lifestyle_context=final_data_for_ai['lifestyle_context'],
-            training_history=user_data.get('training_history'), json_data=json.dumps(final_data_for_ai, indent=4)
-        )
+            athlete_goal=final_data_for_ai['athlete_goal'],
+            sessions_per_week=final_data_for_ai['sessions_per_week'],
+            athlete_type=final_data_for_ai['athlete_type'],
+            lifestyle_context=final_data_for_ai['lifestyle_context'],
+            json_data=json.dumps(final_data_for_ai, indent=4)
+            )
         response = model.generate_content(prompt)
         plan_text = response.text
 
-        user_data['plan'] = plan_text
-        user_data['plan_data'] = final_data_for_ai
-        data_manager.save_user_data(athlete_id, user_data)
+        # --- Step 5: Save Plan to User's Record and Display It ---
+        all_users_data[athlete_id]['plan'] = plan_text
+        all_users_data[athlete_id]['plan_data'] = final_data_for_ai # Cache the data used for the plan
+        save_all_user_data(all_users_data)
         
         plan_html = mistune.html(plan_text)
         return render_template('plan.html', plan_content=plan_html)
+
     except Exception as e:
         return f"An error occurred during plan generation: {e}", 500
 
@@ -311,21 +384,28 @@ def feedback():
         if 'athlete_id' not in session:
             return "You must be logged in.", 401
         athlete_id = session['athlete_id']
-        user_data = data_manager.load_user_data(athlete_id)
+
+        all_users_data = load_all_user_data()
+        user_data = all_users_data.get(athlete_id, {})
         access_token = user_data.get('token', {}).get('access_token')
+
         if not access_token:
             return 'Could not find your session data. Please <a href="/login">log in</a> again.'
 
+        # --- Get latest activity (with a testing override) ---
         test_activity_id = request.args.get('test_activity_id')
         if test_activity_id:
+            # If a test ID is provided in the URL, fetch that specific activity
+            print(f"--- TESTING: Fetching specific activity {test_activity_id} ---")
             latest_activity_id = int(test_activity_id)
         else:
+            # Otherwise, get the actual latest activity
             latest_activity_list = get_strava_api_data(access_token, "athlete/activities", params={'per_page': 1})
             if not latest_activity_list:
                 return "No recent activities found."
             latest_activity_id = latest_activity_list[0]['id']
-        
         feedback_log = user_data.get('feedback_log', [])
+
         for entry in feedback_log:
             if entry.get('activity_id') == latest_activity_id:
                 feedback_html = mistune.html(entry['feedback_markdown'])
@@ -344,32 +424,39 @@ def feedback():
         for key, seconds in analyzed_session["time_in_hr_zones"].items():
             analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
 
+        # --- Call the new, more powerful prompt ---
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
-        prompt = template.render(
-            training_plan=training_plan, feedback_log_json=json.dumps(feedback_log, indent=2),
-            completed_session=json.dumps(analyzed_session, indent=2),
-            training_history=user_data.get('training_history')
+            prompt = template.render(
+            training_plan=training_plan,
+            feedback_log_json=json.dumps(feedback_log, indent=2), # Pass the log
+            completed_session=json.dumps(analyzed_session, indent=2)
         )
         response = model.generate_content(prompt)
         feedback_markdown = response.text
 
+        # --- Check for and apply plan updates ---
+        # Use regex to find a markdown code block which will contain the new plan
         match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
         if match:
             new_plan_markdown = match.group(1).strip()
-            user_data['plan'] = new_plan_markdown
+            all_users_data[athlete_id]['plan'] = new_plan_markdown
             print(f"--- Plan for athlete {athlete_id} has been updated! ---")
         
+        # --- Save the log and any plan changes ---
         new_log_entry = {
-            "activity_id": latest_activity_id, "activity_name": detailed_activity.get('name'),
-            "activity_date": detailed_activity.get('start_date_local'), "feedback_markdown": feedback_markdown
+            "activity_id": latest_activity_id,
+            "activity_name": detailed_activity.get('name'),
+            "activity_date": detailed_activity.get('start_date_local'),
+            "feedback_markdown": feedback_markdown
         }
         feedback_log.insert(0, new_log_entry)
-        user_data['feedback_log'] = feedback_log
-        data_manager.save_user_data(athlete_id, user_data)
+        all_users_data[athlete_id]['feedback_log'] = feedback_log
+        save_all_user_data(all_users_data)
 
         feedback_html = mistune.html(feedback_markdown)
         return render_template('feedback.html', feedback_content=feedback_html)
+
     except Exception as e:
         return f"An error occurred during feedback generation: {e}", 500
     
@@ -378,8 +465,11 @@ def coaching_log():
     if 'athlete_id' not in session:
         return "You must be logged in to view your log.", 401
     athlete_id = session['athlete_id']
-    user_data = data_manager.load_user_data(athlete_id)
+    all_users_data = load_all_user_data()
+    user_data = all_users_data.get(athlete_id, {})
+    
     feedback_log = user_data.get('feedback_log', [])
+    
     return render_template('coaching_log.html', log_entries=feedback_log)
 
 @app.route("/feedback/<int:activity_id>")
@@ -387,12 +477,16 @@ def view_specific_feedback(activity_id):
     if 'athlete_id' not in session:
         return "You must be logged in.", 401
     athlete_id = session['athlete_id']
-    user_data = data_manager.load_user_data(athlete_id)
+    all_users_data = load_all_user_data()
+    user_data = all_users_data.get(athlete_id, {})
+    
     feedback_log = user_data.get('feedback_log', [])
+    
     for entry in feedback_log:
         if entry.get('activity_id') == activity_id:
             feedback_html = mistune.html(entry['feedback_markdown'])
-            return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
+            return render_template('feedback.html', feedback_content=feedback_html)
+            
     return "Feedback for that activity could not be found.", 404
 
 if __name__ == "__main__":
