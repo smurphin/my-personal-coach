@@ -130,12 +130,15 @@ def calculate_friel_power_zones(ftp):
             "calculation_method": f"Joe Friel (Estimated FTP: {ftp} W)"}
 
 def analyze_activity(activity, streams, zones):
+    # --- FIX: Initialize zone dictionaries with string keys ---
     analyzed = {"id": activity['id'], "name": activity['name'], "type": activity['type'],
                  "start_date": activity['start_date_local'], "is_race": activity.get('workout_type') == 1,
                  "distance_km": round(activity.get('distance', 0) / 1000, 2),
                  "moving_time_minutes": round(activity.get('moving_time', 0) / 60, 2),
-                 "time_in_hr_zones": {i: 0 for i in range(5)}, "time_in_power_zones": {i: 0 for i in range(7)},
+                 "time_in_hr_zones": {f"Zone {i+1}": 0 for i in range(5)},
+                 "time_in_power_zones": {f"Zone {i+1}": 0 for i in range(7)},
                  "private_note": activity.get('private_note', '')}
+
     if analyzed["is_race"]: analyzed["race_tag"] = map_race_distance(activity['distance'])
     if not streams: return analyzed
     time_data = streams.get('time', {}).get('data', [])
@@ -144,12 +147,12 @@ def analyze_activity(activity, streams, zones):
     if 'heartrate' in streams:
         hr_data = streams['heartrate']['data']
         hr_zones = zones.get('heart_rate', {}).get('zones', [])
-        analyzed["time_in_hr_zones"] = {f"Zone {i+1}": 0 for i in range(len(hr_zones))}
         zone_mins = [z['min'] for z in hr_zones]
         for i in range(1, len(hr_data)):
             duration = time_data[i] - time_data[i-1]
             hr = hr_data[i-1]
             zone_index = bisect.bisect_right(zone_mins, hr) - 1
+            # --- FIX: Use the string key to update the value ---
             analyzed["time_in_hr_zones"][f"Zone {zone_index + 1}"] += duration
             
     if 'watts' in streams:
@@ -164,7 +167,9 @@ def analyze_activity(activity, streams, zones):
                     current_zone_index = zone_index
                  else:
                     break
-            analyzed["time_in_power_zones"][current_zone_index] += duration
+            # --- FIX: Use the string key to update the value ---
+            analyzed["time_in_power_zones"][f"Zone {current_zone_index + 1}"] += duration
+            
     return analyzed
 
 def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
@@ -231,6 +236,7 @@ def logout():
 @app.route("/callback")
 def callback():
     try:
+        # Step 1: Exchange auth code for a token from Strava
         auth_code = request.args.get('code')
         token_payload = {
             "client_id": STRAVA_CLIENT_ID, "client_secret": STRAVA_CLIENT_SECRET,
@@ -241,16 +247,32 @@ def callback():
         token_data = token_response.json()
         
         athlete_id = str(token_data['athlete']['id'])
+
+        # Step 2: Load existing user data
         user_data = data_manager.load_user_data(athlete_id)
-        user_data['token'] = token_data
+
+        # Step 3: If it's a new user, create a clean record
+        if not user_data:
+            user_data = {
+                'athlete_id': athlete_id,
+                'token': token_data,
+                'athlete': token_data.get('athlete', {})
+            }
+        # For an existing user, just update the token
+        else:
+            user_data['token'] = token_data
+
+        # Step 4: Save the complete, correct user data back to the database
         data_manager.save_user_data(athlete_id, user_data)
 
+        # Step 5: Log the user in and redirect
         session['athlete_id'] = athlete_id
         
         if 'plan' in user_data:
              return redirect("/")
         else:
              return redirect("/onboarding")
+
     except Exception as e:
         return f"An error occurred during authentication: {e}", 500
 
@@ -266,7 +288,11 @@ def generate_plan():
         athlete_id = session['athlete_id']
 
         user_data = data_manager.load_user_data(athlete_id)
+        if not user_data or 'token' not in user_data:
+            return 'Could not find your session data. Please <a href="/login">log in</a> again.'
+
         if 'plan' in user_data and 'feedback_log' in user_data:
+            # This logic for summarizing and archiving a previous plan remains the same.
             print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
             with open('prompts/summarize_prompt.txt', 'r') as f:
                 template = jinja2.Template(f.read())
@@ -284,8 +310,8 @@ def generate_plan():
             user_data['archive'].insert(0, {'plan': user_data['plan'], 'feedback_log': user_data['feedback_log']})
             del user_data['plan']
             del user_data['feedback_log']
-            data_manager.save_user_data(athlete_id, user_data)
-
+        
+        # This logic for getting user input from the form remains the same.
         user_goal = request.form.get('user_goal')
         user_sessions_per_week = int(request.form.get('sessions_per_week'))
         user_hours_per_week = float(request.form.get('hours_per_week'))
@@ -293,22 +319,16 @@ def generate_plan():
         user_athlete_type = request.form.get('athlete_type')
         user_known_lthr = int(request.form.get('lthr'))
         user_known_ftp = int(request.form.get('ftp'))
-
-        user_data = data_manager.load_user_data(athlete_id)
-        if not user_data or 'token' not in user_data:
-            return 'Could not find your session data. Please <a href="/login">log in</a> again.'
-        
         access_token = user_data['token']['access_token']
 
+        # This logic for fetching and analyzing Strava data remains the same.
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
         strava_zones = get_strava_api_data(access_token, "athlete/zones")
         activities_summary = get_strava_api_data(access_token, "athlete/activities?per_page=60")
         athlete_stats = get_athlete_stats(access_token, athlete_id)
-        
         friel_hr_zones = calculate_friel_hr_zones(user_known_lthr)
         friel_power_zones = calculate_friel_power_zones(user_known_ftp)
         vdot_data = find_valid_race_for_vdot(activities_summary, access_token, friel_hr_zones)
-        
         analyzed_activities = []
         for activity in activities_summary:
             streams = get_activity_streams(access_token, activity['id'])
@@ -333,18 +353,35 @@ def generate_plan():
             athlete_type=final_data_for_ai['athlete_type'], lifestyle_context=final_data_for_ai['lifestyle_context'],
             training_history=user_data.get('training_history'), json_data=json.dumps(final_data_for_ai, indent=4)
         )
+        
+        print("--- Generating content from Gemini ---")
         response = model.generate_content(prompt)
         plan_text = response.text
 
         user_data['plan'] = plan_text
         user_data['plan_data'] = final_data_for_ai
-        data_manager.save_user_data(athlete_id, user_data)
         
+        print(f"--- APP: About to save plan for athlete {athlete_id}. Plan length: {len(plan_text)} chars.")
+        data_manager.save_user_data(athlete_id, user_data)
+        print(f"--- APP: Save operation completed.")
+
+        # VERIFICATION STEP: Immediately reload the data from DynamoDB
+        print(f"--- APP: Verifying save operation by reloading data...")
+        verified_user_data = data_manager.load_user_data(athlete_id)
+        
+        if 'plan' in verified_user_data:
+            print(f"--- APP: SUCCESS! Reloaded data contains the plan.")
+        else:
+            print(f"--- APP: FAILURE! Reloaded data does NOT contain the plan.")
+            # Optionally return an error here to make it obvious
+            return "Error: The plan was generated but could not be saved to the database. Please check the logs.", 500
+
         plan_html = mistune.html(plan_text)
         return render_template('plan.html', plan_content=plan_html)
+    
     except Exception as e:
         return f"An error occurred during plan generation: {e}", 500
-
+    
 @app.route("/feedback")
 def feedback():
     try:
@@ -434,6 +471,37 @@ def view_specific_feedback(activity_id):
             feedback_html = mistune.html(entry['feedback_markdown'])
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
     return "Feedback for that activity could not be found.", 404
+
+# ... (all your other routes and functions)
+
+# --- TEMPORARY DEBUGGING ROUTE ---
+@app.route("/debug-env")
+def debug_env():
+    """
+    A simple endpoint to display the environment variables
+    and confirm how the application is configured.
+    """
+    # Fetch all environment variables
+    env_vars = {key: value for key, value in os.environ.items()}
+    
+    # Specifically check for the ones we care about
+    flask_env = os.getenv('FLASK_ENV', 'Not Set')
+    strava_client_id = os.getenv('STRAVA_CLIENT_ID', 'Not Set')
+    
+    # Format a simple HTML response
+    response_html = f"""
+        <h1>Application Environment</h1>
+        <h2>Key Variables:</h2>
+        <ul>
+            <li><b>FLASK_ENV:</b> {flask_env}</li>
+            <li><b>STRAVA_CLIENT_ID:</b> {strava_client_id}</li>
+        </ul>
+        <hr>
+        <h2>All Environment Variables:</h2>
+        <pre>{json.dumps(env_vars, indent=4)}</pre>
+    """
+    return response_html
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
