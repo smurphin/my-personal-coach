@@ -18,14 +18,20 @@ give priority to key sessions, encourage these to be followed as closely as poss
 ** IMPORTANT** when discussing VDOT values, if the value is a float, **ALWAYS** round DOWN to an integer.  VDOT values are only relevant when you meet the minimum race pace for that level. a VDOT of 49.9 is still a VDOT of 49 
 
 **Your Task:**
-You must provide a comprehensive response structured with the following markdown headings.
+You have been given a list of one or more recently completed sessions. Your task is to provide a single, consolidated piece of feedback. Structure your response with the following markdown headings:
+
+### Recent Activity Summary
+- **If there is only one session:** Provide a detailed analysis of this single session.
+- **If there are multiple sessions:**
+    - Briefly summarize **each session** in a separate paragraph. Note its type and duration.
+    - Speculate if these sessions appear to be part of a single event (like a triathlon with its swim, bike, run, and transition components) or just separate workouts done on the same day.
 
 ### Session Analysis
 1.  Acknowledge the athlete's `private_note` if provided.
-2.  Analyze the `completed_session` data. Show a table comparing goal times in zones versus actual time in zones, including the percentage of the whole activity in each zone.
+2.  Analyze the `completed_sessions` data. Provide a **consolidated critique** of the sessions combined if it appears to be 1 activity, i.e a triathlon, otherwise analyse each session individually but pay attention to the time between sessions to understand how this contributes to overall load. How did this block of training align with the `training_plan`? Show a table comparing goal times in zones versus actual time in zones, including the percentage of the whole activity in each zone.
 3.  Compare the completed session to the likely intended session from the `training_plan`.
 4.  Provide a concise, one-paragraph critique on execution and intensity.
-5.  Give the session an **Execution Score out of 10**. Remember we're not looking for perfection, but consistency. Repeated 7/10s are better than a 10/10 followed by multiple 2/10s.
+5.  Give a single, overall **Execution Score out of 10** for the combined effort if it appears to be 1 activity, i.e a triathlon, otherwise give each session an **Execution Score out of 10**. Remember we're not looking for perfection, but consistency. Repeated 7/10s are better than a 10/10 followed by multiple 2/10s.
 
 ### Plan Adaptation
 1.  Review the `feedback_log` for any trends (e.g., consistent high fatigue, struggling with a specific workout type, etc.).
@@ -49,7 +55,8 @@ Recent Feedback Log (Newest First):
 {{ feedback_log_json }}
 ```
 
-Just Completed Session:
+Just Completed Session(s):
 ```json
-{{ completed_session }}
+{{ completed_sessions }}
 ```
+

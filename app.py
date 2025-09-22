@@ -41,6 +41,7 @@ if os.getenv('FLASK_ENV') == 'production':
         # Set environment variables from the fetched secret
         os.environ['STRAVA_CLIENT_ID'] = secrets.get('STRAVA_CLIENT_ID')
         os.environ['STRAVA_CLIENT_SECRET'] = secrets.get('STRAVA_CLIENT_SECRET')
+        os.environ['STRAVA_VERIFY_TOKEN'] = secrets.get('STRAVA_VERIFY_TOKEN')
         os.environ['FLASK_SECRET_KEY'] = secrets.get('FLASK_SECRET_KEY')
         os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
 
@@ -48,7 +49,6 @@ if os.getenv('FLASK_ENV') == 'production':
         with open("/tmp/gcp_creds.json", "w") as f:
             f.write(secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON'))
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "/tmp/gcp_creds.json"
-
 
     except Exception as e:
         # You should handle this error appropriately in a production app
@@ -67,7 +67,7 @@ SCOPES = "read,activity:read_all,profile:read_all"
 
 if os.getenv('FLASK_ENV') == 'production':
     # In production, use the App Runner service URL
-    REDIRECT_URI = "https://sqq4gwtjms.eu-west-1.awsapprunner.com/callback"
+    REDIRECT_URI = "https://www.kaizencoach.training/callback"
 else:
     # In local development, use the localhost address
     REDIRECT_URI = "http://127.0.0.1:5000/callback"
@@ -206,6 +206,60 @@ def home():
             athlete_data = user_data.get('token', {}).get('athlete')
             plan_exists = 'plan' in user_data
     return render_template('index.html', athlete=athlete_data, plan_exists=plan_exists)
+
+STRAVA_VERIFY_TOKEN = os.getenv("STRAVA_VERIFY_TOKEN", "a_default_verify_token")
+
+if os.getenv('APP_DEBUG_MODE') == 'True':
+    @app.route("/debug-env")
+    def debug_env():
+        """
+        A simple endpoint to display the environment variables
+        and confirm how the application is configured.
+        """
+        env_vars = {key: value for key, value in os.environ.items()}
+        flask_env = os.getenv('FLASK_ENV', 'Not Set')
+        strava_client_id = os.getenv('STRAVA_CLIENT_ID', 'Not Set')
+        strava_verify_token = os.getenv('STRAVA_VERIFY_TOKEN', 'Not Set')
+        
+        response_html = f"""
+            <h1>Application Environment (DEBUG MODE)</h1>
+            <h2>Key Variables:</h2>
+            <ul>
+                <li><b>FLASK_ENV:</b> {flask_env}</li>
+                <li><b>STRAVA_CLIENT_ID:</b> {strava_client_id}</li>
+                <li><b>STRAVA_VERIFY_TOKEN:</b> {strava_verify_token}</li>
+            </ul>
+            <hr>
+            <h2>All Environment Variables:</h2>
+            <pre>{json.dumps(env_vars, indent=4)}</pre>
+        """
+        return response_html
+
+@app.route('/strava_webhook', methods=['GET', 'POST'])
+def strava_webhook():
+    if request.method == 'GET':
+        # This is the initial subscription validation request from Strava
+        hub_challenge = request.args.get('hub.challenge', '')
+        hub_verify_token = request.args.get('hub.verify_token', '')
+        if hub_verify_token == STRAVA_VERIFY_TOKEN:
+            return json.dumps({'hub.challenge': hub_challenge})
+        else:
+            return 'Invalid verify token', 403
+    
+    elif request.method == 'POST':
+        # This is an incoming event from Strava
+        event_data = request.get_json()
+        print(f"--- Webhook event received: {event_data} ---")
+        
+        # We only care about activity 'update' events
+        if event_data.get('object_type') == 'activity' and event_data.get('aspect_type') == 'update':
+            # Here, you would trigger your background job to generate feedback.
+            # For now, we'll just log it. We will build the full logic in Part 2.
+            athlete_id = str(event_data.get('owner_id'))
+            activity_id = str(event_data.get('object_id'))
+            print(f"--- Queuing feedback generation for athlete {athlete_id}, activity {activity_id} ---")
+
+        return 'EVENT_RECEIVED', 200
 
 @app.route("/plan")
 def view_plan():
@@ -390,63 +444,83 @@ def feedback():
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         access_token = user_data.get('token', {}).get('access_token')
+
         if not access_token:
             return 'Could not find your session data. Please <a href="/login">log in</a> again.'
 
-        test_activity_id = request.args.get('test_activity_id')
-        if test_activity_id:
-            latest_activity_id = int(test_activity_id)
-        else:
-            latest_activity_list = get_strava_api_data(access_token, "athlete/activities", params={'per_page': 1})
-            if not latest_activity_list:
-                return "No recent activities found."
-            latest_activity_id = latest_activity_list[0]['id']
-        
-        feedback_log = user_data.get('feedback_log', [])
-        for entry in feedback_log:
-            if entry.get('activity_id') == latest_activity_id:
-                feedback_html = mistune.html(entry['feedback_markdown'])
-                return render_template('feedback.html', feedback_content=feedback_html)
-
-        print(f"--- Generating new adaptive feedback for activity {latest_activity_id} ---")
         training_plan = user_data.get('plan')
         if not training_plan:
             return 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
 
-        detailed_activity = get_strava_api_data(access_token, f"activities/{latest_activity_id}")
-        friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', calculate_friel_hr_zones(160))
-        streams = get_activity_streams(access_token, detailed_activity['id'])
-        analyzed_session = analyze_activity(detailed_activity, streams, {"heart_rate": friel_hr_zones})
+        feedback_log = user_data.get('feedback_log', [])
         
-        for key, seconds in analyzed_session["time_in_hr_zones"].items():
-            analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
+        # get all activities since the last one logged ---
+        last_feedback_date = 0
+        if feedback_log:
+            # Get the timestamp of the most recent activity in the log
+            last_activity_date_str = feedback_log[0].get('activity_date')
+            last_feedback_date = int(datetime.strptime(last_activity_date_str, "%Y-%m-%dT%H:%M:%SZ").timestamp())
 
+        # Fetch recent activities from Strava that occurred after the last feedback
+        recent_activities = get_strava_api_data(access_token, "athlete/activities", params={'after': last_feedback_date})
+
+        if not recent_activities:
+            # If there are no new activities, show the last feedback again
+            if feedback_log:
+                feedback_html = mistune.html(feedback_log[0]['feedback_markdown'])
+                return render_template('feedback.html', feedback_content=feedback_html)
+            else:
+                return "No recent activities found to analyze."
+
+        # Reverse the list so the oldest new activity is first
+        recent_activities.reverse()
+        
+        # Analyze each new session
+        analyzed_sessions = []
+        for activity in recent_activities:
+            streams = get_activity_streams(access_token, activity['id'])
+            friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', calculate_friel_hr_zones(160))
+            analyzed_session = analyze_activity(activity, streams, {"heart_rate": friel_hr_zones})
+            for key, seconds in analyzed_session["time_in_hr_zones"].items():
+                analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
+            analyzed_sessions.append(analyzed_session)
+
+        # --- Generate new, consolidated feedback ---
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         prompt = template.render(
-            training_plan=training_plan, feedback_log_json=json.dumps(feedback_log, indent=2),
-            completed_session=json.dumps(analyzed_session, indent=2),
+            training_plan=training_plan,
+            feedback_log_json=json.dumps(feedback_log, indent=2),
+            # Pass the whole list of new sessions
+            completed_sessions=json.dumps(analyzed_sessions, indent=2),
             training_history=user_data.get('training_history')
         )
         response = model.generate_content(prompt)
         feedback_markdown = response.text
 
+        # --- Save a single log entry for the entire batch of activities ---
+        new_log_entry = {
+            # Use the latest activity for the primary ID and name
+            "activity_id": recent_activities[-1]['id'],
+            "activity_name": f"Consolidated Feedback for {len(recent_activities)} activities",
+            "activity_date": recent_activities[-1]['start_date_local'],
+            "feedback_markdown": feedback_markdown
+        }
+        feedback_log.insert(0, new_log_entry)
+        user_data['feedback_log'] = feedback_log
+
+        # Check for and apply plan updates from the feedback
         match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
         if match:
             new_plan_markdown = match.group(1).strip()
             user_data['plan'] = new_plan_markdown
             print(f"--- Plan for athlete {athlete_id} has been updated! ---")
         
-        new_log_entry = {
-            "activity_id": latest_activity_id, "activity_name": detailed_activity.get('name'),
-            "activity_date": detailed_activity.get('start_date_local'), "feedback_markdown": feedback_markdown
-        }
-        feedback_log.insert(0, new_log_entry)
-        user_data['feedback_log'] = feedback_log
         data_manager.save_user_data(athlete_id, user_data)
 
         feedback_html = mistune.html(feedback_markdown)
         return render_template('feedback.html', feedback_content=feedback_html)
+
     except Exception as e:
         return f"An error occurred during feedback generation: {e}", 500
     
@@ -471,37 +545,6 @@ def view_specific_feedback(activity_id):
             feedback_html = mistune.html(entry['feedback_markdown'])
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
     return "Feedback for that activity could not be found.", 404
-
-# ... (all your other routes and functions)
-
-# --- TEMPORARY DEBUGGING ROUTE ---
-@app.route("/debug-env")
-def debug_env():
-    """
-    A simple endpoint to display the environment variables
-    and confirm how the application is configured.
-    """
-    # Fetch all environment variables
-    env_vars = {key: value for key, value in os.environ.items()}
-    
-    # Specifically check for the ones we care about
-    flask_env = os.getenv('FLASK_ENV', 'Not Set')
-    strava_client_id = os.getenv('STRAVA_CLIENT_ID', 'Not Set')
-    
-    # Format a simple HTML response
-    response_html = f"""
-        <h1>Application Environment</h1>
-        <h2>Key Variables:</h2>
-        <ul>
-            <li><b>FLASK_ENV:</b> {flask_env}</li>
-            <li><b>STRAVA_CLIENT_ID:</b> {strava_client_id}</li>
-        </ul>
-        <hr>
-        <h2>All Environment Variables:</h2>
-        <pre>{json.dumps(env_vars, indent=4)}</pre>
-    """
-    return response_html
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -10,13 +10,13 @@ resource "aws_apprunner_service" "main_app_service" {
       image_configuration {
         port = "8080" # The port exposed in your Dockerfile
         runtime_environment_variables = {
-          FLASK_ENV = "production"
+          FLASK_ENV      = "production"
+          APP_DEBUG_MODE = "False" # Set to "True" to enable, "False" to disable
         }
       }
     }
     authentication_configuration {
       # App Runner needs an access role to be able to pull images from ECR.
-      # We'll create a simple one here.
       access_role_arn = aws_iam_role.apprunner_ecr_access_role.arn
     }
   }
