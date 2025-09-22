@@ -1,4 +1,0 @@
-    bucket       = "my-personal-coach-tfstate"
-    key          = "backend/terraform.tfstate"
-    region       = "eu-west-1"
-    use_lockfile = true
