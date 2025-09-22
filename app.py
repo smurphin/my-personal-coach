@@ -99,8 +99,9 @@ def get_strava_api_data(access_token, endpoint, params=None):
     return response.json()
 
 def get_activity_streams(access_token, activity_id):
+    """Fetches streams for a single activity."""
     headers = {'Authorization': f'Bearer {access_token}'}
-    params = {'keys': 'heartrate,time,watts', 'key_by_type': True}
+    params = {'keys': 'heartrate,time,watts,distance,altitude', 'key_by_type': True}
     response = requests.get(f"{STRAVA_API_URL}/activities/{activity_id}/streams", headers=headers, params=params)
     return response.json() if response.status_code == 200 else None
 
@@ -135,6 +136,10 @@ def analyze_activity(activity, streams, zones):
                  "start_date": activity['start_date_local'], "is_race": activity.get('workout_type') == 1,
                  "distance_km": round(activity.get('distance', 0) / 1000, 2),
                  "moving_time_minutes": round(activity.get('moving_time', 0) / 60, 2),
+                 "total_elevation_gain_meters": activity.get('total_elevation_gain', 0),
+                 "average_speed_kph": round(activity.get('average_speed', 0) * 3.6, 2), # Convert m/s to km/h
+                 "average_heartrate": activity.get('average_heartrate'),
+                 "max_heartrate": activity.get('max_heartrate'),
                  "time_in_hr_zones": {f"Zone {i+1}": 0 for i in range(5)},
                  "time_in_power_zones": {f"Zone {i+1}": 0 for i in range(7)},
                  "private_note": activity.get('private_note', '')}
@@ -189,6 +194,15 @@ def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
 
 
 # --- Flask Routes ---
+
+@app.context_processor
+def inject_user():
+    """Inject user data into all templates."""
+    if 'athlete_id' in session:
+        user_data = data_manager.load_user_data(session['athlete_id'])
+        if user_data:
+            return dict(athlete=user_data.get('athlete'))
+    return dict(athlete=None)
 
 @app.route("/")
 def home():
@@ -365,7 +379,6 @@ def generate_plan():
             del user_data['plan']
             del user_data['feedback_log']
         
-        # This logic for getting user input from the form remains the same.
         user_goal = request.form.get('user_goal')
         user_sessions_per_week = int(request.form.get('sessions_per_week'))
         user_hours_per_week = float(request.form.get('hours_per_week'))
@@ -375,18 +388,27 @@ def generate_plan():
         user_known_ftp = int(request.form.get('ftp'))
         access_token = user_data['token']['access_token']
 
-        # This logic for fetching and analyzing Strava data remains the same.
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
         strava_zones = get_strava_api_data(access_token, "athlete/zones")
-        activities_summary = get_strava_api_data(access_token, "athlete/activities?per_page=60")
+        eight_weeks_ago = datetime.now() - timedelta(weeks=8)
+        activities_summary = get_strava_api_data(access_token, "athlete/activities", params={'after': int(eight_weeks_ago.timestamp()), 'per_page': 200})
         athlete_stats = get_athlete_stats(access_token, athlete_id)
         friel_hr_zones = calculate_friel_hr_zones(user_known_lthr)
         friel_power_zones = calculate_friel_power_zones(user_known_ftp)
         vdot_data = find_valid_race_for_vdot(activities_summary, access_token, friel_hr_zones)
         analyzed_activities = []
-        for activity in activities_summary:
-            streams = get_activity_streams(access_token, activity['id'])
-            analyzed_activity = analyze_activity(activity, streams, {"heart_rate": friel_hr_zones, "power": friel_power_zones})
+        one_week_ago = datetime.now() - timedelta(weeks=1)
+        for activity_summary in activities_summary:
+            activity_date = datetime.strptime(activity_summary['start_date_local'], "%Y-%m-%dT%H:%M:%SZ")
+            
+            if activity_date > one_week_ago:
+                activity_to_process = get_strava_api_data(access_token, f"activities/{activity_summary['id']}")
+            else:
+                activity_to_process = activity_summary
+
+            streams = get_activity_streams(access_token, activity_to_process['id'])
+            analyzed_activity = analyze_activity(activity_to_process, streams, {"heart_rate": friel_hr_zones, "power": friel_power_zones})
+            
             for key, seconds in analyzed_activity["time_in_hr_zones"].items():
                  analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
             analyzed_activities.append(analyzed_activity)
@@ -461,6 +483,11 @@ def feedback():
             last_activity_date_str = feedback_log[0].get('activity_date')
             last_feedback_date = int(datetime.strptime(last_activity_date_str, "%Y-%m-%dT%H:%M:%SZ").timestamp())
 
+        else:
+            # If no feedback exists yet, only fetch activities from the last 7 days.
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            last_feedback_date = int(seven_days_ago.timestamp())
+
         # Fetch recent activities from Strava that occurred after the last feedback
         recent_activities = get_strava_api_data(access_token, "athlete/activities", params={'after': last_feedback_date})
 
@@ -532,6 +559,22 @@ def coaching_log():
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
     return render_template('coaching_log.html', log_entries=feedback_log)
+
+@app.route("/delete_data")
+def delete_data():
+    if 'athlete_id' not in session:
+        return "You must be logged in to delete your data.", 401
+    
+    athlete_id = session['athlete_id']
+    
+    # Call the data manager to delete the user's record
+    data_manager.delete_user_data(athlete_id)
+    
+    # Clear the session to log the user out
+    session.clear()
+    
+    # Redirect to the homepage
+    return redirect("/")
 
 @app.route("/feedback/<int:activity_id>")
 def view_specific_feedback(activity_id):

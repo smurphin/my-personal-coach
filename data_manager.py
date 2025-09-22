@@ -74,6 +74,12 @@ class FileBackend:
         all_data[str(athlete_id)] = user_data
         self._save_data(all_data)
 
+    def delete_user_data(self, athlete_id):
+        all_data = self._load_data()
+        if str(athlete_id) in all_data:
+            del all_data[str(athlete_id)]
+            self._save_data(all_data)
+            print(f"--- Deleted data for user {athlete_id} from local file. ---")
 
 class DynamoDBBackend:
     """A data manager that uses AWS DynamoDB for storage."""
@@ -100,6 +106,13 @@ class DynamoDBBackend:
             print(f"Error saving data for user {athlete_id} to DynamoDB: {e}")
             # Re-raising the exception can help in debugging
             raise e
+        
+    def delete_user_data(self, athlete_id):
+        try:
+            self.table.delete_item(Key={'athlete_id': str(athlete_id)})
+            print(f"--- Deleted data for user {athlete_id} from DynamoDB. ---")
+        except Exception as e:
+            print(f"Error deleting data for user {athlete_id} from DynamoDB: {e}")
 
 # --- Factory Function ---
 def get_data_manager():
@@ -113,6 +126,10 @@ def get_data_manager():
     else:
         print("--- Using Local File Backend ---")
         return FileBackend()
+    
+def delete_user_data(self, athlete_id):
+    # (add this method to the data_manager class)
+    self.backend.delete_user_data(athlete_id)
 
 # Initialize a single instance of the data manager for the app to use
 data_manager = get_data_manager()

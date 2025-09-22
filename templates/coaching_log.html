@@ -1,50 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coaching Log</title>
-    <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
-        h1, h3 { color: #1a73e8; }
-        hr { border: 0; height: 1px; background: #ddd; }
-        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
-        a { color: #fc4c02; }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            text-align: center;
-            font-size: 0.9em;
-            color: #666;
-        }
-        .footer a {
-            margin: 0 10px;
-        }
-    
-    </style>
-</head>
-<body>
-    <h1>Coaching Log</h1>
-    <p><a href="/plan">View Plan</a> | <a href="/feedback">Get Latest Feedback</a></p>
+{% extends "base.html" %}
+
+{% block title %}Session Feedback{% endblock %}
+
+{% block content %}
+    <h2>AI Feedback on Your Last Session(s)</h2>
+    <p><a href="/plan">View Plan</a> | <a href="/log">Coaching Log</a></p>
     <hr>
-    
-    {% if log_entries %}
-        {% for entry in log_entries %}
-            <div class="log-entry">
-                <a href="/feedback/{{ entry.activity_id }}">
-                    <h3>{{ entry.activity_name }}</h3>
-                    <p class="log-date">Date: {{ entry.activity_date.split('T')[0] }}</p>
-                </a>
-            </div>
-        {% endfor %}
-    {% else %}
-        <p>Your coaching log is empty. Get feedback on a session to start building your history!</p>
-    {% endif %}
+    {{ feedback_content | safe }}
+{% endblock %}
 
     <footer class="footer">
-    <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a>
+    <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a> | <a href="/delete_data" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a> 
+                
     </footer>
 
 </body>

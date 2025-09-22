@@ -1,38 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Training Plan</title>
-    <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
-        h1, h3 { color: #1a73e8; }
-        hr { border: 0; height: 1px; background: #ddd; }
-        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
-        a { color: #fc4c02; }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            text-align: center;
-            font-size: 0.9em;
-            color: #666;
-        }
-        .footer a {
-            margin: 0 10px;
-        }
-    
-    </style>
-</head>
-<body>
-    <h1>Your AI-Generated Training Plan</h1>
+{% extends "base.html" %}
+
+{% block title %}Your Training Plan{% endblock %}
+
+{% block content %}
+    <h2>Your AI-Generated Training Plan</h2>
     <p><a href="/log">Coaching Log</a> | <a href="/feedback">Get Latest Feedback</a></p>
     <hr>
     {{ plan_content | safe }}
+{% endblock %}
 
     <footer class="footer">
-    <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a>
-</footer>
+    <a href="/onboarding">Generate New Plan</a> | <a href="/logout">Logout</a> | <a href="/delete_data" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a> 
+     </footer>
 </body>
 </html>
