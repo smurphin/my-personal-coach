@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "tailwind:init": "./node_modules/.bin/tailwindcss init -p",
-    "tailwind:build": "./node_modules/.bin/tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --watch"
+    "init": "node ./node_modules/tailwindcss/lib/cli.js init -p",
+    "build": "node ./node_modules/tailwindcss/lib/cli.js -i ./static/src/input.css -o ./static/css/styles.css --watch"
   },
   "keywords": [],
   "author": "",

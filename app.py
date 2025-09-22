@@ -476,73 +476,76 @@ def feedback():
 
         feedback_log = user_data.get('feedback_log', [])
         
-        # get all activities since the last one logged ---
         last_feedback_date = 0
         if feedback_log:
-            # Get the timestamp of the most recent activity in the log
             last_activity_date_str = feedback_log[0].get('activity_date')
             last_feedback_date = int(datetime.strptime(last_activity_date_str, "%Y-%m-%dT%H:%M:%SZ").timestamp())
-
         else:
-            # If no feedback exists yet, only fetch activities from the last 7 days.
             seven_days_ago = datetime.now() - timedelta(days=7)
             last_feedback_date = int(seven_days_ago.timestamp())
 
-        # Fetch recent activities from Strava that occurred after the last feedback
-        recent_activities = get_strava_api_data(access_token, "athlete/activities", params={'after': last_feedback_date})
+        # Step 1: Fetch summaries of recent activities
+        recent_activities_summary = get_strava_api_data(access_token, "athlete/activities", params={'after': last_feedback_date})
 
-        if not recent_activities:
-            # If there are no new activities, show the last feedback again
+        if not recent_activities_summary:
             if feedback_log:
                 feedback_html = mistune.html(feedback_log[0]['feedback_markdown'])
                 return render_template('feedback.html', feedback_content=feedback_html)
             else:
-                return "No recent activities found to analyze."
+                return "No recent activities found to analyze in the last 7 days."
 
-        # Reverse the list so the oldest new activity is first
-        recent_activities.reverse()
+        recent_activities_summary.reverse()
         
-        # Analyze each new session
         analyzed_sessions = []
-        for activity in recent_activities:
+        for activity_summary in recent_activities_summary:
+            # --- FIX #1: Fetch the full, detailed activity to get the private_note ---
+            activity = get_strava_api_data(access_token, f"activities/{activity_summary['id']}")
+            if not activity: continue
+
             streams = get_activity_streams(access_token, activity['id'])
-            friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', calculate_friel_hr_zones(160))
+            friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
             analyzed_session = analyze_activity(activity, streams, {"heart_rate": friel_hr_zones})
+            
             for key, seconds in analyzed_session["time_in_hr_zones"].items():
                 analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
             analyzed_sessions.append(analyzed_session)
 
-        # --- Generate new, consolidated feedback ---
+        if not analyzed_sessions:
+            return "Found new activities, but could not analyze their details. Please try again."
+
+        # Generate the consolidated feedback from the AI
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         prompt = template.render(
             training_plan=training_plan,
             feedback_log_json=json.dumps(feedback_log, indent=2),
-            # Pass the whole list of new sessions
             completed_sessions=json.dumps(analyzed_sessions, indent=2),
             training_history=user_data.get('training_history')
         )
         response = model.generate_content(prompt)
         feedback_markdown = response.text
 
-        # --- Save a single log entry for the entire batch of activities ---
+        # --- FIX #2: Create a descriptive name and save the log entry correctly ---
+        activity_names = [session['name'] for session in analyzed_sessions]
+        descriptive_name = f"Feedback for: {', '.join(activity_names)}"
+
         new_log_entry = {
-            # Use the latest activity for the primary ID and name
-            "activity_id": recent_activities[-1]['id'],
-            "activity_name": f"Consolidated Feedback for {len(recent_activities)} activities",
-            "activity_date": recent_activities[-1]['start_date_local'],
+            "activity_id": analyzed_sessions[-1]['id'], # Use last activity ID for linking
+            "activity_name": descriptive_name,
+            "activity_date": analyzed_sessions[-1]['start_date'],
             "feedback_markdown": feedback_markdown
         }
         feedback_log.insert(0, new_log_entry)
-        user_data['feedback_log'] = feedback_log
+        user_data['feedback_log'] = feedback_log # Put the updated log back into user_data
 
-        # Check for and apply plan updates from the feedback
+        # Check for and apply plan updates
         match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
         if match:
             new_plan_markdown = match.group(1).strip()
             user_data['plan'] = new_plan_markdown
             print(f"--- Plan for athlete {athlete_id} has been updated! ---")
         
+        # Save the entire updated user_data object
         data_manager.save_user_data(athlete_id, user_data)
 
         feedback_html = mistune.html(feedback_markdown)
