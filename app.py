@@ -276,11 +276,108 @@ def strava_webhook():
         
         # We only care about activity 'update' events
         if event_data.get('object_type') == 'activity' and event_data.get('aspect_type') == 'update':
-            # Here, you would trigger your background job to generate feedback.
-            # For now, we'll just log it. We will build the full logic in Part 2.
             athlete_id = str(event_data.get('owner_id'))
             activity_id = str(event_data.get('object_id'))
-            print(f"--- Queuing feedback generation for athlete {athlete_id}, activity {activity_id} ---")
+            
+            # Retrieve user data and token from the database
+            user_data = data_manager.load_user_data(athlete_id)
+            if not user_data or 'token' not in user_data:
+                print(f"--- Could not find user data for athlete {athlete_id}. Skipping feedback generation. ---")
+                return 'EVENT_RECEIVED', 200
+            
+            access_token = user_data['token']['access_token']
+            training_plan = user_data.get('plan')
+            
+            if not training_plan:
+                print(f"--- No training plan found for athlete {athlete_id}. Skipping feedback generation. ---")
+                return 'EVENT_RECEIVED', 200
+                
+            if 'feedback_log' not in user_data:
+                user_data['feedback_log'] = []
+
+            feedback_log = user_data['feedback_log']
+            
+            processed_activity_ids = set()
+            for entry in feedback_log:
+                for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):
+                    processed_activity_ids.add(str(act_id))
+
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            last_fetch_timestamp = int(seven_days_ago.timestamp())
+
+            recent_activities_summary = get_strava_api_data(access_token, "athlete/activities", params={'after': last_fetch_timestamp, 'per_page': 100})
+            
+            new_activities_to_process = [act for act in recent_activities_summary if str(act['id']) not in processed_activity_ids]
+
+            if not new_activities_to_process:
+                print(f"--- No new activities to analyze in the last 7 days for athlete {athlete_id}. ---")
+                return 'EVENT_RECEIVED', 200
+
+            new_activities_to_process.reverse()
+            
+            analyzed_sessions = []
+            for activity_summary in new_activities_to_process:
+                activity = get_strava_api_data(access_token, f"activities/{activity_summary['id']}")
+                if not activity: continue
+
+                streams = get_activity_streams(access_token, activity['id'])
+                friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
+                analyzed_session = analyze_activity(activity, streams, {"heart_rate": friel_hr_zones})
+                
+                for key, seconds in analyzed_session["time_in_hr_zones"].items():
+                    analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
+                analyzed_sessions.append(analyzed_session)
+
+            if not analyzed_sessions:
+                print(f"--- Found new activities, but could not analyze their details for athlete {athlete_id}. ---")
+                return 'EVENT_RECEIVED', 200
+
+            with open('prompts/feedback_prompt.txt', 'r') as f:
+                template = jinja2.Template(f.read())
+            prompt = template.render(
+                training_plan=training_plan,
+                feedback_log_json=json.dumps(feedback_log, indent=2),
+                completed_sessions=json.dumps(analyzed_sessions, indent=2),
+                training_history=user_data.get('training_history')
+            )
+            response = model.generate_content(prompt)
+            feedback_markdown = response.text
+
+            activity_names = [session['name'] for session in analyzed_sessions]
+            # --- Create a descriptive name for the feedback entry using the activity names and passing through to gemini if more than 1 activity, referencing prompts/summarize_activities_prompt.txt if there is only one activity use it's name ---
+            if len(activity_names) == 1:
+                descriptive_name = f"Feedback for: {activity_names[0]}"
+            else:
+                summary_prompt_template = jinja2.Template(open('prompts/summarize_activities_prompt.txt').read())
+                summary_prompt = summary_prompt_template.render(activity_names=activity_names)
+                descriptive_name = generate_content_from_prompt(summary_prompt).strip()
+                if not descriptive_name:
+                    descriptive_name = f"Feedback for activities: {', '.join(activity_names)}"
+            
+            all_activity_ids = [s['id'] for s in analyzed_sessions]
+
+            new_log_entry = {
+                "activity_id": int(analyzed_sessions[0]['id']), # Use first ID for linking
+                "activity_name": descriptive_name,
+                "activity_date": (lambda raw=analyzed_sessions[0].get('start_date', ''): (
+                    (lambda dp, tp: f"{dp.split('-')[2]}-{dp.split('-')[1]}-{dp.split('-')[0]} {tp.split('.')[0]}")(*raw.rstrip('Z').split('T'))
+                    if 'T' in raw.rstrip('Z') else raw
+                ))(),
+                "feedback_markdown": feedback_markdown,
+                "logged_activity_ids": all_activity_ids # Store all IDs
+            }
+            
+            feedback_log.insert(0, new_log_entry)
+
+            match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+            if match:
+                new_plan_markdown = match.group(1).strip()
+                user_data['plan'] = new_plan_markdown
+                print(f"--- Plan for athlete {athlete_id} has been updated! ---")
+            
+            data_manager.save_user_data(athlete_id, user_data)
+            
+            print(f"--- Successfully generated and saved feedback for athlete {athlete_id} triggered by webhook. ---")
 
         return 'EVENT_RECEIVED', 200
 
