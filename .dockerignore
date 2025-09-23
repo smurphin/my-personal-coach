@@ -1,0 +1,36 @@
+# Ignore the Dockerfile itself
+Dockerfile
+
+# Ignore git history
+.git
+.gitignore
+
+# Ignore Python virtual environments and cache
+.venv
+venv/
+__pycache__/
+*.pyc
+
+# Ignore OS-specific files
+.DS_Store
+
+# Ignore local secrets and environment files
+.env
+*.env
+
+# Ignore local user data and backups
+users_data.json
+strava_token.json
+strava_data.json
+
+# Ignore your backup files
+app_backup*
+app_v*
+app _backup*
+
+# Ignore IDE and editor files
+.idea/
+.vscode/
+
+# Ignore the infrastructure repository if it were here
+infra/
