@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local data and cache files
+users_data.json
+strava_data.json
+strava_token.json
+training_plan.md
