@@ -32,7 +32,6 @@ def json_to_dynamodb(data):
     else:
         return data
 
-# --- NEW HELPER FUNCTION ---
 def dynamodb_to_json(data):
     """
     Recursively converts a DynamoDB item (with Decimal types)
@@ -58,11 +57,16 @@ class FileBackend:
     def _load_data(self):
         if not os.path.exists(USERS_DATA_FILE):
             return {}
-        with open(USERS_DATA_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(USERS_DATA_FILE, 'r') as f:
+                print(f"--- DM: Loading data from {USERS_DATA_FILE} ---")
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {}
 
     def _save_data(self, data):
         with open(USERS_DATA_FILE, 'w') as f:
+            print(f"--- DM: Saving data to {USERS_DATA_FILE} ---")
             json.dump(data, f, indent=4)
 
     def load_user_data(self, athlete_id):
@@ -73,6 +77,7 @@ class FileBackend:
         all_data = self._load_data()
         all_data[str(athlete_id)] = user_data
         self._save_data(all_data)
+        print(f"--- Saved data for user {athlete_id} to local file. ---")
 
     def delete_user_data(self, athlete_id):
         all_data = self._load_data()
@@ -91,7 +96,6 @@ class DynamoDBBackend:
         try:
             response = self.table.get_item(Key={'athlete_id': str(athlete_id)})
             item = response.get('Item', {})
-            # --- FIX: Convert the retrieved item before returning ---
             return dynamodb_to_json(item)
         except Exception as e:
             print(f"Error loading data for user {athlete_id} from DynamoDB: {e}")
@@ -102,9 +106,9 @@ class DynamoDBBackend:
             user_data['athlete_id'] = str(athlete_id)
             item_to_save = json_to_dynamodb(user_data)
             self.table.put_item(Item=item_to_save)
+            print(f"--- Saved data for user {athlete_id} to DynamoDB. ---")
         except Exception as e:
             print(f"Error saving data for user {athlete_id} to DynamoDB: {e}")
-            # Re-raising the exception can help in debugging
             raise e
         
     def delete_user_data(self, athlete_id):
@@ -126,10 +130,6 @@ def get_data_manager():
     else:
         print("--- Using Local File Backend ---")
         return FileBackend()
-    
-def delete_user_data(self, athlete_id):
-    # (add this method to the data_manager class)
-    self.backend.delete_user_data(athlete_id)
 
 # Initialize a single instance of the data manager for the app to use
 data_manager = get_data_manager()

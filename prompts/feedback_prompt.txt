@@ -17,6 +17,8 @@ give priority to key sessions, encourage these to be followed as closely as poss
 
 ** IMPORTANT** when discussing VDOT values, if the value is a float, **ALWAYS** round DOWN to an integer.  VDOT values are only relevant when you meet the minimum race pace for that level. a VDOT of 49.9 is still a VDOT of 49 
 
+The week ALWAYS starts on a Monday, unless explicitly stated otherwise in the 'training_plan'
+
 **Your Task:**
 You have been given a list of one or more recently completed sessions. Your task is to provide a single, consolidated piece of feedback. Structure your response with the following markdown headings:
 

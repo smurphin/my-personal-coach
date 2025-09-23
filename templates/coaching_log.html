@@ -1,10 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Session Feedback{% endblock %}
-
 {% block content %}
-    <h2>AI Feedback on Your Last Session(s)</h2>
-    <p><a href="/plan">View Plan</a> | <a href="/log">Coaching Log</a></p>
-    <hr>
-    {{ feedback_content | safe }}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Coaching Log</h1>
+
+    {% if log_entries %}
+        <div class="bg-white shadow-md rounded-lg">
+            <ul class="divide-y divide-gray-200">
+                {% for entry in log_entries %}
+                    <li class="px-6 py-4 hover:bg-gray-50">
+                        <a href="{{ url_for('view_specific_feedback', activity_id=entry.activity_id) }}" class="block">
+                            <h2 class="text-lg font-semibold text-indigo-600">{{ entry.activity_name }}</h2>
+                            <p class="text-sm text-gray-500">{{ entry.activity_date }}</p>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p class="text-gray-600">Your coaching log is currently empty. Complete some activities and then get feedback to start populating your log.</p>
+    {% endif %}
+</div>
 {% endblock %}
