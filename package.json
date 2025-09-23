@@ -4,14 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "init": "tailwindcss init -p",
-    "build": "tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --watch"
+    "start": "cross-env FLASK_DEBUG=1 flask run",
+    "build": "tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --watch",
+    "build:prod": "tailwindcss -i ./static/src/input.css -o ./static/css/styles.css --minify",
+    "start:dev": "concurrently \"npm run start\" \"npm run build\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.18",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3"
   }

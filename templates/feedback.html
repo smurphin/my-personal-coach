@@ -3,8 +3,18 @@
 {% block title %}Session Feedback{% endblock %}
 
 {% block content %}
-    <h2>AI Feedback on Your Last Session(s)</h2>
-    <p><a href="/plan">View Plan</a> | <a href="/log">Coaching Log</a></p>
-    <hr>
-    {{ feedback_content | safe }}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-white">Latest AI Feedback</h1>
+    <p class="text-brand-light-gray mt-1">An analysis of your recent training data and progress towards your goals.</p>
+</div>
+
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
+    <article class="prose prose-invert max-w-none prose-p:text-lg">
+        {{ feedback_content | safe }}
+    </article>
+</div>
+
+<div class="mt-8">
+    <a href="/plan" class="text-brand-blue hover:underline">← Back to Your Plan</a>
+</div>
 {% endblock %}

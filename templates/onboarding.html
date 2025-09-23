@@ -1,61 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Set Your Goals</title>
-    <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
-        h1 { color: #1a73e8; }
-        form { display: grid; grid-template-columns: 1fr; gap: 20px; }
-        label { font-weight: bold; }
-        input, textarea, select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
-        .note { font-size: 0.9em; color: #666; }
-    </style>
-</head>
-<body>
-    <h1>Set Your Training Goal</h1>
-    <p>First, let's get some details about you and what you're training for. This will help the AI create a truly personalized plan.</p>
-    <form action="/generate_plan" method="post">
-        <div>
-            <label for="user_goal">What is your primary goal?</label>
-            <textarea id="user_goal" name="user_goal" rows="3" required placeholder="e.g., Run the London Marathon in under 3:30, or Complete my first Sprint Triathlon">Run a sub 40 minute 10k at the beginning of November</textarea>
-        </div>
-        <div>
-            <label for="sessions_per_week">How many training sessions can you realistically commit to per week?</label>
-            <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="5">
-        </div>
-        <div>
-            <label for="hours_per_week">What is the maximum time you can commit to training per week? (in hours)</label>
-            <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="7">
-        </div>
-        <div>
-            <label for="lifestyle_context">Is there any other context about your lifestyle or schedule the coach should know?</label>
-            <textarea id="lifestyle_context" name="lifestyle_context" rows="4" placeholder="e.g., I have a planned 1 week holiday 4 weeks into the training plan, so will only be able to do very minimal training if any that week.">I have childcare every other week, so my available training time alternates between 5 hours on 'off' weeks and 8 hours on 'on' weeks this is my off week.  Time trials must be planned during an "on" week as I have the weekend free
-            I try to go to my running club every Tuesday evening, this is generally a social recovery run of around 1 hour, I'm keen to keep this as the social connection is important to me
-            I am feeling a little tired after a weekend of events.
-            </textarea>
-            <p class="note">This is your chance to mention things like shift work, recurring travel, or other commitments that affect your training consistency.</p>
-        </div>
-        <div>
-            <label for="athlete_type">Which athlete type best describes you?</label>
-            <select id="athlete_type" name="athlete_type" required>
-                <option value="The Disciplinarian" selected>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
-                <option value="The Improviser">The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
-                <option value="The Minimalist">The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
-            </select>
-        </div>
-        <div>
-            <label for="lthr">What is your Lactate Threshold Heart Rate (LTHR)?</label>
-            <input type="number" id="lthr" name="lthr" required placeholder="e.g., 160" value="160">
-             <p class="note">This is the average heart rate from a 30-minute all-out effort. If unsure, a recent 5k or 10k race average is a good estimate.</p>
-        </div>
-        <div>
-            <label for="ftp">What is your Functional Threshold Power (FTP) for cycling?</label>
-            <input type="number" id="ftp" name="ftp" placeholder="e.g., 200" value="200">
-            <p class="note">Optional. This is your average power from a 20-minute all-out effort.</p>
-        </div>
-        <button type="submit">Analyze My Strava & Build My Plan</button>
-    </form>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Set Your Goals{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-white">Set Your Training Goal</h1>
+        <p class="text-brand-light-gray mt-2">This will help the AI create a truly personalized plan.</p>
+    </div>
+
+    <div class="bg-brand-gray p-8 rounded-xl shadow-lg">
+        <form action="/generate_plan" method="post" class="space-y-6">
+
+            <div>
+                <label for="user_goal" class="block text-sm font-medium text-brand-light-gray mb-1">What is your primary goal?</label>
+                <textarea id="user_goal" name="user_goal" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30">{{ request.form.get('user_goal', 'Run a sub 40 minute 10k at the beginning of November') }}</textarea>
+            </div>
+
+            <div>
+                <label for="sessions_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">How many training sessions can you realistically commit to per week?</label>
+                <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="{{ request.form.get('sessions_per_week', 5) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+            </div>
+
+            <div>
+                <label for="hours_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">What is the maximum time you can commit to training per week? (in hours)</label>
+                <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="{{ request.form.get('hours_per_week', 7) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+            </div>
+
+            <div>
+                <label for="lifestyle_context" class="block text-sm font-medium text-brand-light-gray mb-1">Is there any other context about your lifestyle or schedule the coach should know?</label>
+                <textarea id="lifestyle_context" name="lifestyle_context" rows="4" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Mention shift work, recurring travel, or other commitments...">{{ request.form.get('lifestyle_context', 'I have childcare every other week, so my available training time alternates between 5 hours on \'off\' weeks and 8 hours on \'on\' weeks this is my off week. Time trials must be planned during an \"on\" week as I have the weekend free.\nI try to go to my running club every Tuesday evening, this is generally a social recovery run of around 1 hour, I\'m keen to keep this as the social connection is important to me.\nI am feeling a little tired after a weekend of events.  Id like to do a parkrun and use this as a timetrial on Saturday 4th October, i.e week2.  If Im feeling good I\'d like to do a track session on Saturday 27th September') }}</textarea>
+            </div>
+
+            <div>
+                <label for="athlete_type" class="block text-sm font-medium text-brand-light-gray mb-1">Which athlete type best describes you?</label>
+                <select id="athlete_type" name="athlete_type" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-brand-blue focus:border-brand-blue transition">
+                    <option value="The Disciplinarian" {% if request.form.get('athlete_type') == 'The Disciplinarian' %}selected{% endif %}>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
+                    <option value="The Improviser" {% if request.form.get('athlete_type') == 'The Improviser' or not request.form.get('athlete_type') %}selected{% endif %}>The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
+                    <option value="The Minimalist" {% if request.form.get('athlete_type') == 'The Minimalist' %}selected{% endif %}>The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="lthr" class="block text-sm font-medium text-brand-light-gray mb-1">What is your Lactate Threshold Heart Rate (LTHR)?</label>
+                <input type="number" id="lthr" name="lthr" required value="{{ request.form.get('lthr', 160) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 160">
+                <p class="mt-1 text-xs text-gray-400">Average heart rate from a 30-min all-out effort. A recent 5k/10k race average is a good estimate.</p>
+            </div>
+            
+            <div>
+                <label for="ftp" class="block text-sm font-medium text-brand-light-gray mb-1">What is your Functional Threshold Power (FTP) for cycling? (Optional)</label>
+                <input type="number" id="ftp" name="ftp" value="{{ request.form.get('ftp', 200) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 200">
+                <p class="mt-1 text-xs text-gray-400">Your average power from a 20-min all-out effort.</p>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="w-full bg-brand-blue text-white font-bold py-3 px-4 rounded-lg hover:bg-brand-blue-hover transition-colors duration-300">
+                    Analyze My Strava & Build My Plan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

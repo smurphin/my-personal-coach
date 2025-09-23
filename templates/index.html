@@ -3,22 +3,54 @@
 {% block title %}Welcome{% endblock %}
 
 {% block content %}
-    <div style="text-align: center;">
-        {% if athlete %}
-            <h2>Welcome back, {{ athlete.firstname }}!</h2>
-            <p>Ready to train?</p>
+<div class="min-h-[70vh] flex items-center justify-center">
+
+    {% if athlete %}
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">
+                Welcome back, {{ athlete.firstname }}!
+            </h1>
+            <p class="text-lg text-brand-light-gray mb-8">
+                Ready to train?
+            </p>
+            {% if plan_exists %}
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <a href="/plan" class="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                    View My Plan
+                </a>
+                <a href="/feedback" class="bg-brand-gray text-brand-light-gray font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-colors duration-300">
+                    Get Latest Feedback
+                </a>
+                <a href="/log" class="bg-brand-gray text-brand-light-gray font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-colors duration-300">
+                    Coaching Log
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+    {% else %}
+        <div class="flex flex-col items-center w-full max-w-3xl mx-auto px-4">
             
-            <div class="action-links">
-                {% if plan_exists %}
-                <a href="/plan">View My Plan</a> |
-                <a href="/feedback">Get Latest Feedback</a> |
-                <a href="/log">Coaching Log</a>
-                {% endif %}
+            <div class="w-full text-center lg:text-left">
+                <img src="{{ url_for('static', filename='images/kaizen-logo.png') }}" alt="kAIzen Coach Logo" class="mx-auto w-full max-w-xl mb-6">
+                
+                <div class="mx-auto max-w-2xl lg:mx-18 border-l-4 border-brand-blue text-left pl-6 rounded-r-lg">
+                    <p class="text-brand-light-gray text-md">
+                        <span class="font-semibold text-white">Kaizen (改善)</span> is a Japanese philosophy of continuous improvement. We apply this to your training, using AI to make small, intelligent adjustments that lead to significant performance gains.
+                    </p>
+                </div>
             </div>
 
-        {% else %}
-            <p>Welcome to your AI-powered personal coach. Connect with Strava to analyze your recent training and generate a personalized plan based on your goals and fitness level.</p>
-            <a href="/login" class="button">Login with Strava</a>
-        {% endif %}
-    </div>
+            <div class="h-24"></div> <div class="w-full text-center">
+                <h2 class="text-2xl font-bold text-brand-light-gray mb-6">Get Your Personalised Plan</h2>
+                <p class="text-brand-light-gray mb-6">
+                    Connect your Strava account to get started. It's free, secure, and takes less than a minute.
+                </p>
+                <a href="/login" class="inline-block transition-transform transform hover:scale-105 duration-300">
+                    <img src="{{ url_for('static', filename='images/btn_strava_connect_with_white.svg') }}" alt="Connect with Strava" class="h-12">
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

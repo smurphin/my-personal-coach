@@ -79,7 +79,7 @@ GCP_LOCATION = "europe-west1"
 vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
 model = GenerativeModel(model_name="gemini-2.5-pro")
 
-# --- Helper & Analysis Functions (No changes needed in these) ---
+# --- Helper & Analysis Functions ---
 
 def format_seconds(seconds):
     seconds = int(seconds)
@@ -192,6 +192,15 @@ def find_valid_race_for_vdot(activities, access_token, friel_hr_zones):
                     return {"status": "VDOT Ready", "race_basis": f"{activity['name']} ({activity_date_str})"}
     return {"status": "HR Training Recommended", "reason": "No recent, high-intensity race found."}
 
+def generate_content_from_prompt(prompt_text, **kwargs):
+  
+    try:
+        response = model.generate_content(prompt_text, **kwargs)
+        # The GenerativeModel response typically exposes .text; normalize to a string.
+        return getattr(response, "text", str(response))
+    except Exception as e:
+        print(f"Error generating content from prompt: {e}")
+        return ""
 
 # --- Flask Routes ---
 
@@ -205,7 +214,7 @@ def inject_user():
     return dict(athlete=None)
 
 @app.route("/")
-def home():
+def index():
     if 'athlete_id' in session:
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
@@ -479,7 +488,6 @@ def feedback():
 
         feedback_log = user_data['feedback_log']
         
-        # --- FIX: Get a set of ALL processed activity IDs from the log ---
         processed_activity_ids = set()
         for entry in feedback_log:
             for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):
@@ -490,7 +498,6 @@ def feedback():
 
         recent_activities_summary = get_strava_api_data(access_token, "athlete/activities", params={'after': last_fetch_timestamp, 'per_page': 100})
         
-        # --- FIX: Filter against the comprehensive set of processed IDs ---
         new_activities_to_process = [act for act in recent_activities_summary if str(act['id']) not in processed_activity_ids]
 
         if not new_activities_to_process:
@@ -530,15 +537,25 @@ def feedback():
         feedback_markdown = response.text
 
         activity_names = [session['name'] for session in analyzed_sessions]
-        descriptive_name = f"Feedback for: {', '.join(activity_names)}"
+        # --- Create a descriptive name for the feedback entry using the activity names and passing through to gemini if more than 1 activity, referencing prompts/summarize_activities_prompt.txt if there is only one activity use it's name ---
+        if len(activity_names) == 1:
+            descriptive_name = f"Feedback for: {activity_names[0]}"
+        else:
+            summary_prompt_template = jinja2.Template(open('prompts/summarize_activities_prompt.txt').read())
+            summary_prompt = summary_prompt_template.render(activity_names=activity_names)
+            descriptive_name = generate_content_from_prompt(summary_prompt).strip()
+            if not descriptive_name:
+                descriptive_name = f"Feedback for activities: {', '.join(activity_names)}"
         
-        # --- FIX: Create a new log entry that contains ALL activity IDs ---
         all_activity_ids = [s['id'] for s in analyzed_sessions]
 
         new_log_entry = {
             "activity_id": int(analyzed_sessions[0]['id']), # Use first ID for linking
             "activity_name": descriptive_name,
-            "activity_date": analyzed_sessions[0]['start_date'],
+            "activity_date": (lambda raw=analyzed_sessions[0].get('start_date', ''): (
+                (lambda dp, tp: f"{dp.split('-')[2]}-{dp.split('-')[1]}-{dp.split('-')[0]} {tp.split('.')[0]}")(*raw.rstrip('Z').split('T'))
+                if 'T' in raw.rstrip('Z') else raw
+            ))(),
             "feedback_markdown": feedback_markdown,
             "logged_activity_ids": all_activity_ids # Store all IDs
         }

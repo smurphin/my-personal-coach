@@ -3,61 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
     <title>{% block title %}kAIzen Coach{% endblock %}</title>
-    <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
-        h1, h3 { color: #1a73e8; }
-        hr { border: 0; height: 1px; background: #ddd; }
-        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
-        a { color: #fc4c02; }
-        button { padding: 12px 24px; background-color: #fc4c02; color: white; text-decoration: none; font-size: 1.1em; border-radius: 5px; border: none; cursor: pointer; }
-        
-        /* --- New Styles for Header --- */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .profile-img-header {
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            border: 2px solid #fc4c02;
-        }
-
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            text-align: center;
-            font-size: 0.9em;
-            color: #666;
-        }
-        .footer a {
-            margin: 0 10px;
-        }
-    </style>
 </head>
-<body>
-    <header class="header">
-        <div>
-            <h1>kAIzen Coach</h1>
-        </div>
-        <div>
+
+<body class="bg-brand-dark text-brand-light-gray font-sans antialiased flex flex-col min-h-screen"> 
+    
+    <div class="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                {% if request.endpoint == 'index' %}
+                {% else %}
+                    <a href="/" class="block">
+                        <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="kAIzen Coach Logo" class="h-12 w-auto">
+                    </a>
+                 {% endif %}
+            </div>
+        
+            <div>
+                {% if athlete %}
+                    <img src="{{ athlete.profile }}" alt="Athlete profile picture" class="h-30 w-30 rounded-full border-2 border-brand-blue">
+                {% endif %}
+            </div>
+        </header>
+
+        {% if athlete and request.endpoint != 'index' %}
+            {% include '_navigation.html' %}
+        {% endif %}
+
+        <main class="flex-grow">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <footer class="w-full text-center text-gray-400 text-sm py-6">
+        <div class="max-w-4xl mx-auto border-t border-brand-gray pt-6">
             {% if athlete %}
-                <img src="{{ athlete.profile }}" alt="Athlete profile picture" class="profile-img-header">
+            <div class="flex justify-center items-center space-x-4">
+                <a href="/onboarding" class="hover:text-brand-blue transition-colors">Generate New Plan</a>
+                <span>|</span>
+                <a href="/delete_data" class="hover:text-brand-blue transition-colors" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a>
+                <span>|</span>
+                <a href="/logout" class="hover:text-brand-blue transition-colors">Logout</a>
+            </div>
             {% endif %}
         </div>
-    </header>
-
-    {% block content %}{% endblock %}
-
-    <footer class="footer">
-        <a href="/onboarding">Generate New Plan</a> | 
-        <a href="/delete_data" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a> |
-        <a href="/logout">Logout</a>
     </footer>
+
 </body>
 </html>
