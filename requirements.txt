@@ -7,3 +7,4 @@ python-dotenv
 google-cloud-aiplatform
 gunicorn
 boto3
+garminconnect

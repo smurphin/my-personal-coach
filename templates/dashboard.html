@@ -24,6 +24,14 @@
     </div>
 </div>
 
+<div id="garmin-container" class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-8">
+    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+    <div class="flex items-center justify-center pt-4">
+        <div class="loader"></div>
+    </div>
+</div>
+
+
 <div class="lg:flex lg:space-x-8">
     <div class="lg:w-1/2">
         <div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-8">
@@ -83,7 +91,6 @@
 <script>
     function fetchWeeklySummary() {
         const container = document.getElementById('weekly-summary-container');
-        // Show spinner
         container.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
 
         fetch('/api/weekly-summary')
@@ -101,19 +108,77 @@
             });
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Fetch the summary when the page loads
-        fetchWeeklySummary();
+    function fetchGarminSummary() {
+        const container = document.getElementById('garmin-container');
+        fetch('/api/garmin-summary')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('No Garmin connection found.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // --- FIX: Corrected paths to nested data ---
+                const hrvStatus = data.hrv?.hrvSummary?.status;
+                const sleepScore = data.sleep?.dailySleepDTO?.sleepScores?.overall?.value;
+                
+                // For Body Battery, we find the last reading in the array.
+                const bodyBatteryData = Array.isArray(data.body_battery) && data.body_battery.length > 0
+                    ? data.body_battery[data.body_battery.length - 1]
+                    : null;
+                const bodyBatteryCharged = bodyBatteryData?.charged;
 
-        // Add click listener for the refresh button
+                const trainingStatus = data.training_status?.trainingStatus;
+
+                container.innerHTML = `
+                    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery (Yesterday)</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                        <div>
+                            <p class="text-sm text-brand-light-gray">HRV Status</p>
+                            <p class="text-2xl font-bold text-white">${hrvStatus || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-brand-light-gray">Sleep Score</p>
+                            <p class="text-2xl font-bold text-white">${sleepScore || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-brand-light-gray">Body Battery</p>
+                            <p class="text-2xl font-bold text-white">${bodyBatteryCharged || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-brand-light-gray">Training Status</p>
+                            <p class="text-2xl font-bold text-white">${trainingStatus || 'N/A'}</p>
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                container.innerHTML = `
+                    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                    <div class="text-center py-4">
+                        <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats.</p>
+                        <a href="{{ url_for('connections') }}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                            Connect Account
+                        </a>
+                    </div>
+                `;
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchWeeklySummary();
+        fetchGarminSummary();
+
         const refreshButton = document.getElementById('refresh-summary-button');
         refreshButton.addEventListener('click', function() {
-            // First, call the endpoint to clear the cache
             fetch('/api/refresh-weekly-summary', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success' || data.status === 'no_op') {
-                        // Then, fetch a new summary
                         fetchWeeklySummary();
                     }
                 })

@@ -5,7 +5,7 @@ from flask import Flask, request, redirect, render_template, session, flash, jso
 from markupsafe import Markup
 import mistune
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import jinja2
 import bisect
 import re
@@ -15,6 +15,7 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 import functools
 import hashlib
+from garmin_manager import GarminManager
 
 ai_model = "gemini-2.5-flash"
 
@@ -255,7 +256,7 @@ def get_current_week_plan(plan_text):
     for line in lines:
         # This is the key change: strip leading whitespace and any leading markdown markers
         # Remove only leading whitespace and any leading '*' or '#' characters, preserving internal spaces
-        clean_line = re.sub(r'^[\s\*\#]+', '', line)
+        clean_line = re.sub(r'^[ \t]*[#*]*[ \t]*', '', line)
         
         # Now check if the cleaned line looks like a week header
         if clean_line.lower().startswith('week ') and ':' in clean_line:
@@ -297,6 +298,42 @@ def get_current_week_plan(plan_text):
         return "\n".join(current_week_lines)
         
     return "Could not determine the current training week from your plan."
+
+def get_latest_garmin_data(user_data):
+    """
+    Fetches yesterday's Garmin data. If successful, saves it to the user's history.
+    Returns the newly fetched data or None on failure.
+    """
+    if 'garmin_credentials' not in user_data:
+        return None
+
+    try:
+        email = user_data['garmin_credentials']['email']
+        password = user_data['garmin_credentials']['password']
+        
+        garmin_manager = GarminManager(email, password)
+        if garmin_manager.login():
+            yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
+            
+            # Initialize history if it doesn't exist
+            if 'garmin_history' not in user_data:
+                user_data['garmin_history'] = {}
+
+            # Fetch new data
+            health_stats = garmin_manager.get_health_stats(yesterday_iso)
+            
+            # If we got data, save it to history
+            if health_stats:
+                user_data['garmin_history'][yesterday_iso] = health_stats
+                print(f"--- Successfully fetched and saved Garmin data for {yesterday_iso}. ---")
+                return health_stats
+            else:
+                print(f"--- Failed to fetch new Garmin data, but login was successful. ---")
+                return None
+
+    except Exception as e:
+        print(f"Failed to fetch Garmin data in helper function: {e}")
+        return None
 
 # --- Flask Routes ---
 
@@ -423,8 +460,18 @@ def strava_webhook():
                 analyzed_sessions.append(analyzed_session)
 
             if not analyzed_sessions:
-                print(f"--- Found new activities, but could not analyze their details for athlete {athlete_id}. ---")
-                return 'EVENT_RECEIVED', 200
+                return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
+
+            # Fetch Garmin data for the day of the first new activity
+            first_activity_date_iso = datetime.fromisoformat(analyzed_sessions[0]['start_date'].replace('Z', '')).date().isoformat()
+            garmin_data_for_activity = None
+            if 'garmin_credentials' in user_data:
+                try:
+                    garmin_manager = GarminManager(user_data['garmin_credentials']['email'], user_data['garmin_credentials']['password'])
+                    if garmin_manager.login():
+                        garmin_data_for_activity = garmin_manager.get_health_stats(first_activity_date_iso)
+                except Exception as e:
+                    print(f"Could not fetch Garmin data for feedback: {e}")
 
             with open('prompts/feedback_prompt.txt', 'r') as f:
                 template = jinja2.Template(f.read())
@@ -432,7 +479,8 @@ def strava_webhook():
                 training_plan=training_plan,
                 feedback_log_json=json.dumps(feedback_log, indent=2),
                 completed_sessions=json.dumps(analyzed_sessions, indent=2),
-                training_history=user_data.get('training_history')
+                training_history=user_data.get('training_history'),
+                garmin_health_stats=garmin_data_for_activity # Pass Garmin data to the prompt
             )
             response = model.generate_content(prompt)
             feedback_markdown = response.text
@@ -474,6 +522,85 @@ def strava_webhook():
             print(f"--- Successfully generated and saved feedback for athlete {athlete_id} triggered by webhook. ---")
 
         return 'EVENT_RECEIVED', 200
+
+@app.route("/garmin_login", methods=['POST'])
+@login_required
+def garmin_login():
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+
+    email = request.form.get('garmin_email')
+    password = request.form.get('garmin_password')
+
+    garmin_manager = GarminManager(email, password)
+    if garmin_manager.login():
+        user_data['garmin_credentials'] = {'email': email, 'password': password}
+        
+        # --- FIX: Invalidate the weekly summary cache after connecting Garmin ---
+        today = datetime.now()
+        week_identifier = f"{today.year}-{today.isocalendar().week}"
+        if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+            del user_data['weekly_summaries'][week_identifier]
+            print(f"--- Invalidated weekly summary cache for {week_identifier} due to new Garmin connection. ---")
+            
+        data_manager.save_user_data(athlete_id, user_data)
+        flash("Successfully connected to Garmin!", "success")
+    else:
+        flash("Could not connect to Garmin. Please check your credentials.", "error")
+
+    return redirect(url_for('connections'))
+
+@app.route("/garmin_disconnect", methods=['POST'])
+@login_required
+def garmin_disconnect():
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    # Remove Garmin credentials and ALL related data
+    user_data.pop('garmin_credentials', None)
+    user_data.pop('garmin_data', None) # Remove old cached data just in case
+    user_data.pop('garmin_history', None) # Remove the new history
+    
+    # Invalidate the weekly summary cache
+    today = datetime.now()
+    week_identifier = f"{today.year}-{today.isocalendar().week}"
+    if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+        del user_data['weekly_summaries'][week_identifier]
+        print(f"--- Invalidated weekly summary cache for {week_identifier} due to Garmin disconnect. ---")
+            
+    data_manager.save_user_data(athlete_id, user_data)
+    flash("Successfully disconnected from Garmin.", "success")
+    
+    return redirect(url_for('connections'))
+    
+@app.route("/api/garmin-summary")
+@login_required
+def garmin_summary_api():
+    """
+    API endpoint that returns the latest Garmin data, prioritizing fresh data
+    but falling back to the most recent historical data.
+    """
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+
+    # 1. Attempt to fetch and save fresh data for yesterday
+    fresh_data = get_latest_garmin_data(user_data)
+    data_manager.save_user_data(athlete_id, user_data) # Save any new data we might have fetched
+
+    if fresh_data:
+        print("GARMIN API: Returning fresh data.")
+        return jsonify(fresh_data)
+
+    # 2. If fresh fetch fails, try to return the most recent historical data
+    if user_data.get('garmin_history'):
+        print("GARMIN API: Fresh fetch failed. Returning most recent from history.")
+        # Sort keys to find the most recent date
+        most_recent_date = sorted(user_data['garmin_history'].keys())[-1]
+        return jsonify(user_data['garmin_history'][most_recent_date])
+
+    # 3. If there's no fresh data and no history, then there's a problem
+    print("GARMIN API: No fresh or historical data available.")
+    return jsonify({"error": "Could not fetch Garmin data. Please check your credentials or try again later."}), 500
 
 @app.route("/plan")
 @login_required
@@ -729,6 +856,9 @@ def weekly_summary_api():
         print("CACHE: Generating new summary from AI.")
         current_week_text = get_current_week_plan(user_data['plan'])
         
+        # --- FIX: Fetch latest Garmin data before generating the prompt ---
+        garmin_data = get_latest_garmin_data(user_data)
+        
         with open('prompts/dashboard_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
@@ -737,8 +867,9 @@ def weekly_summary_api():
             athlete_goal=user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
             training_plan=current_week_text,
             latest_feedback=feedback_log[0]['feedback_markdown'] if feedback_log else None,
-            # Pass the chat history to the prompt
-            chat_history=json.dumps(chat_log, indent=2) if chat_log else None
+            chat_history=json.dumps(chat_log, indent=2) if chat_log else None,
+            # --- FIX: Pass Garmin data to the prompt template ---
+            garmin_health_stats=garmin_data 
         )
         
         weekly_summary = generate_content_from_prompt(prompt).strip()
@@ -890,9 +1021,8 @@ def get_feedback_api():
 
         if not new_activities_to_process:
             if feedback_log:
-            # No new activities, but there is old feedback to show
                 feedback_html = mistune.html(feedback_log[0]['feedback_markdown'])
-                return jsonify({'feedback_html': feedback_html}) # FIXED
+                return jsonify({'feedback_html': feedback_html})
             else:
                 return jsonify({'message': "No new activities to analyze in the last 7 days."})
 
@@ -914,13 +1044,37 @@ def get_feedback_api():
         if not analyzed_sessions:
             return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
 
+        # --- THIS IS THE CORRECTED BLOCK ---
+        garmin_data_for_activity = None
+        if 'garmin_credentials' in user_data:
+            first_activity_date_iso = datetime.fromisoformat(analyzed_sessions[0]['start_date'].replace('Z', '')).date().isoformat()
+            
+            if 'garmin_history' in user_data and first_activity_date_iso in user_data['garmin_history']:
+                print(f"--- Using stored Garmin data for feedback on {first_activity_date_iso}. ---")
+                garmin_data_for_activity = user_data['garmin_history'][first_activity_date_iso]
+            else:
+                print(f"--- No stored Garmin data for {first_activity_date_iso}. Fetching now. ---")
+                try: # The 'try'
+                    garmin_manager = GarminManager(user_data['garmin_credentials']['email'], user_data['garmin_credentials']['password'])
+                    if garmin_manager.login():
+                        garmin_data_for_activity = garmin_manager.get_health_stats(first_activity_date_iso)
+                        if garmin_data_for_activity:
+                            if 'garmin_history' not in user_data:
+                                user_data['garmin_history'] = {}
+                            user_data['garmin_history'][first_activity_date_iso] = garmin_data_for_activity
+                            data_manager.save_user_data(athlete_id, user_data)
+                except Exception as e: # The required 'except'
+                    print(f"Could not fetch Garmin data for feedback: {e}")
+        # --- END OF CORRECTED BLOCK ---
+
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         prompt = template.render(
             training_plan=training_plan,
             feedback_log_json=json.dumps(feedback_log, indent=2),
             completed_sessions=json.dumps(analyzed_sessions, indent=2),
-            training_history=user_data.get('training_history')
+            training_history=user_data.get('training_history'),
+            garmin_health_stats=garmin_data_for_activity
         )
         response = model.generate_content(prompt)
         feedback_markdown = response.text
@@ -1036,6 +1190,15 @@ def clear_chat():
         
     # Redirect back to the page the user came from (dashboard or chat_log)
     return redirect(request.referrer or url_for('dashboard'))
+
+@app.route("/connections")
+@login_required
+def connections():
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    garmin_connected = 'garmin_credentials' in user_data
+    
+    return render_template('connections.html', garmin_connected=garmin_connected)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

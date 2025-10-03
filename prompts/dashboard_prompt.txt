@@ -33,6 +33,21 @@ Here is the recent conversation history with the athlete. Use this for additiona
 There is no recent chat history.
 {% endif %}
 
+...
+Here is the athlete's latest health data from Garmin. Use this to inform your "Weekly Focus" summary. Advise them on their readiness for the week and how they might approach their training based on these recovery metrics.
+
+{% if garmin_health_stats %}
+- **Sleep Data:** {{ garmin_health_stats.sleep | tojson }}
+- **HRV Status:** {{ garmin_health_stats.hrv | tojson }}
+- **Body Battery:** {{ garmin_health_stats.body_battery | tojson }}
+- **Training Status:** {{ garmin_health_stats.training_status | tojson }}
+{% else %}
+- No Garmin data available.
+{% endif %}
+
+Your tone should be that of a supportive coach, providing a brief, actionable summary for the week ahead.
+...
+
 **INSTRUCTIONS:**
 1.  Review the training plan, latest feedback, and chat history.
 2.  Write a single, concise paragraph (no more than 3-4 sentences) that:
