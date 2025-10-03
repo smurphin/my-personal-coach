@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-white">Your Dashboard</h1>
+    <p class="text-brand-light-gray mt-1">Here's your focus for this week.</p>
+</div>
+
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-8 min-h-[150px]">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-brand-blue">Weekly Focus</h2>
+        <button id="refresh-summary-button" title="Refresh Weekly Focus" class="text-gray-400 hover:text-white transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+  <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" /></svg>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M20 4h-5v5M4 20h5v-5M12 4v2m0 12v2M4 12h2m12 0h2" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.95 19.95A9 9 0 014.05 4.05" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.05 19.95A9 9 0 0019.95 4.05" />
+            </svg>
+        </button>
+    </div>
+    
+    <div id="weekly-summary-container">
+        <div class="flex items-center justify-center pt-4">
+            <div class="loader"></div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-8">
+    <h2 class="text-2xl font-bold text-brand-blue mb-4">This Week's Sessions</h2>
+    <div class="prose prose-invert max-w-none">
+        {{ current_week_plan | safe }}
+    </div>
+</div>
+
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
+    <h2 class="text-2xl font-bold text-brand-blue mb-4">Chat with your Coach</h2>
+    <p class="text-brand-light-gray mb-4">
+        Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
+    </p>
+    <form action="/chat" method="post" onsubmit="showChatSpinner()">
+        <textarea name="user_message" rows="3" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
+        <div class="mt-4">
+            <button type="submit" class="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                Send Message
+            </button>
+        </div>
+    </form>
+
+    <div id="chat-response-container" class="mt-6 border-t border-brand-dark pt-6" style="display: none;">
+        <h3 class="text-xl font-semibold text-white mb-2">Coach's Response:</h3>
+        <div id="chat-response-content" class="prose prose-invert max-w-none">
+            </div>
+    </div>
+    </form> <div class="mt-4 text-center">
+        <form action="/clear_chat" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
+            <button type="submit" class="text-sm text-gray-400 hover:text-white hover:underline">Delete chat history</button>
+        </form>
+    </div>
+
+    <div id="chat-spinner-container" class="mt-6" style="display: none;">
+        <div class="flex items-center justify-center pt-4"><div class="loader"></div></div>
+    </div>
+</div> 
+    
+    {% if chat_response %}
+    <script>
+        // If a chat response was passed from a previous interaction, display it.
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('chat-response-container');
+            const content = document.getElementById('chat-response-content');
+            if (container && content) {
+                content.innerHTML = `{{ chat_response | safe }}`;
+                container.style.display = 'block';
+            }
+        });
+    </script>
+    {% endif %}
+
+</div>
+
+<script>
+    function fetchWeeklySummary() {
+        const container = document.getElementById('weekly-summary-container');
+        // Show spinner
+        container.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
+
+        fetch('/api/weekly-summary')
+            .then(response => response.json())
+            .then(data => {
+                if (data.summary) {
+                    container.innerHTML = `<p class="text-lg text-brand-light-gray">${data.summary}</p>`;
+                } else {
+                    container.innerHTML = `<p class="text-red-400">Could not load weekly summary.</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching weekly summary:', error);
+                container.innerHTML = `<p class="text-red-400">An error occurred while loading the summary.</p>`;
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fetch the summary when the page loads
+        fetchWeeklySummary();
+
+        // Add click listener for the refresh button
+        const refreshButton = document.getElementById('refresh-summary-button');
+        refreshButton.addEventListener('click', function() {
+            // First, call the endpoint to clear the cache
+            fetch('/api/refresh-weekly-summary', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' || data.status === 'no_op') {
+                        // Then, fetch a new summary
+                        fetchWeeklySummary();
+                    }
+                })
+                .catch(error => console.error('Error clearing cache:', error));
+        });
+    });
+
+    function showChatSpinner() {
+        const container = document.getElementById('chat-response-container');
+        const content = document.getElementById('chat-response-content');
+        if (container && content) {
+            content.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
+            container.style.display = 'block';
+        }
+    }
+</script>
+
+{% endblock %}

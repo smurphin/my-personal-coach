@@ -37,7 +37,11 @@ Briefly assess current fitness and comment on the viability of the stated `athle
 
 **You MUST generate a plan of appropriate duration for the athlete's primary goal.**  If no timescale is provided you MUST produce a 6 week plan
 
-Include the dates that each week covers, i.e Week 1: September 22nd - 28th
+**IMPORTANT FORMATTING RULE:**
+Each week's heading **MUST** follow this exact markdown format, including the dates: `### Week <plan Week Number>: <Month Name> <Day with suffix> - <Month Name> <Day with suffix>`
+- Example: `### Week 1: Sep 29th - Oct 5th`
+- Example: `### Week 2: Oct 6th - Oct 12th`
+This consistent format is critical for the application to read the plan.
 
 **DO NOT assign workouts to specific days.** List the sessions for each week for the athlete to schedule. Emphasise the importance of key sessions, recommend S&C is done on days that are easy or rest days, and ensure adequate recovery between hard sessions.
 

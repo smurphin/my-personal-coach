@@ -16,6 +16,11 @@
             Coaching Log
         </a>
 
+        <a href="{{ url_for('chat_log_list') }}"
+            class="font-semibold py-2 px-1 {% if request.endpoint == 'chat_log_list' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            Chat Log
+        </a>
+
         <a href="{{ url_for('feedback') }}"
            class="font-semibold py-2 px-1 {% if request.endpoint == 'feedback' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Feedback

@@ -1,7 +1,7 @@
 import os
 import requests
 import json
-from flask import Flask, request, redirect, render_template, session
+from flask import Flask, request, redirect, render_template, session, flash, jsonify, url_for
 from markupsafe import Markup
 import mistune
 from dotenv import load_dotenv
@@ -13,6 +13,10 @@ import boto3
 from data_manager import data_manager
 import vertexai
 from vertexai.generative_models import GenerativeModel
+import functools
+import hashlib
+
+print("!!!!!!!!!! SERVER IS RELOADING RIGHT NOW !!!!!!!!!!")
 
 # Load environment variables from .env file for local development
 load_dotenv()
@@ -92,11 +96,44 @@ def format_seconds(seconds):
     if secs > 0: parts.append(f"{secs}s")
     return " ".join(parts)
 
+def strava_api_call(f):
+    """
+    Decorator to handle Strava API calls and token expiration.
+    If a 401 Unauthorized is received, it clears the session and redirects to login.
+    """
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                # Unauthorized - likely token expired
+                session.clear()
+                flash("Your session has expired. Please log in again.")
+                return redirect('/')
+            # For other HTTP errors, re-raise the exception
+            raise e
+    return decorated_function
+
+@strava_api_call
 def get_strava_api_data(access_token, endpoint, params=None):
     headers = {'Authorization': f'Bearer {access_token}'}
     response = requests.get(f"{STRAVA_API_URL}/{endpoint}", headers=headers, params=params)
     response.raise_for_status()
     return response.json()
+
+def login_required(f):
+    """
+    Decorator to ensure a user is logged in before accessing a view.
+    If not logged in, redirects to the login page.
+    """
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'athlete_id' not in session:
+            flash("You must be logged in to view this page.")
+            return redirect('/')
+        return f(*args, **kwargs)
+    return decorated_function
 
 def get_activity_streams(access_token, activity_id):
     """Fetches streams for a single activity."""
@@ -202,6 +239,62 @@ def generate_content_from_prompt(prompt_text, **kwargs):
         print(f"Error generating content from prompt: {e}")
         return ""
 
+def get_current_week_plan(plan_text):
+    """
+    Parses the training plan to find the current week's sessions based on today's date.
+    This version iterates line-by-line and handles markdown headers.
+    """
+    today = datetime.now().date()
+    lines = plan_text.splitlines()
+    
+    current_week_lines = []
+    in_current_week = False
+
+    for line in lines:
+        # This is the key change: strip leading whitespace, then optional markdown characters, then whitespace again.
+        clean_line = line.strip().lstrip('#').lstrip('*').strip()
+        
+        # Now check if the cleaned line looks like a week header
+        if clean_line.lower().startswith('week ') and ':' in clean_line:
+            
+            # If we were already capturing the correct week, we've now hit the next one, so we can stop.
+            if in_current_week:
+                break
+            
+            # Reset state and check if THIS is the correct week
+            in_current_week = False
+            current_week_lines = []
+            
+            date_range_match = re.search(r'(\w+\s\d{1,2})[a-z]{2}\s*-\s*(\w+\s\d{1,2})[a-z]{2}', line)
+            if date_range_match:
+                try:
+                    start_str, end_str = date_range_match.groups()
+                    
+                    start_date = datetime.strptime(f"{start_str} {today.year}", "%b %d %Y").date()
+                    end_date = datetime.strptime(f"{end_str} {today.year}", "%b %d %Y").date()
+
+                    # Handle year rollover
+                    if start_date.month > end_date.month and today.month < start_date.month:
+                        start_date = start_date.replace(year=today.year - 1)
+                    elif start_date.month > end_date.month and today.month >= start_date.month:
+                        end_date = end_date.replace(year=today.year + 1)
+
+                    if start_date <= today <= end_date:
+                        in_current_week = True
+                        
+                except ValueError:
+                    # Couldn't parse dates from this line, so it's not a valid week header.
+                    pass
+        
+        # If we are in the correct week, add the current line to our list
+        if in_current_week:
+            current_week_lines.append(line)
+
+    if current_week_lines:
+        return "\n".join(current_week_lines)
+        
+    return "Could not determine the current training week from your plan."
+
 # --- Flask Routes ---
 
 @app.context_processor
@@ -218,17 +311,15 @@ def index():
     if 'athlete_id' in session:
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
+        # --- MODIFIED FLOW ---
         if user_data and 'plan' in user_data:
-            return redirect("/feedback")
+            return redirect("/dashboard")
+        elif user_data:
+            # If they are logged in but have no plan, send to onboarding
+            return redirect("/onboarding")
 
-    athlete_data = None
-    plan_exists = False
-    if 'athlete_id' in session:
-        user_data = data_manager.load_user_data(session['athlete_id'])
-        if user_data:
-            athlete_data = user_data.get('token', {}).get('athlete')
-            plan_exists = 'plan' in user_data
-    return render_template('index.html', athlete=athlete_data, plan_exists=plan_exists)
+    # If no session, show the public landing page.
+    return render_template('index.html', athlete=None)
 
 STRAVA_VERIFY_TOKEN = os.getenv("STRAVA_VERIFY_TOKEN", "a_default_verify_token")
 
@@ -382,10 +473,9 @@ def strava_webhook():
         return 'EVENT_RECEIVED', 200
 
 @app.route("/plan")
+@login_required
 def view_plan():
     try:
-        if 'athlete_id' not in session:
-            return "You must be logged in to view a plan.", 401
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         if not user_data or 'plan' not in user_data:
@@ -403,8 +493,30 @@ def login():
     return redirect(auth_redirect_url)
 
 @app.route("/logout")
+@login_required
 def logout():
-    session.clear()
+    """
+    Logs the user out by clearing the session and deauthorizing the app with Strava.
+    """
+    try:
+        # Get the access token from the user's data
+        athlete_id = session['athlete_id']
+        user_data = data_manager.load_user_data(athlete_id)
+        access_token = user_data.get('token', {}).get('access_token')
+
+        # If we have a token, tell Strava to deauthorize it
+        if access_token:
+            deauthorize_payload = {'access_token': access_token}
+            requests.post("https://www.strava.com/oauth/deauthorize", data=deauthorize_payload)
+
+    except Exception as e:
+        # Even if deauthorization fails, we should still log them out locally.
+        print(f"Could not deauthorize from Strava: {e}")
+    finally:
+        # Clear the session regardless of the outcome
+        session.clear()
+        flash("You have been successfully logged out.")
+
     return redirect("/")
 
 @app.route("/callback")
@@ -443,7 +555,7 @@ def callback():
         session['athlete_id'] = athlete_id
         
         if 'plan' in user_data:
-             return redirect("/")
+             return redirect("/dashboard")
         else:
              return redirect("/onboarding")
 
@@ -455,10 +567,9 @@ def onboarding():
     return render_template("onboarding.html")
 
 @app.route("/generate_plan", methods=['POST'])
+@login_required
 def generate_plan():
     try:
-        if 'athlete_id' not in session:
-            return "You must be logged in to generate a plan.", 401
         athlete_id = session['athlete_id']
 
         user_data = data_manager.load_user_data(athlete_id)
@@ -563,22 +674,193 @@ def generate_plan():
     
     except Exception as e:
         return f"An error occurred during plan generation: {e}", 500
+
+@app.route("/api/weekly-summary")
+@login_required
+def weekly_summary_api():
+    """API endpoint to get the weekly AI summary with smart caching."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
     
-@app.route("/feedback")
-def feedback():
+    if not user_data or 'plan' not in user_data:
+        return jsonify({"error": "Plan not found"}), 404
+
+    # --- New Smart Caching Logic ---
+    force_refresh = False
+    now = datetime.now()
+    
+    # 1. Get identifiers for the current state
+    week_identifier = f"{now.year}-{now.isocalendar().week}"
+    current_plan_hash = hashlib.sha256(user_data['plan'].encode()).hexdigest()
+    feedback_log = user_data.get('feedback_log', [])
+    # Use the ID of the latest feedback entry as a trigger
+    latest_feedback_id = feedback_log[0]['activity_id'] if feedback_log else None
+
+    if 'weekly_summaries' not in user_data:
+        user_data['weekly_summaries'] = {}
+
+    cached_summary_data = user_data['weekly_summaries'].get(week_identifier)
+
+    if not cached_summary_data:
+        print("CACHE: No summary found. Forcing refresh.")
+        force_refresh = True
+    else:
+        # Condition a) Check if the summary is more than 24 hours old.
+        cached_timestamp = datetime.fromisoformat(cached_summary_data.get('timestamp'))
+        if (now - cached_timestamp) > timedelta(hours=24):
+            print("CACHE: Summary is older than 24 hours. Forcing refresh.")
+            force_refresh = True
+        
+        # Condition b) Check if the plan has been updated.
+        elif cached_summary_data.get('plan_hash') != current_plan_hash:
+            print("CACHE: Plan has been updated. Forcing refresh.")
+            force_refresh = True
+        
+        # Condition c) Check if there is new feedback since the last summary.
+        elif cached_summary_data.get('last_feedback_id') != latest_feedback_id:
+            print("CACHE: New feedback has been added. Forcing refresh.")
+            force_refresh = True
+
+    if force_refresh:
+        print("CACHE: Generating new summary from AI.")
+        current_week_text = get_current_week_plan(user_data['plan'])
+        
+        with open('prompts/dashboard_prompt.txt', 'r') as f:
+            template = jinja2.Template(f.read())
+        
+        prompt = template.render(
+            today_date=now.strftime("%A, %B %d, %Y"),
+            athlete_goal=user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
+            training_plan=current_week_text,
+            # Pass the latest feedback markdown to the prompt
+            latest_feedback=feedback_log[0]['feedback_markdown'] if feedback_log else None
+        )
+        
+        weekly_summary = generate_content_from_prompt(prompt).strip()
+        
+        # Save the new summary and all its context for future checks.
+        user_data['weekly_summaries'][week_identifier] = {
+            'summary': weekly_summary,
+            'timestamp': now.isoformat(),
+            'plan_hash': current_plan_hash,
+            'last_feedback_id': latest_feedback_id
+        }
+        data_manager.save_user_data(athlete_id, user_data)
+    else:
+        print("CACHE: Using cached summary.")
+        weekly_summary = cached_summary_data['summary']
+        
+    return jsonify({'summary': weekly_summary})
+
+@app.route("/api/refresh-weekly-summary", methods=['POST'])
+@login_required
+def refresh_weekly_summary():
+    """Clears the cached weekly summary, forcing a regeneration on next load."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    today = datetime.now()
+    week_identifier = f"{today.year}-{today.isocalendar().week}"
+
+    if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+        del user_data['weekly_summaries'][week_identifier]
+        data_manager.save_user_data(athlete_id, user_data)
+        return jsonify({'status': 'success', 'message': 'Cache cleared.'})
+        
+    return jsonify({'status': 'no_op', 'message': 'No cache to clear.'})
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+
+    if not user_data or 'plan' not in user_data:
+        return redirect('/onboarding')
+
+    current_week_text = get_current_week_plan(user_data['plan'])
+    current_week_html = mistune.html(current_week_text)
+
+    chat_response_markdown = session.pop('chat_response', None)
+    chat_response_html = mistune.html(chat_response_markdown) if chat_response_markdown else None
+    
+    return render_template(
+        'dashboard.html', 
+        current_week_plan=current_week_html,
+        chat_response=chat_response_html
+    )
+
+@app.route("/chat", methods=['POST'])
+@login_required
+def chat():
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    user_message = request.form.get('user_message')
+
+    if not user_message:
+        return redirect('/dashboard')
+
+    # Load existing chat history or start a new one
+    chat_history = user_data.get('chat_log', [])
+
+    # Add the new user message to the history
+    chat_history.append({'role': 'user', 'content': user_message, 'timestamp': datetime.now().isoformat()})
+
+    # Prepare other context
+    training_plan = user_data.get('plan', 'No plan available.')
+    feedback_log = user_data.get('feedback_log', [])
+
+    # Generate the AI's response using the full history
+    with open('prompts/chat_prompt.txt', 'r') as f:
+        template = jinja2.Template(f.read())
+    
+    prompt = template.render(
+        training_plan=training_plan,
+        feedback_log_json=json.dumps(feedback_log, indent=2),
+        chat_history_json=json.dumps(chat_history, indent=2)
+    )
+
+    ai_response_markdown = generate_content_from_prompt(prompt).strip()
+
+    # Add the AI's response to the history
+    chat_history.append({'role': 'model', 'content': ai_response_markdown, 'timestamp': datetime.now().isoformat()})
+    user_data['chat_log'] = chat_history
+
+    # Check for and apply a new plan if the AI provided one
+    match = re.search(r"```markdown\n(.*?)```", ai_response_markdown, re.DOTALL)
+    if match:
+        new_plan_markdown = match.group(1).strip()
+        user_data['plan'] = new_plan_markdown
+        print(f"--- Plan for athlete {athlete_id} has been updated via chat! ---")
+        
+        # Invalidate the weekly summary cache
+        today = datetime.now()
+        week_identifier = f"{today.year}-{today.isocalendar().week}"
+        if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+            del user_data['weekly_summaries'][week_identifier]
+            print(f"--- Invalidated weekly summary cache for {week_identifier}. ---")
+
+    data_manager.save_user_data(athlete_id, user_data)
+
+    # IMPORTANT: Only store the LATEST response in the session for the dashboard to display
+    session['chat_response'] = ai_response_markdown
+
+    return redirect('/dashboard')
+
+@app.route("/api/get-feedback")
+@login_required
+def get_feedback_api():
     try:
-        if 'athlete_id' not in session:
-            return "You must be logged in.", 401
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         access_token = user_data.get('token', {}).get('access_token')
 
         if not access_token:
-            return 'Could not find your session data. Please <a href="/login">log in</a> again.'
+            return jsonify({'error': 'Authentication error'}), 401
 
         training_plan = user_data.get('plan')
         if not training_plan:
-            return 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
+            return jsonify({'message': 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'})
 
         if 'feedback_log' not in user_data:
             user_data['feedback_log'] = []
@@ -599,10 +881,11 @@ def feedback():
 
         if not new_activities_to_process:
             if feedback_log:
+            # No new activities, but there is old feedback to show
                 feedback_html = mistune.html(feedback_log[0]['feedback_markdown'])
-                return render_template('feedback.html', feedback_content=feedback_html)
+                return jsonify({'feedback_html': feedback_html}) # FIXED
             else:
-                return "No new activities to analyze in the last 7 days."
+                return jsonify({'message': "No new activities to analyze in the last 7 days."})
 
         new_activities_to_process.reverse()
         
@@ -620,7 +903,7 @@ def feedback():
             analyzed_sessions.append(analyzed_session)
 
         if not analyzed_sessions:
-            return "Found new activities, but could not analyze their details. Please try again."
+            return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
 
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
@@ -634,7 +917,6 @@ def feedback():
         feedback_markdown = response.text
 
         activity_names = [session['name'] for session in analyzed_sessions]
-        # --- Create a descriptive name for the feedback entry using the activity names and passing through to gemini if more than 1 activity, referencing prompts/summarize_activities_prompt.txt if there is only one activity use it's name ---
         if len(activity_names) == 1:
             descriptive_name = f"Feedback for: {activity_names[0]}"
         else:
@@ -647,14 +929,14 @@ def feedback():
         all_activity_ids = [s['id'] for s in analyzed_sessions]
 
         new_log_entry = {
-            "activity_id": int(analyzed_sessions[0]['id']), # Use first ID for linking
+            "activity_id": int(analyzed_sessions[0]['id']),
             "activity_name": descriptive_name,
             "activity_date": (lambda raw=analyzed_sessions[0].get('start_date', ''): (
                 (lambda dp, tp: f"{dp.split('-')[2]}-{dp.split('-')[1]}-{dp.split('-')[0]} {tp.split('.')[0]}")(*raw.rstrip('Z').split('T'))
                 if 'T' in raw.rstrip('Z') else raw
             ))(),
             "feedback_markdown": feedback_markdown,
-            "logged_activity_ids": all_activity_ids # Store all IDs
+            "logged_activity_ids": all_activity_ids
         }
         
         feedback_log.insert(0, new_log_entry)
@@ -663,30 +945,32 @@ def feedback():
         if match:
             new_plan_markdown = match.group(1).strip()
             user_data['plan'] = new_plan_markdown
-            print(f"--- Plan for athlete {athlete_id} has been updated! ---")
         
         data_manager.save_user_data(athlete_id, user_data)
 
         feedback_html = mistune.html(feedback_markdown)
-        return render_template('feedback.html', feedback_content=feedback_html)
+        return jsonify({'feedback_html': feedback_html})
 
     except Exception as e:
-        return f"An error occurred during feedback generation: {e}", 500
+        return jsonify({'error': f"An error occurred: {e}"}), 500
+    
+@app.route("/feedback")
+@login_required
+def feedback():
+    """Renders the loading page for feedback generation."""
+    return render_template('feedback.html')
     
 @app.route("/log")
+@login_required
 def coaching_log():
-    if 'athlete_id' not in session:
-        return "You must be logged in to view your log.", 401
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
     return render_template('coaching_log.html', log_entries=feedback_log)
 
 @app.route("/delete_data")
+@login_required
 def delete_data():
-    if 'athlete_id' not in session:
-        return "You must be logged in to delete your data.", 401
-    
     athlete_id = session['athlete_id']
     
     # Call the data manager to delete the user's record
@@ -699,9 +983,8 @@ def delete_data():
     return redirect("/")
 
 @app.route("/feedback/<int:activity_id>")
+@login_required
 def view_specific_feedback(activity_id):
-    if 'athlete_id' not in session:
-        return "You must be logged in.", 401
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
@@ -710,6 +993,37 @@ def view_specific_feedback(activity_id):
             feedback_html = mistune.html(entry['feedback_markdown'])
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
     return "Feedback for that activity could not be found.", 404
+
+@app.route("/chat_log")
+@login_required
+def chat_log_list():
+    """Displays a list of all chat conversations."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    chat_history = user_data.get('chat_log', [])
+    
+    # We can group messages by conversation later if we add that logic.
+    # For now, we'll just show the whole log.
+    return render_template('chat_log.html', chat_history=chat_history)
+
+@app.route("/clear_chat", methods=['POST'])
+@login_required
+def clear_chat():
+    """Permanently deletes all chat history (active and archived)."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    # Delete both the active log and the archive
+    if 'chat_log' in user_data:
+        del user_data['chat_log']
+    if 'chat_archive' in user_data:
+        del user_data['chat_archive']
+        
+    data_manager.save_user_data(athlete_id, user_data)
+    flash("Your chat history has been permanently deleted.")
+        
+    # Redirect back to the page the user came from (dashboard or chat_log)
+    return redirect(request.referrer or url_for('dashboard'))
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
