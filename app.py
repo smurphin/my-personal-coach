@@ -787,15 +787,17 @@ def dashboard():
     current_week_text = get_current_week_plan(user_data['plan'])
     current_week_html = mistune.html(current_week_text)
 
+    # Pop the user message and chat response from the session
+    user_message = session.pop('user_message', None)
     chat_response_markdown = session.pop('chat_response', None)
     chat_response_html = mistune.html(chat_response_markdown) if chat_response_markdown else None
-    
+
     return render_template(
-        'dashboard.html', 
+        'dashboard.html',
         current_week_plan=current_week_html,
+        user_message=user_message,
         chat_response=chat_response_html
     )
-
 @app.route("/chat", methods=['POST'])
 @login_required
 def chat():
@@ -819,7 +821,7 @@ def chat():
     # Generate the AI's response using the full history
     with open('prompts/chat_prompt.txt', 'r') as f:
         template = jinja2.Template(f.read())
-    
+
     prompt = template.render(
         training_plan=training_plan,
         feedback_log_json=json.dumps(feedback_log, indent=2),
@@ -838,7 +840,7 @@ def chat():
         new_plan_markdown = match.group(1).strip()
         user_data['plan'] = new_plan_markdown
         print(f"--- Plan for athlete {athlete_id} has been updated via chat! ---")
-        
+
         # Invalidate the weekly summary cache
         today = datetime.now()
         week_identifier = f"{today.year}-{today.isocalendar().week}"
@@ -848,7 +850,8 @@ def chat():
 
     data_manager.save_user_data(athlete_id, user_data)
 
-    # IMPORTANT: Only store the LATEST response in the session for the dashboard to display
+    # Store the user's message and the AI's response in the session
+    session['user_message'] = user_message
     session['chat_response'] = ai_response_markdown
 
     return redirect('/dashboard')
@@ -1007,9 +1010,12 @@ def chat_log_list():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     chat_history = user_data.get('chat_log', [])
-    
-    # We can group messages by conversation later if we add that logic.
-    # For now, we'll just show the whole log.
+
+    # Convert markdown to HTML for each message in the chat history
+    for message in chat_history:
+        if message['role'] == 'model':
+            message['content'] = mistune.html(message['content'])
+
     return render_template('chat_log.html', chat_history=chat_history)
 
 @app.route("/clear_chat", methods=['POST'])

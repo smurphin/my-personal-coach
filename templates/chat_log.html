@@ -11,7 +11,7 @@
 <div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
     {% if chat_history %}
         <div class="space-y-6">
-            {% for message in chat_history %}
+            {% for message in chat_history | reverse %}
                 {% if message.role == 'user' %}
                     <div class="text-right">
                         <p class="text-xs text-gray-400 mb-1">You said:</p>
