@@ -16,6 +16,8 @@ from vertexai.generative_models import GenerativeModel
 import functools
 import hashlib
 
+ai_model = "gemini-2.5-flash"
+
 print("!!!!!!!!!! SERVER IS RELOADING RIGHT NOW !!!!!!!!!!")
 
 # Load environment variables from .env file for local development
@@ -81,7 +83,7 @@ GCP_LOCATION = "europe-west1"
 
 # --- Initialize Vertex AI ---
 vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
-model = GenerativeModel(model_name="gemini-2.5-pro")
+model = GenerativeModel(model_name=ai_model)
 
 # --- Helper & Analysis Functions ---
 
@@ -251,8 +253,9 @@ def get_current_week_plan(plan_text):
     in_current_week = False
 
     for line in lines:
-        # This is the key change: strip leading whitespace, then optional markdown characters, then whitespace again.
-        clean_line = line.strip().lstrip('#').lstrip('*').strip()
+        # This is the key change: strip leading whitespace and any leading markdown markers
+        # Remove only leading whitespace and any leading '*' or '#' characters, preserving internal spaces
+        clean_line = re.sub(r'^[\s\*\#]+', '', line)
         
         # Now check if the cleaned line looks like a week header
         if clean_line.lower().startswith('week ') and ':' in clean_line:
@@ -685,7 +688,6 @@ def weekly_summary_api():
     if not user_data or 'plan' not in user_data:
         return jsonify({"error": "Plan not found"}), 404
 
-    # --- New Smart Caching Logic ---
     force_refresh = False
     now = datetime.now()
     
@@ -693,7 +695,10 @@ def weekly_summary_api():
     week_identifier = f"{now.year}-{now.isocalendar().week}"
     current_plan_hash = hashlib.sha256(user_data['plan'].encode()).hexdigest()
     feedback_log = user_data.get('feedback_log', [])
-    # Use the ID of the latest feedback entry as a trigger
+    chat_log = user_data.get('chat_log', [])
+    
+    # Use the timestamp of the latest chat message as a trigger
+    latest_chat_timestamp = chat_log[-1]['timestamp'] if chat_log else None
     latest_feedback_id = feedback_log[0]['activity_id'] if feedback_log else None
 
     if 'weekly_summaries' not in user_data:
@@ -705,20 +710,19 @@ def weekly_summary_api():
         print("CACHE: No summary found. Forcing refresh.")
         force_refresh = True
     else:
-        # Condition a) Check if the summary is more than 24 hours old.
         cached_timestamp = datetime.fromisoformat(cached_summary_data.get('timestamp'))
         if (now - cached_timestamp) > timedelta(hours=24):
             print("CACHE: Summary is older than 24 hours. Forcing refresh.")
             force_refresh = True
-        
-        # Condition b) Check if the plan has been updated.
         elif cached_summary_data.get('plan_hash') != current_plan_hash:
             print("CACHE: Plan has been updated. Forcing refresh.")
             force_refresh = True
-        
-        # Condition c) Check if there is new feedback since the last summary.
         elif cached_summary_data.get('last_feedback_id') != latest_feedback_id:
             print("CACHE: New feedback has been added. Forcing refresh.")
+            force_refresh = True
+        # NEW CONDITION: Check if a new chat message has been added
+        elif cached_summary_data.get('last_chat_timestamp') != latest_chat_timestamp:
+            print("CACHE: New chat message has been added. Forcing refresh.")
             force_refresh = True
 
     if force_refresh:
@@ -732,18 +736,20 @@ def weekly_summary_api():
             today_date=now.strftime("%A, %B %d, %Y"),
             athlete_goal=user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
             training_plan=current_week_text,
-            # Pass the latest feedback markdown to the prompt
-            latest_feedback=feedback_log[0]['feedback_markdown'] if feedback_log else None
+            latest_feedback=feedback_log[0]['feedback_markdown'] if feedback_log else None,
+            # Pass the chat history to the prompt
+            chat_history=json.dumps(chat_log, indent=2) if chat_log else None
         )
         
         weekly_summary = generate_content_from_prompt(prompt).strip()
         
-        # Save the new summary and all its context for future checks.
+        # Save the new summary and all its context for future checks
         user_data['weekly_summaries'][week_identifier] = {
             'summary': weekly_summary,
             'timestamp': now.isoformat(),
             'plan_hash': current_plan_hash,
-            'last_feedback_id': latest_feedback_id
+            'last_feedback_id': latest_feedback_id,
+            'last_chat_timestamp': latest_chat_timestamp
         }
         data_manager.save_user_data(athlete_id, user_data)
     else:
