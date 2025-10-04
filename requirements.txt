@@ -1,10 +1,11 @@
 # requirements.txt
 flask
 markupsafe
-mistune
+markdown
 requests
 python-dotenv
 google-cloud-aiplatform
 gunicorn
 boto3
 garminconnect
+cryptography

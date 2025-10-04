@@ -3,7 +3,7 @@ import requests
 import json
 from flask import Flask, request, redirect, render_template, session, flash, jsonify, url_for
 from markupsafe import Markup
-import mistune
+from markdown_manager import render_markdown_with_toc
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 import jinja2
@@ -16,6 +16,7 @@ from vertexai.generative_models import GenerativeModel
 import functools
 import hashlib
 from garmin_manager import GarminManager
+from crypto_manager import encrypt, decrypt
 
 ai_model = "gemini-2.5-flash"
 
@@ -51,6 +52,7 @@ if os.getenv('FLASK_ENV') == 'production':
         os.environ['STRAVA_VERIFY_TOKEN'] = secrets.get('STRAVA_VERIFY_TOKEN')
         os.environ['FLASK_SECRET_KEY'] = secrets.get('FLASK_SECRET_KEY')
         os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+        os.environ['GARMIN_ENCRYPTION_KEY'] = secrets.get('GARMIN_ENCRYPTION_KEY')
 
         # Create a temporary file for Google credentials
         with open("/tmp/gcp_creds.json", "w") as f:
@@ -242,62 +244,101 @@ def generate_content_from_prompt(prompt_text, **kwargs):
         print(f"Error generating content from prompt: {e}")
         return ""
 
-def get_current_week_plan(plan_text):
+def get_current_week_plan(plan_text, plan_structure=None):
     """
-    Parses the training plan to find the current week's sessions based on today's date.
-    This version iterates line-by-line and handles markdown headers.
+    Finds and returns the markdown for the current or closest upcoming week's plan.
+    It prioritizes the structured JSON data for reliability and speed, falling back
+    to a robust regex-based parser for legacy plans.
     """
     today = datetime.now().date()
+
+    # --- METHOD 1: Use the reliable structured JSON data (for new plans) ---
+    if plan_structure and 'weeks' in plan_structure:
+        print("--- Finding current week using structured JSON. ---")
+        found_week_title = None
+        closest_upcoming_title = None
+        min_future_delta = timedelta(days=999)
+
+        for week in plan_structure.get('weeks', []):
+            try:
+                start_date = datetime.strptime(week['start_date'], '%Y-%m-%d').date()
+                end_date = datetime.strptime(week['end_date'], '%Y-%m-%d').date()
+
+                if start_date <= today <= end_date:
+                    found_week_title = week['title']
+                    break
+                elif start_date > today:
+                    delta = start_date - today
+                    if delta < min_future_delta:
+                        min_future_delta = delta
+                        closest_upcoming_title = week['title']
+            except (ValueError, KeyError):
+                continue
+        
+        week_title_to_find = found_week_title or closest_upcoming_title
+        
+        if week_title_to_find:
+            # Clean the title from the markdown for a reliable comparison
+            clean_title = re.escape(week_title_to_find.replace('*','').strip())
+            
+            # Split the plan by '###' headers and find the matching section
+            sections = re.split(r'(?=###\s)', plan_text, flags=re.IGNORECASE)
+            for section in sections:
+                if re.search(clean_title, section, re.IGNORECASE):
+                    return section
+
+    # --- METHOD 2: Fallback to robust regex parsing (for legacy plans) ---
+    print("--- No structured JSON found. Falling back to legacy regex parsing. ---")
     lines = plan_text.splitlines()
     
-    current_week_lines = []
-    in_current_week = False
+    all_weeks = []
+    for i, line in enumerate(lines):
+        is_header = line.strip().startswith('###') or line.strip().startswith('**Week')
+        if not is_header:
+            continue
 
-    for line in lines:
-        # This is the key change: strip leading whitespace and any leading markdown markers
-        # Remove only leading whitespace and any leading '*' or '#' characters, preserving internal spaces
-        clean_line = re.sub(r'^[ \t]*[#*]*[ \t]*', '', line)
-        
-        # Now check if the cleaned line looks like a week header
-        if clean_line.lower().startswith('week ') and ':' in clean_line:
-            
-            # If we were already capturing the correct week, we've now hit the next one, so we can stop.
-            if in_current_week:
-                break
-            
-            # Reset state and check if THIS is the correct week
-            in_current_week = False
-            current_week_lines = []
-            
-            date_range_match = re.search(r'(\w+\s\d{1,2})[a-z]{2}\s*-\s*(\w+\s\d{1,2})[a-z]{2}', line)
-            if date_range_match:
+        date_range_match = re.search(r'(\w+\s\d{1,2})[a-z]{2}\s*-\s*(\w+\s\d{1,2})[a-z]{2}', line)
+        if date_range_match:
+            start_str, end_str = date_range_match.groups()
+            for date_format in ["%B %d %Y", "%b %d %Y"]:
                 try:
-                    start_str, end_str = date_range_match.groups()
+                    start_date = datetime.strptime(f"{start_str} {today.year}", date_format).date()
+                    end_date = datetime.strptime(f"{end_str} {today.year}", date_format).date()
+                    if start_date.month > end_date.month:
+                        if today.month < start_date.month: start_date = start_date.replace(year=today.year - 1)
+                        else: end_date = end_date.replace(year=today.year + 1)
                     
-                    start_date = datetime.strptime(f"{start_str} {today.year}", "%b %d %Y").date()
-                    end_date = datetime.strptime(f"{end_str} {today.year}", "%b %d %Y").date()
-
-                    # Handle year rollover
-                    if start_date.month > end_date.month and today.month < start_date.month:
-                        start_date = start_date.replace(year=today.year - 1)
-                    elif start_date.month > end_date.month and today.month >= start_date.month:
-                        end_date = end_date.replace(year=today.year + 1)
-
-                    if start_date <= today <= end_date:
-                        in_current_week = True
-                        
+                    all_weeks.append({'start_date': start_date, 'end_date': end_date, 'index': i})
+                    break 
                 except ValueError:
-                    # Couldn't parse dates from this line, so it's not a valid week header.
-                    pass
-        
-        # If we are in the correct week, add the current line to our list
-        if in_current_week:
-            current_week_lines.append(line)
+                    continue
+    
+    current_week = None
+    closest_upcoming_week = None
+    min_future_delta = timedelta(days=999)
 
-    if current_week_lines:
-        return "\n".join(current_week_lines)
-        
-    return "Could not determine the current training week from your plan."
+    for week in all_weeks:
+        if week['start_date'] <= today <= week['end_date']:
+            current_week = week
+            break
+        elif week['start_date'] > today:
+            delta = week['start_date'] - today
+            if delta < min_future_delta:
+                min_future_delta = delta
+                closest_upcoming_week = week
+
+    week_to_display = current_week or closest_upcoming_week
+    
+    if week_to_display:
+        start_index = week_to_display['index']
+        end_index = len(lines)
+        for i in range(start_index + 1, len(lines)):
+            if lines[i].strip().startswith('###') or lines[i].strip().startswith('**Week'):
+                end_index = i
+                break
+        return "\n".join(lines[start_index:end_index])
+
+    return "Could not determine the current or upcoming training week from your plan."
 
 def get_latest_garmin_data(user_data):
     """
@@ -309,20 +350,25 @@ def get_latest_garmin_data(user_data):
 
     try:
         email = user_data['garmin_credentials']['email']
-        password = user_data['garmin_credentials']['password']
+        encrypted_password = user_data['garmin_credentials']['password']
+
+        # --- DECRYPT THE PASSWORD FOR USE ---
+        password = decrypt(encrypted_password)
         
+        # If decryption fails for any reason, stop.
+        if not password:
+            print("Could not decrypt Garmin password. Aborting fetch.")
+            return None
+
         garmin_manager = GarminManager(email, password)
         if garmin_manager.login():
             yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
             
-            # Initialize history if it doesn't exist
             if 'garmin_history' not in user_data:
                 user_data['garmin_history'] = {}
 
-            # Fetch new data
             health_stats = garmin_manager.get_health_stats(yesterday_iso)
             
-            # If we got data, save it to history
             if health_stats:
                 user_data['garmin_history'][yesterday_iso] = health_stats
                 print(f"--- Successfully fetched and saved Garmin data for {yesterday_iso}. ---")
@@ -534,9 +580,13 @@ def garmin_login():
 
     garmin_manager = GarminManager(email, password)
     if garmin_manager.login():
-        user_data['garmin_credentials'] = {'email': email, 'password': password}
+        # --- ENCRYPT THE PASSWORD BEFORE SAVING ---
+        user_data['garmin_credentials'] = {
+            'email': email,
+            'password': encrypt(password)
+        }  
         
-        # --- FIX: Invalidate the weekly summary cache after connecting Garmin ---
+        # Invalidate the weekly summary cache
         today = datetime.now()
         week_identifier = f"{today.year}-{today.isocalendar().week}"
         if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
@@ -577,31 +627,43 @@ def garmin_disconnect():
 @login_required
 def garmin_summary_api():
     """
-    API endpoint that returns the latest Garmin data, prioritizing fresh data
-    but falling back to the most recent historical data.
+    API endpoint that returns the latest Garmin data, prioritizing cached data
+    to avoid hitting API rate limits.
     """
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
 
-    # 1. Attempt to fetch and save fresh data for yesterday
+    # --- NEW CACHE-FIRST LOGIC ---
+
+    # 1. Define our target date (yesterday)
+    yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
+
+    # 2. Check if we already have valid data for yesterday in our history
+    if 'garmin_history' in user_data and yesterday_iso in user_data['garmin_history']:
+        print(f"GARMIN API: Returning cached data for {yesterday_iso}.")
+        return jsonify(user_data['garmin_history'][yesterday_iso])
+
+    # 3. If no data for yesterday, THEN attempt to fetch it
+    print(f"GARMIN API: No cached data for {yesterday_iso}. Attempting to fetch fresh data.")
     fresh_data = get_latest_garmin_data(user_data)
-    data_manager.save_user_data(athlete_id, user_data) # Save any new data we might have fetched
+    
+    # After the fetch attempt, save any potential updates (the helper function adds to history)
+    data_manager.save_user_data(athlete_id, user_data)
 
     if fresh_data:
-        print("GARMIN API: Returning fresh data.")
+        print("GARMIN API: Fresh data fetched successfully. Returning it now.")
         return jsonify(fresh_data)
 
-    # 2. If fresh fetch fails, try to return the most recent historical data
+    # 4. If the fresh fetch fails, fall back to the most recent data we have in history
     if user_data.get('garmin_history'):
-        print("GARMIN API: Fresh fetch failed. Returning most recent from history.")
-        # Sort keys to find the most recent date
+        print("GARMIN API: Fresh fetch failed. Returning most recent data from history.")
         most_recent_date = sorted(user_data['garmin_history'].keys())[-1]
         return jsonify(user_data['garmin_history'][most_recent_date])
 
-    # 3. If there's no fresh data and no history, then there's a problem
+    # 5. If there's no history and the fetch failed, return an error
     print("GARMIN API: No fresh or historical data available.")
-    return jsonify({"error": "Could not fetch Garmin data. Please check your credentials or try again later."}), 500
-
+    return jsonify({"error": "Could not fetch Garmin data. Please connect your account or try again later."}), 500
+    
 @app.route("/plan")
 @login_required
 def view_plan():
@@ -610,9 +672,16 @@ def view_plan():
         user_data = data_manager.load_user_data(athlete_id)
         if not user_data or 'plan' not in user_data:
             return 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
+        
         plan_text = user_data['plan']
-        plan_html = mistune.html(plan_text)
-        return render_template('plan.html', plan_content=plan_html)
+        
+        rendered_plan = render_markdown_with_toc(plan_text)
+        
+        return render_template(
+            'plan.html', 
+            plan_content=rendered_plan['content'],
+            plan_toc=rendered_plan['toc']
+        )
     except Exception as e:
         return f"An error occurred while retrieving the plan: {e}", 500
 
@@ -696,18 +765,19 @@ def callback():
 def onboarding():
     return render_template("onboarding.html")
 
+# In app.py, REPLACE the existing 'generate_plan' function
+
 @app.route("/generate_plan", methods=['POST'])
 @login_required
 def generate_plan():
     try:
         athlete_id = session['athlete_id']
-
         user_data = data_manager.load_user_data(athlete_id)
         if not user_data or 'token' not in user_data:
             return 'Could not find your session data. Please <a href="/login">log in</a> again.'
 
-        if 'plan' in user_data and 'feedback_log' in user_data:
-            # This logic for summarizing and archiving a previous plan remains the same.
+        if 'plan' in user_data and user_data.get('plan'): # Check if plan is not empty
+            if 'feedback_log' not in user_data: user_data['feedback_log'] = []
             print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
             with open('prompts/summarize_prompt.txt', 'r') as f:
                 template = jinja2.Template(f.read())
@@ -720,11 +790,11 @@ def generate_plan():
             training_history = user_data.get('training_history', [])
             training_history.insert(0, {"summary": summary_text})
             user_data['training_history'] = training_history
-            if 'archive' not in user_data:
-                user_data['archive'] = []
+            if 'archive' not in user_data: user_data['archive'] = []
             user_data['archive'].insert(0, {'plan': user_data['plan'], 'feedback_log': user_data['feedback_log']})
             del user_data['plan']
-            del user_data['feedback_log']
+            if 'feedback_log' in user_data: del user_data['feedback_log']
+            if 'plan_structure' in user_data: del user_data['plan_structure']
         
         user_goal = request.form.get('user_goal')
         user_sessions_per_week = int(request.form.get('sessions_per_week'))
@@ -779,16 +849,31 @@ def generate_plan():
         
         print("--- Generating content from Gemini ---")
         response = model.generate_content(prompt)
-        plan_text = response.text
+        # --- THIS IS THE CRITICAL LINE THAT WAS MISSING ---
+        ai_response_text = response.text
 
-        user_data['plan'] = plan_text
+        plan_structure = None
+        plan_markdown = ai_response_text
+
+        json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
+        if json_match:
+            json_string = json_match.group(1).strip()
+            try:
+                plan_structure = json.loads(json_string)
+                plan_markdown = ai_response_text[:json_match.start()].strip()
+                print(f"--- Successfully parsed plan structure from AI response. ---")
+            except json.JSONDecodeError as e:
+                print(f"--- ERROR: Could not decode JSON from AI response: {e} ---")
+                plan_structure = None
+        else:
+            print("--- WARNING: No plan structure JSON block found in AI response. ---")
+
+        user_data['plan'] = plan_markdown
+        user_data['plan_structure'] = plan_structure
         user_data['plan_data'] = final_data_for_ai
         
-        print(f"--- APP: About to save plan for athlete {athlete_id}. Plan length: {len(plan_text)} chars.")
         data_manager.save_user_data(athlete_id, user_data)
-        print(f"--- APP: Save operation completed.")
-
-        # VERIFICATION STEP: Immediately reload the data from DynamoDB
+        
         print(f"--- APP: Verifying save operation by reloading data...")
         verified_user_data = data_manager.load_user_data(athlete_id)
         
@@ -796,13 +881,15 @@ def generate_plan():
             print(f"--- APP: SUCCESS! Reloaded data contains the plan.")
         else:
             print(f"--- APP: FAILURE! Reloaded data does NOT contain the plan.")
-            # Optionally return an error here to make it obvious
             return "Error: The plan was generated but could not be saved to the database. Please check the logs.", 500
 
-        plan_html = mistune.html(plan_text)
-        return render_template('plan.html', plan_content=plan_html)
+        rendered_plan = render_markdown_with_toc(plan_markdown)
+        return render_template('plan.html', plan_content=rendered_plan['content'], plan_toc=rendered_plan['toc'])
     
     except Exception as e:
+        # Include the original error in the response for better debugging
+        import traceback
+        traceback.print_exc()
         return f"An error occurred during plan generation: {e}", 500
 
 @app.route("/api/weekly-summary")
@@ -915,13 +1002,14 @@ def dashboard():
     if not user_data or 'plan' not in user_data:
         return redirect('/onboarding')
 
-    current_week_text = get_current_week_plan(user_data['plan'])
-    current_week_html = mistune.html(current_week_text)
+    current_week_text = get_current_week_plan(user_data['plan'], user_data.get('plan_structure'))
+    current_week_html = render_markdown_with_toc(current_week_text)['content']
+
 
     # Pop the user message and chat response from the session
     user_message = session.pop('user_message', None)
     chat_response_markdown = session.pop('chat_response', None)
-    chat_response_html = mistune.html(chat_response_markdown) if chat_response_markdown else None
+    chat_response_html = render_markdown_with_toc(chat_response_markdown)['content'] if chat_response_markdown else None
 
     return render_template(
         'dashboard.html',
@@ -1044,7 +1132,6 @@ def get_feedback_api():
         if not analyzed_sessions:
             return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
 
-        # --- THIS IS THE CORRECTED BLOCK ---
         garmin_data_for_activity = None
         if 'garmin_credentials' in user_data:
             first_activity_date_iso = datetime.fromisoformat(analyzed_sessions[0]['start_date'].replace('Z', '')).date().isoformat()
@@ -1065,7 +1152,6 @@ def get_feedback_api():
                             data_manager.save_user_data(athlete_id, user_data)
                 except Exception as e: # The required 'except'
                     print(f"Could not fetch Garmin data for feedback: {e}")
-        # --- END OF CORRECTED BLOCK ---
 
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
@@ -1111,7 +1197,7 @@ def get_feedback_api():
         
         data_manager.save_user_data(athlete_id, user_data)
 
-        feedback_html = mistune.html(feedback_markdown)
+        feedback_html = render_markdown_with_toc(feedback_markdown)['content']
         return jsonify({'feedback_html': feedback_html})
 
     except Exception as e:
@@ -1153,7 +1239,7 @@ def view_specific_feedback(activity_id):
     feedback_log = user_data.get('feedback_log', [])
     for entry in feedback_log:
         if entry.get('activity_id') == activity_id:
-            feedback_html = mistune.html(entry['feedback_markdown'])
+            feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
     return "Feedback for that activity could not be found.", 404
 
@@ -1168,7 +1254,7 @@ def chat_log_list():
     # Convert markdown to HTML for each message in the chat history
     for message in chat_history:
         if message['role'] == 'model':
-            message['content'] = mistune.html(message['content'])
+            message['content'] = render_markdown_with_toc(message['content'])['content']
 
     return render_template('chat_log.html', chat_history=chat_history)
 

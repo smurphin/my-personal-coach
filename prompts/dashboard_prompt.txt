@@ -10,7 +10,7 @@ Your task is to provide a very brief, single-paragraph summary for the athlete's
 
 **CONTEXT:**
 - The week starts on Monday.
-- Today's date is {{ today_date }}.
+- Today's date is {{ today_date }}.  Sessions may not be prescribed for particular days depending on the athlete's type (disciplinarian, improviser, minimalist )
 - The athlete's primary goal is: {{ athlete_goal }}
 
 **LATEST FEEDBACK:**

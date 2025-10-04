@@ -21,7 +21,7 @@
             <form action="/generate_plan" method="post" class="space-y-6" onsubmit="showSpinner()">
                 <div>
                     <label for="user_goal" class="block text-sm font-medium text-brand-light-gray mb-1">What is your primary goal?</label>
-                    <textarea id="user_goal" name="user_goal" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30">{{ request.form.get('user_goal', 'Run a sub 40 minute 10k at the beginning of November') }}</textarea>
+                    <textarea id="user_goal" name="user_goal" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30">{{ request.form.get('user_goal', 'Run a sub 40 minute 10k at Regents park 10k on 29th November') }}</textarea>
                 </div>
 
                 <div>
@@ -36,7 +36,7 @@
 
                 <div>
                     <label for="lifestyle_context" class="block text-sm font-medium text-brand-light-gray mb-1">Is there any other context about your lifestyle or schedule the coach should know?</label>
-                    <textarea id="lifestyle_context" name="lifestyle_context" rows="4" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Mention shift work, recurring travel, or other commitments...">{{ request.form.get('lifestyle_context', "I have childcare every other week, so my available training time alternates between 5 hours on off weeks and 8 hours on on weeks this is my off week. Time trials must be planned during an on week as I have the weekend free. I try to go to my running club every Tuesday evening, this is generally a social recovery run of around 1 hour, I'm keen to keep this as the social connection is important to me. Id like to do a parkrun and use this as a timetrial on Saturday 4th October    I have a busy week at work 6th - 10th October especially tuesday 7th until thursday 9th so will struggle to fit anything too time consuiming in that week, quality over quantity will be more achievable") }}</textarea>
+                    <textarea id="lifestyle_context" name="lifestyle_context" rows="4" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Mention shift work, recurring travel, or other commitments...">{{ request.form.get('lifestyle_context', "I have childcare every other week, so my available training time alternates between 5 hours on off weeks and 8 hours on on weeks this is my on week. Time trials must be planned during an on week as I have the weekend free. I try to go to my running club every Tuesday evening, this is generally a social recovery run of around 1 hour, I'm keen to keep this as the social connection is important to me. Id like to do a parkrun and use this as a timetrial on Saturday 4th October    I have a busy week at work 6th - 10th October especially tuesday 7th until thursday 9th so will struggle to fit anything too time consuiming in that week, quality over quantity will be more achievable") }}</textarea>
                 </div>
 
                 <div>
