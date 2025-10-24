@@ -627,43 +627,133 @@ def garmin_disconnect():
 @login_required
 def garmin_summary_api():
     """
-    API endpoint that returns the latest Garmin data, prioritizing cached data
-    to avoid hitting API rate limits.
+    API endpoint that returns Garmin health data with trends.
+    Uses aggressive caching to respect API rate limits.
+    Only fetches fresh data once per day.
     """
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
 
-    # --- NEW CACHE-FIRST LOGIC ---
+    if 'garmin_credentials' not in user_data:
+        return jsonify({"error": "No Garmin connection found"}), 404
 
-    # 1. Define our target date (yesterday)
-    yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
-
-    # 2. Check if we already have valid data for yesterday in our history
-    if 'garmin_history' in user_data and yesterday_iso in user_data['garmin_history']:
-        print(f"GARMIN API: Returning cached data for {yesterday_iso}.")
-        return jsonify(user_data['garmin_history'][yesterday_iso])
-
-    # 3. If no data for yesterday, THEN attempt to fetch it
-    print(f"GARMIN API: No cached data for {yesterday_iso}. Attempting to fetch fresh data.")
-    fresh_data = get_latest_garmin_data(user_data)
+    today_iso = date.today().isoformat()
     
-    # After the fetch attempt, save any potential updates (the helper function adds to history)
-    data_manager.save_user_data(athlete_id, user_data)
-
-    if fresh_data:
-        print("GARMIN API: Fresh data fetched successfully. Returning it now.")
-        return jsonify(fresh_data)
-
-    # 4. If the fresh fetch fails, fall back to the most recent data we have in history
-    if user_data.get('garmin_history'):
-        print("GARMIN API: Fresh fetch failed. Returning most recent data from history.")
-        most_recent_date = sorted(user_data['garmin_history'].keys())[-1]
-        return jsonify(user_data['garmin_history'][most_recent_date])
-
-    # 5. If there's no history and the fetch failed, return an error
-    print("GARMIN API: No fresh or historical data available.")
-    return jsonify({"error": "Could not fetch Garmin data. Please connect your account or try again later."}), 500
+    # Check if we have today's cache
+    garmin_cache = user_data.get('garmin_cache', {})
+    cache_date = garmin_cache.get('last_fetch_date')
     
+    # Use cache if it's from today
+    if cache_date == today_iso and 'metrics_timeline' in garmin_cache:
+        print(f"GARMIN CACHE: Using cached data from {cache_date}")
+        return jsonify({
+            "today": garmin_cache['today_metrics'],
+            "trend_data": garmin_cache['metrics_timeline'],
+            "readiness_score": garmin_cache['readiness_score'],
+            "status": "success",
+            "cached": True
+        })
+    
+    # Cache miss or stale - fetch fresh data
+    print(f"GARMIN CACHE: Fetching fresh data (last fetch: {cache_date})")
+    
+    try:
+        email = user_data['garmin_credentials']['email']
+        encrypted_password = user_data['garmin_credentials']['password']
+        password = decrypt(encrypted_password)
+        
+        if not password:
+            return jsonify({"error": "Could not decrypt Garmin password"}), 500
+
+        garmin_manager = GarminManager(email, password)
+        if not garmin_manager.login():
+            return jsonify({"error": "Could not connect to Garmin"}), 500
+
+        # Fetch 14 days of data
+        stats_range = garmin_manager.get_health_stats_range(days=14)
+        
+        if not stats_range:
+            return jsonify({"error": "Could not fetch Garmin data"}), 500
+
+        # Extract key metrics for each day
+        metrics_timeline = [garmin_manager.extract_key_metrics(day) for day in stats_range]
+        
+        # Calculate readiness score
+        readiness_score = garmin_manager.calculate_readiness_score(metrics_timeline)
+        
+        # Get today's metrics
+        today_metrics = metrics_timeline[-1] if metrics_timeline else None
+
+        # Save to garmin_history (keep last 30 days for long-term trends)
+        if 'garmin_history' not in user_data:
+            user_data['garmin_history'] = {}
+        
+        for day_stats in stats_range:
+            day_date = day_stats.get('fetch_date')
+            if day_date:
+                user_data['garmin_history'][day_date] = day_stats
+        
+        # Cleanup old history (keep only last 30 days)
+        cutoff_date = (date.today() - timedelta(days=30)).isoformat()
+        user_data['garmin_history'] = {
+            k: v for k, v in user_data['garmin_history'].items() 
+            if k >= cutoff_date
+        }
+        
+        # Update cache with today's fetch
+        user_data['garmin_cache'] = {
+            'last_fetch_date': today_iso,
+            'today_metrics': today_metrics,
+            'metrics_timeline': metrics_timeline,
+            'readiness_score': readiness_score
+        }
+        
+        data_manager.save_user_data(athlete_id, user_data)
+        print(f"GARMIN CACHE: Fresh data cached for {today_iso}")
+
+        return jsonify({
+            "today": today_metrics,
+            "trend_data": metrics_timeline,
+            "readiness_score": readiness_score,
+            "status": "success",
+            "cached": False
+        })
+
+    except Exception as e:
+        print(f"Error in Garmin API: {e}")
+        
+        # If fetch fails but we have recent cache, return it with warning
+        if cache_date and 'metrics_timeline' in garmin_cache:
+            print(f"GARMIN CACHE: Fetch failed, returning stale cache from {cache_date}")
+            return jsonify({
+                "today": garmin_cache['today_metrics'],
+                "trend_data": garmin_cache['metrics_timeline'],
+                "readiness_score": garmin_cache['readiness_score'],
+                "status": "success",
+                "cached": True,
+                "warning": f"Using cached data from {cache_date}"
+            })
+        
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/api/garmin-refresh", methods=['POST'])
+@login_required
+def garmin_refresh():
+    """
+    Allows user to manually refresh Garmin data.
+    Use sparingly to avoid rate limits.
+    """
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    # Clear the cache to force fresh fetch
+    if 'garmin_cache' in user_data:
+        del user_data['garmin_cache']
+        data_manager.save_user_data(athlete_id, user_data)
+    
+    # Redirect to the main API which will now fetch fresh
+    return jsonify({"status": "cache_cleared", "message": "Refresh the page to fetch new data"})
+
 @app.route("/plan")
 @login_required
 def view_plan():
@@ -1005,6 +1095,8 @@ def dashboard():
     current_week_text = get_current_week_plan(user_data['plan'], user_data.get('plan_structure'))
     current_week_html = render_markdown_with_toc(current_week_text)['content']
 
+    # Check if Garmin is connected
+    garmin_connected = 'garmin_credentials' in user_data
 
     # Pop the user message and chat response from the session
     user_message = session.pop('user_message', None)
@@ -1015,7 +1107,8 @@ def dashboard():
         'dashboard.html',
         current_week_plan=current_week_html,
         user_message=user_message,
-        chat_response=chat_response_html
+        chat_response=chat_response_html,
+        garmin_connected=garmin_connected
     )
 @app.route("/chat", methods=['POST'])
 @login_required
@@ -1109,7 +1202,8 @@ def get_feedback_api():
 
         if not new_activities_to_process:
             if feedback_log:
-                feedback_html = mistune.html(feedback_log[0]['feedback_markdown'])
+                # Use the shared markdown renderer to convert stored markdown to HTML
+                feedback_html = render_markdown_with_toc(feedback_log[0]['feedback_markdown'])['content']
                 return jsonify({'feedback_html': feedback_html})
             else:
                 return jsonify({'message': "No new activities to analyze in the last 7 days."})
@@ -1242,6 +1336,18 @@ def view_specific_feedback(activity_id):
             feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
     return "Feedback for that activity could not be found.", 404
+
+#### example data
+#"feedback_log": [
+#    {
+#        "activity_id": 16027496599,
+#        "activity_name": "Weekly Runs, Parkruns & Ride",
+#        "activity_date": "04-10-2025 09:36:15",
+#        "feedback_markdown": "### Recent Activity Summary\n\nOn **October 4th**, you completed a series of runs comprising a warm-up (16.05"
+#        
+#        "logged_activity_ids": [16027496599, 16027496600, 16027496601]
+#    },
+#]
 
 @app.route("/chat_log")
 @login_required
