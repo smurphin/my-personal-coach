@@ -20,7 +20,17 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        fetch('/api/get-feedback')
+        // Check if we're viewing a specific activity's feedback
+        const pathParts = window.location.pathname.split('/');
+        const activityId = pathParts[2]; // /feedback/123456 -> activityId = 123456
+        
+        // Build the API URL with activity_id if present
+        let apiUrl = '/api/get-feedback';
+        if (activityId && !isNaN(activityId)) {
+            apiUrl += `?activity_id=${activityId}`;
+        }
+        
+        fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
                 const container = document.getElementById('feedback-container');
@@ -44,14 +54,14 @@
                 // Now, inject the new content into the page, creating the final structure
                 container.innerHTML = `
                     <div class="mb-8">
-                        <h1 class="text-3xl font-bold text-white">Latest AI Feedback</h1>
+                        <h1 class="text-3xl font-bold text-white">${activityId ? 'Activity Feedback' : 'Latest AI Feedback'}</h1>
                         <p class="text-brand-light-gray mt-1">An analysis of your recent training data.</p>
                     </div>
                     <div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
                         ${newContent}
                     </div>
                     <div class="mt-8">
-                        <a href="/dashboard" class="text-brand-blue hover:underline">← Back to Dashboard</a>
+                        <a href="${activityId ? '/log' : '/dashboard'}" class="text-brand-blue hover:underline">← Back to ${activityId ? 'Coaching Log' : 'Dashboard'}</a>
                     </div>
                 `;
             })

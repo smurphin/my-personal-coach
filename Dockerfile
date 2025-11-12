@@ -1,5 +1,5 @@
 # === STAGE 1: CSS Asset Builder ===
-FROM node:18-alpine AS css-builder
+FROM node:20.11.0-alpine AS css-builder
 
 WORKDIR /app
 
@@ -13,6 +13,7 @@ COPY templates ./templates
 
 # Install npm dependencies
 RUN npm install
+RUN npx update-browserslist-db@latest
 
 # Run the production build command to generate the final, minified CSS file
 RUN npm run build:prod

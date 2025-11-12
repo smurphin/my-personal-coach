@@ -1188,6 +1188,22 @@ def get_feedback_api():
 
         feedback_log = user_data['feedback_log']
         
+        # Check if a specific activity_id was requested
+        requested_activity_id = request.args.get('activity_id', type=int)
+        
+        if requested_activity_id:
+            # Find and return the specific feedback for this activity
+            for entry in feedback_log:
+                entry_activity_id = entry.get('activity_id')
+                logged_ids = entry.get('logged_activity_ids', [])
+                
+                if entry_activity_id == requested_activity_id or requested_activity_id in logged_ids:
+                    feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
+                    return jsonify({'feedback_html': feedback_html})
+            
+            return jsonify({'error': f'Feedback for activity {requested_activity_id} not found'}), 404
+        
+        # No specific activity requested - check for new activities
         processed_activity_ids = set()
         for entry in feedback_log:
             for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):
@@ -1331,10 +1347,23 @@ def view_specific_feedback(activity_id):
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
-    for entry in feedback_log:
-        if entry.get('activity_id') == activity_id:
+    
+    print(f"--- Looking for feedback for activity_id: {activity_id} ---")
+    
+    for idx, entry in enumerate(feedback_log):
+        # Check if this entry matches the requested activity_id
+        # Either by direct match or if it's in the logged_activity_ids list
+        entry_activity_id = entry.get('activity_id')
+        logged_ids = entry.get('logged_activity_ids', [])
+        
+        print(f"Entry {idx}: activity_id={entry_activity_id}, logged_ids={logged_ids}")
+        
+        if entry_activity_id == activity_id or activity_id in logged_ids:
+            print(f"--- MATCH FOUND at index {idx} ---")
             feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
             return render_template('feedback.html', feedback_content=feedback_html, activity_id=activity_id)
+    
+    print(f"--- NO MATCH FOUND for activity_id: {activity_id} ---")
     return "Feedback for that activity could not be found.", 404
 
 #### example data
@@ -1353,16 +1382,27 @@ def view_specific_feedback(activity_id):
 @login_required
 def chat_log_list():
     """Displays a list of all chat conversations."""
-    athlete_id = session['athlete_id']
-    user_data = data_manager.load_user_data(athlete_id)
-    chat_history = user_data.get('chat_log', [])
+    try:
+        athlete_id = session['athlete_id']
+        user_data = data_manager.load_user_data(athlete_id)
+        chat_history = user_data.get('chat_log', [])
 
-    # Convert markdown to HTML for each message in the chat history
-    for message in chat_history:
-        if message['role'] == 'model':
-            message['content'] = render_markdown_with_toc(message['content'])['content']
+        # Convert markdown to HTML for each message in the chat history
+        for message in chat_history:
+            if message.get('role') == 'model' and 'content' in message:
+                try:
+                    message['content'] = render_markdown_with_toc(message['content'])['content']
+                except Exception as e:
+                    print(f"Error rendering markdown for message: {e}")
+                    # Keep the original content if rendering fails
+                    pass
 
-    return render_template('chat_log.html', chat_history=chat_history)
+        return render_template('chat_log.html', chat_history=chat_history)
+    except Exception as e:
+        print(f"Error in chat_log route: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Error loading chat log: {str(e)}", 500
 
 @app.route("/clear_chat", methods=['POST'])
 @login_required
