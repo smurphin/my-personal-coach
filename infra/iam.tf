@@ -29,19 +29,36 @@ resource "aws_iam_policy" "app_permissions_policy" {
   name        = "my-personal-coach-app-permissions"
   description = "Permissions for the My Personal Coach App Runner service"
 
-  # This policy document grants read access to our secret and full access to our DynamoDB table.
+  # This policy document grants read access to our secret, full access to our DynamoDB table,
+  # and S3 access for data overflow storage.
   policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
       {
+        Sid      = "SecretsManagerAccess"
         Action   = "secretsmanager:GetSecretValue",
         Effect   = "Allow",
         Resource = aws_secretsmanager_secret.app_secrets.arn
       },
       {
+        Sid      = "DynamoDBAccess"
         Action   = "dynamodb:*",
         Effect   = "Allow",
         Resource = aws_dynamodb_table.users_table.arn
+      },
+      {
+        Sid      = "S3DataOverflowAccess"
+        Action   = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ],
+        Effect   = "Allow",
+        Resource = [
+          aws_s3_bucket.data_overflow.arn,
+          "${aws_s3_bucket.data_overflow.arn}/*"
+        ]
       }
     ]
   })
