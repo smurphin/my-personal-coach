@@ -18,6 +18,14 @@ import hashlib
 from garmin_manager import GarminManager
 from crypto_manager import encrypt, decrypt
 
+# Import S3 manager
+try:
+    from s3_manager import s3_manager, S3_AVAILABLE
+except ImportError:
+    print("⚠️  s3_manager not available - S3 storage disabled")
+    S3_AVAILABLE = False
+    s3_manager = None
+
 ai_model = "gemini-2.5-flash"
 
 print("!!!!!!!!!! SERVER IS RELOADING RIGHT NOW !!!!!!!!!!")
@@ -608,8 +616,15 @@ def garmin_disconnect():
     
     # Remove Garmin credentials and ALL related data
     user_data.pop('garmin_credentials', None)
-    user_data.pop('garmin_data', None) # Remove old cached data just in case
-    user_data.pop('garmin_history', None) # Remove the new history
+    user_data.pop('garmin_data', None)
+    user_data.pop('garmin_history', None)
+    user_data.pop('garmin_history_metadata', None)
+    user_data.pop('garmin_cache', None)
+    
+    # Clean up S3 storage if it exists
+    if S3_AVAILABLE:
+        s3_key = f"athletes/{athlete_id}/garmin_history_raw.json.gz"
+        s3_manager.delete_large_data(s3_key)
     
     # Invalidate the weekly summary cache
     today = datetime.now()
@@ -628,8 +643,7 @@ def garmin_disconnect():
 def garmin_summary_api():
     """
     API endpoint that returns Garmin health data with trends.
-    Uses aggressive caching to respect API rate limits.
-    Only fetches fresh data once per day.
+    Stores raw data in S3, only metadata + cache in DynamoDB.
     """
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
@@ -684,23 +698,70 @@ def garmin_summary_api():
         # Get today's metrics
         today_metrics = metrics_timeline[-1] if metrics_timeline else None
 
-        # Save to garmin_history (keep last 30 days for long-term trends)
-        if 'garmin_history' not in user_data:
-            user_data['garmin_history'] = {}
+        # === S3 STORAGE: Store raw data in S3, metadata in DynamoDB ===
+        if S3_AVAILABLE:
+            # Remove old garmin_history from DynamoDB if it exists
+            user_data.pop('garmin_history', None)
+            
+            # Load existing history from S3
+            s3_key = f"athletes/{athlete_id}/garmin_history_raw.json.gz"
+            existing_history = s3_manager.load_large_data(s3_key) or {}
+            
+            # Merge new data with existing
+            for day_stats in stats_range:
+                day_date = day_stats.get('fetch_date')
+                if day_date:
+                    existing_history[day_date] = day_stats
+            
+            # Keep last 30 days
+            cutoff_date = (date.today() - timedelta(days=30)).isoformat()
+            existing_history = {
+                k: v for k, v in existing_history.items() 
+                if k >= cutoff_date
+            }
+            
+            # Save back to S3
+            result_key = s3_manager.save_large_data(athlete_id, 'garmin_history_raw', existing_history)
+            
+            if result_key:
+                # Store only metadata in DynamoDB
+                user_data['garmin_history_metadata'] = {
+                    'days_available': len(existing_history),
+                    'date_range': {
+                        'start': min(existing_history.keys()) if existing_history else today_iso,
+                        'end': max(existing_history.keys()) if existing_history else today_iso
+                    },
+                    'last_updated': today_iso,
+                    's3_key': result_key
+                }
+            else:
+                print("S3 SAVE FAILED: Falling back to DynamoDB")
+                # Fallback if S3 fails
+                if 'garmin_history' not in user_data:
+                    user_data['garmin_history'] = {}
+                for day_stats in stats_range:
+                    day_date = day_stats.get('fetch_date')
+                    if day_date:
+                        user_data['garmin_history'][day_date] = day_stats
+        else:
+            # S3 not available - store in DynamoDB
+            print("S3 not available, storing in DynamoDB")
+            if 'garmin_history' not in user_data:
+                user_data['garmin_history'] = {}
+            
+            for day_stats in stats_range:
+                day_date = day_stats.get('fetch_date')
+                if day_date:
+                    user_data['garmin_history'][day_date] = day_stats
+            
+            # Keep last 30 days
+            cutoff_date = (date.today() - timedelta(days=30)).isoformat()
+            user_data['garmin_history'] = {
+                k: v for k, v in user_data['garmin_history'].items() 
+                if k >= cutoff_date
+            }
         
-        for day_stats in stats_range:
-            day_date = day_stats.get('fetch_date')
-            if day_date:
-                user_data['garmin_history'][day_date] = day_stats
-        
-        # Cleanup old history (keep only last 30 days)
-        cutoff_date = (date.today() - timedelta(days=30)).isoformat()
-        user_data['garmin_history'] = {
-            k: v for k, v in user_data['garmin_history'].items() 
-            if k >= cutoff_date
-        }
-        
-        # Update cache with today's fetch
+        # Update cache with today's fetch (small extracted metrics only)
         user_data['garmin_cache'] = {
             'last_fetch_date': today_iso,
             'today_metrics': today_metrics,
@@ -721,6 +782,8 @@ def garmin_summary_api():
 
     except Exception as e:
         print(f"Error in Garmin API: {e}")
+        import traceback
+        traceback.print_exc()
         
         # If fetch fails but we have recent cache, return it with warning
         if cache_date and 'metrics_timeline' in garmin_cache:
@@ -735,7 +798,7 @@ def garmin_summary_api():
             })
         
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route("/api/garmin-refresh", methods=['POST'])
 @login_required
 def garmin_refresh():
