@@ -18,7 +18,7 @@
         </div>
 
         <div class="bg-brand-gray p-8 rounded-xl shadow-lg">
-            <form action="{{ url_for('plan.generate_plan') }}" method="post" class="space-y-6" onsubmit="showSpinner()">
+            <form action="/generate_plan" method="post" class="space-y-6" onsubmit="showSpinner()">
                 <div>
                     <label for="user_goal" class="block text-sm font-medium text-brand-light-gray mb-1">What is your primary goal?</label>
                     <textarea id="user_goal" name="user_goal" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30">{{ request.form.get('user_goal', 'Run a sub 40 minute 10k at Regents park 10k on 29th November') }}</textarea>

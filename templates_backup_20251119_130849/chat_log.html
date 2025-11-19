@@ -33,9 +33,9 @@
 </div>
 
 <div class="mt-8 flex justify-between items-center">
-    <a href="{{ url_for('dashboard.dashboard') }}" class="text-brand-blue hover:underline">← Back to Dashboard</a>
+    <a href="/dashboard" class="text-brand-blue hover:underline">← Back to Dashboard</a>
     
-    <form action="{{ url_for('dashboard.clear_chat') }}" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
+    <form action="/clear_chat" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
         <button type="submit" class="text-sm text-gray-400 hover:text-white hover:underline">
             Delete Chat History
         </button>

@@ -1,0 +1,223 @@
+flowchart TB
+    Start([User Access]) --> Auth{Authenticated?}
+    
+    Auth -->|No| StravaOAuth[Strava OAuth Flow]
+    StravaOAuth --> StoreToken[Store Access Token<br/>in DynamoDB]
+    StoreToken --> CheckOnboarding{First Time<br/>User?}
+    
+    CheckOnboarding -->|Yes| Onboarding[User Onboarding Flow]
+    CheckOnboarding -->|No| Dashboard
+    
+    %% Onboarding Flow
+    Onboarding --> CollectInfo[Collect User Info:<br/>- Training Goals<br/>- Experience Level<br/>- Race Targets<br/>- Available Training Time]
+    CollectInfo --> CalcZones{HR Zones<br/>Known?}
+    CalcZones -->|No| EstimateZones[Estimate from<br/>Recent Activities]
+    CalcZones -->|Yes| InputZones[User Inputs Zones]
+    EstimateZones --> SetupProfile[Create User Profile]
+    InputZones --> SetupProfile
+    SetupProfile --> GenerateInitialPlan[Generate Initial<br/>Training Plan]
+    
+    GenerateInitialPlan --> FetchUserHistory[Fetch Recent<br/>Strava History]
+    FetchUserHistory --> AssessBaseline[Assess Current Fitness:<br/>- Recent Volume<br/>- Intensity Distribution<br/>- Recovery Patterns]
+    AssessBaseline --> PrepareOnboardingAI[Prepare AI Context:<br/>- User Goals<br/>- Current Fitness<br/>- Training Principles<br/>- Time Constraints]
+    PrepareOnboardingAI --> GeminiPlanGen[Gemini AI:<br/>Generate Periodized Plan]
+    GeminiPlanGen --> StructurePlan[Structure Plan:<br/>- Base/Build/Peak/Taper<br/>- Weekly Sessions<br/>- Progressive Overload<br/>- Recovery Weeks]
+    StructurePlan --> StorePlan[Store Plan in DynamoDB]
+    StorePlan --> Dashboard
+    
+    Auth -->|Yes| Dashboard[Dashboard View]
+    
+    %% Strava Webhook Flow
+    StravaWebhook[Strava Webhook Event] --> ValidateWebhook{Valid Subscription<br/>Verification?}
+    ValidateWebhook -->|Challenge| ReturnChallenge[Return Challenge]
+    ValidateWebhook -->|Activity Event| ProcessWebhook[Process Activity Event]
+    
+    ProcessWebhook --> CheckEventType{Event Type?}
+    CheckEventType -->|Create/Update| FetchActivity[Fetch Full Activity<br/>from Strava API]
+    CheckEventType -->|Delete| RemoveActivity[Mark Activity Deleted]
+    
+    FetchActivity --> ExtractMetrics[Extract Key Metrics:<br/>- Distance, Duration<br/>- HR Zones, Pace<br/>- Elevation, Type]
+    ExtractMetrics --> StoreActivity
+    
+    %% Data Storage Decision
+    StoreActivity{Data Size Check} -->|< 300KB| SaveDynamoDB[Store in DynamoDB]
+    StoreActivity -->|> 300KB| TrimAndArchive[Trim Data +<br/>Archive to S3]
+    TrimAndArchive --> SaveDynamoDB
+    SaveDynamoDB --> CheckWeekly{End of Week?}
+    
+    %% Weekly Summary Generation
+    CheckWeekly -->|Yes| GenerateWeekly[Trigger Weekly<br/>Summary Generation]
+    CheckWeekly -->|No| End1([End])
+    
+    GenerateWeekly --> FetchWeekData[Fetch Week's Activities<br/>from DynamoDB]
+    FetchWeekData --> FetchGarminData{Garmin<br/>Connected?}
+    
+    FetchGarminData -->|Yes| CheckCache{Data Cached<br/>Today?}
+    CheckCache -->|Yes| UseCachedGarmin[Use Cached Garmin Data]
+    CheckCache -->|No| FetchGarminAPI[Fetch from Garmin API:<br/>- Sleep, HRV<br/>- Body Battery<br/>- Stress, Steps]
+    
+    FetchGarminAPI --> CacheGarmin[Cache Daily<br/>Garmin Data]
+    CacheGarmin --> UseCachedGarmin
+    FetchGarminData -->|No| SkipGarmin[Skip Garmin Data]
+    
+    UseCachedGarmin --> PrepareAIContext[Prepare AI Context]
+    SkipGarmin --> PrepareAIContext
+    
+    %% AI Context Preparation
+    PrepareAIContext --> IncludeBaseline[Include:<br/>- Training Philosophy<br/>- HR Zones, VDOT<br/>- Polarized Training]
+    IncludeBaseline --> FetchHistoricalSummaries[Fetch Historical Context:<br/>- Past 4 Weekly Summaries<br/>- Last Plan Completion<br/>- Trend Data]
+    FetchHistoricalSummaries --> IncludeWeekData[Include Week Data:<br/>- All Activities<br/>- Total Volume/TSS<br/>- HR Distribution]
+    
+    IncludeWeekData --> CheckActivePlan{Active Plan<br/>Exists?}
+    CheckActivePlan -->|Yes| AddPlanContext[Add Plan Context:<br/>- Current Phase<br/>- Planned vs Actual<br/>- Adherence Rate<br/>- Upcoming Key Workouts]
+    CheckActivePlan -->|No| IncludeGarminMetrics
+    AddPlanContext --> IncludeGarminMetrics
+    
+    IncludeGarminMetrics{Garmin Data<br/>Available?}
+    IncludeGarminMetrics -->|Yes| AddRecovery[Add Recovery Metrics:<br/>- Sleep Quality/Duration<br/>- HRV Trends<br/>- Body Battery<br/>- Stress Levels]
+    IncludeGarminMetrics -->|No| SkipRecovery[Skip Recovery Data]
+    
+    AddRecovery --> CheckConcerns{Recovery<br/>Concerns?}
+    SkipRecovery --> SendToGemini
+    
+    CheckConcerns -->|Yes| FlagConcerns[Flag Patterns:<br/>- Low Sleep<br/>- Declining HRV<br/>- High Stress<br/>- Low Body Battery]
+    CheckConcerns -->|No| SendToGemini[Send to Gemini AI]
+    FlagConcerns --> SendToGemini
+    
+    %% AI Processing
+    SendToGemini --> GeminiAnalysis[Gemini AI Analysis:<br/>- Training Load<br/>- Recovery State<br/>- Zone Distribution<br/>- Recommendations]
+    
+    GeminiAnalysis --> GenerateSummary[Generate Weekly Summary:<br/>- Performance Analysis<br/>- Training Balance<br/>- Adaptation Guidance<br/>- Next Week Plan]
+    
+    GenerateSummary --> StoreSummary{Summary Size}
+    StoreSummary -->|< 300KB| SaveSummaryDB[Store in DynamoDB]
+    StoreSummary -->|> 300KB| ArchiveSummary[Archive Summary to S3<br/>+ Store Reference]
+    ArchiveSummary --> SaveSummaryDB
+    
+    SaveSummaryDB --> DisplaySummary[Display on Dashboard]
+    DisplaySummary --> End2([End])
+    
+    %% Dashboard Data Flow
+    Dashboard --> LoadUserData[Load User Profile<br/>from DynamoDB]
+    LoadUserData --> FetchRecentActivities[Fetch Recent Activities]
+    FetchRecentActivities --> CheckS3Archive{Large Data<br/>in S3?}
+    CheckS3Archive -->|Yes| FetchS3[Fetch from S3<br/>with Fallback]
+    CheckS3Archive -->|No| UseDynamoDB[Use DynamoDB Data]
+    FetchS3 --> MergeData[Merge Data Sources]
+    UseDynamoDB --> MergeData
+    
+    MergeData --> FetchGarminDashboard{Fetch Garmin<br/>Metrics?}
+    FetchGarminDashboard -->|Yes| CheckDailyCache{Cached<br/>Today?}
+    CheckDailyCache -->|Yes| ShowCached[Show Cached Metrics]
+    CheckDailyCache -->|No| FetchGarminLive[Fetch Live Garmin Data]
+    FetchGarminLive --> UpdateCache[Update Daily Cache]
+    UpdateCache --> ShowCached
+    FetchGarminDashboard -->|No| SkipDashGarmin[Show Strava Only]
+    
+    ShowCached --> DisplayDashboard[Render Dashboard:<br/>- Recent Activities<br/>- Weekly Summary<br/>- Garmin Health Metrics<br/>- Training Trends]
+    SkipDashGarmin --> DisplayDashboard
+    DisplayDashboard --> End3([End])
+    
+    %% Plan Management Flow
+    PlanRequest[User Requests<br/>New Plan] --> CheckExistingPlan{Active Plan<br/>Exists?}
+    CheckExistingPlan -->|Yes| ConfirmReplace{Replace<br/>Existing?}
+    ConfirmReplace -->|No| CancelRequest([Cancel])
+    ConfirmReplace -->|Yes| ArchiveOldPlan[Archive Current Plan]
+    CheckExistingPlan -->|No| StartNewPlan[Start Plan Generation]
+    ArchiveOldPlan --> StartNewPlan
+    
+    StartNewPlan --> CollectPlanGoals[Collect Plan Details:<br/>- Race Date/Distance<br/>- Target Time<br/>- Training Days/Week<br/>- Key Constraints]
+    CollectPlanGoals --> FetchCurrentFitness[Fetch Current Fitness:<br/>- Recent 4-8 weeks<br/>- Volume Trends<br/>- Best Performances]
+    FetchCurrentFitness --> CalculateVDOT[Calculate VDOT<br/>from Recent Races]
+    CalculateVDOT --> PreparePlanAI[Prepare AI Context:<br/>- User Profile & Zones<br/>- Current Fitness<br/>- Training History<br/>- Race Goals]
+    PreparePlanAI --> GeminiPlanCreate[Gemini AI:<br/>Generate Custom Plan]
+    GeminiPlanCreate --> PeriodizePlan[Create Periodization:<br/>- Phase Durations<br/>- Weekly Progression<br/>- Recovery Integration<br/>- Taper Schedule]
+    PeriodizePlan --> StorePlanData{Plan Size}
+    StorePlanData -->|< 300KB| SavePlanDB[Store in DynamoDB]
+    StorePlanData -->|> 300KB| ArchivePlanS3[Archive to S3 +<br/>Store Reference]
+    ArchivePlanS3 --> SavePlanDB
+    SavePlanDB --> DisplayNewPlan[Display Plan<br/>to User]
+    DisplayNewPlan --> PlanEnd([End])
+    
+    %% Plan Completion Flow
+    PlanComplete[Plan End Date<br/>Reached] --> CheckCompletion{Plan<br/>Completed?}
+    CheckCompletion -->|Yes| AnalyzePlanResults[Analyze Plan Outcomes]
+    CheckCompletion -->|Partial| FlagIncomplete[Flag Incomplete Plan]
+    
+    AnalyzePlanResults --> CompareActualVsPlanned[Compare:<br/>- Planned vs Actual Volume<br/>- Session Completion Rate<br/>- Key Workout Results<br/>- Race Performance]
+    FlagIncomplete --> CompareActualVsPlanned
+    
+    CompareActualVsPlanned --> FetchFinalMetrics[Fetch Final Metrics:<br/>- VDOT Change<br/>- Volume Progression<br/>- Recovery Trends<br/>- Performance Gains]
+    FetchFinalMetrics --> GeminiPlanReview[Gemini AI:<br/>Plan Review & Analysis]
+    GeminiPlanReview --> GenerateReport[Generate Completion Report:<br/>- Success Metrics<br/>- Lessons Learned<br/>- Recommendations<br/>- Next Steps]
+    GenerateReport --> ArchivePlanComplete[Archive Completed Plan:<br/>- Move to S3<br/>- Add Completion Metadata<br/>- Link to Report]
+    ArchivePlanComplete --> StoreArchiveRef[Update DynamoDB<br/>with Archive Reference]
+    StoreArchiveRef --> PromptNextPlan{Continue<br/>Training?}
+    PromptNextPlan -->|Yes| SuggestNextGoals[Suggest Next Goals<br/>Based on Progress]
+    PromptNextPlan -->|No| MarkInactive[Mark User Inactive]
+    SuggestNextGoals --> OfferPlanGen[Offer New<br/>Plan Generation]
+    OfferPlanGen --> CompletionEnd([End])
+    MarkInactive --> CompletionEnd
+    
+    %% Chat Interaction Flow
+    UserChat[User Asks Question/<br/>Provides Feedback] --> LoadChatContext[Load Chat Context]
+    LoadChatContext --> FetchUserProfile[Fetch User Profile<br/>& Current Plan]
+    FetchUserProfile --> FetchRecentHistory[Fetch Recent:<br/>- Last 2 weeks activities<br/>- Latest summary<br/>- Recovery trends]
+    FetchRecentHistory --> FetchHistoricalChat[Fetch Historical Context:<br/>- Past 4 summaries<br/>- Recent plan changes<br/>- Previous Q&A]
+    FetchHistoricalChat --> AssembleChatContext[Assemble Full Context:<br/>- User profile/zones<br/>- Current plan status<br/>- Recent training<br/>- Recovery state<br/>- Historical summaries<br/>- Conversation history]
+    AssembleChatContext --> SendChatToGemini[Send to Gemini AI]
+    SendChatToGemini --> GeminiChatResponse[Generate Response:<br/>- Answer questions<br/>- Provide guidance<br/>- Suggest adjustments]
+    GeminiChatResponse --> CheckPlanUpdate{Plan Update<br/>Needed?}
+    CheckPlanUpdate -->|Yes| ProposeUpdate[Propose Plan Changes]
+    CheckPlanUpdate -->|No| ReturnResponse[Return Response to User]
+    ProposeUpdate --> UserApproves{User<br/>Approves?}
+    UserApproves -->|Yes| UpdatePlan[Update Active Plan]
+    UserApproves -->|No| ReturnResponse
+    UpdatePlan --> LogChange[Log Plan Change:<br/>- Reason<br/>- Timestamp<br/>- Modified Sessions]
+    LogChange --> ReturnResponse
+    ReturnResponse --> ChatEnd([End])
+    
+    %% Plan Adaptation Flow
+    WeeklySummaryComplete[Weekly Summary<br/>Generated] --> EvaluatePlanAdherence[Evaluate Plan Adherence:<br/>- Sessions completed<br/>- Volume vs target<br/>- Intensity adherence]
+    EvaluatePlanAdherence --> CheckDeviations{Significant<br/>Deviations?}
+    CheckDeviations -->|Yes| AnalyzeDeviations[Analyze Patterns:<br/>- Consistent under-training?<br/>- Over-reaching?<br/>- Missed key workouts?<br/>- Recovery issues?]
+    CheckDeviations -->|No| ContinuePlan[Continue Current Plan]
+    
+    AnalyzeDeviations --> AssessRecovery[Assess Recovery State:<br/>- HRV trends<br/>- Sleep quality<br/>- Body Battery<br/>- Fatigue markers]
+    AssessRecovery --> PrepareAdaptationContext[Prepare Adaptation Context:<br/>- Plan structure<br/>- Adherence data<br/>- Recovery state<br/>- Upcoming phases]
+    PrepareAdaptationContext --> GeminiAdaptation[Gemini AI:<br/>Recommend Adaptations]
+    GeminiAdaptation --> GenerateAdaptations[Generate Suggestions:<br/>- Volume adjustments<br/>- Intensity modifications<br/>- Recovery additions<br/>- Session swaps]
+    GenerateAdaptations --> AutoApplyMinor{Minor<br/>Adjustments?}
+    AutoApplyMinor -->|Yes| ApplyAutoUpdates[Auto-apply:<br/>- Small volume tweaks<br/>- Recovery day adds<br/>- Log in plan history]
+    AutoApplyMinor -->|No| FlagForReview[Flag for User Review]
+    ApplyAutoUpdates --> NotifyUser[Notify User of Changes]
+    FlagForReview --> NotifyUser
+    NotifyUser --> DisplayOnDashboard[Display on Dashboard<br/>with Rationale]
+    DisplayOnDashboard --> AdaptationEnd([End])
+    ContinuePlan --> AdaptationEnd
+    
+    %% Error Handling
+    RemoveActivity --> End1
+    ReturnChallenge --> End4([End])
+    
+    style GenerateWeekly fill:#90EE90
+    style GeminiAnalysis fill:#87CEEB
+    style StoreActivity fill:#FFD700
+    style FetchGarminAPI fill:#FFA500
+    style PrepareAIContext fill:#DDA0DD
+    style CheckConcerns fill:#FF6B6B
+    style Onboarding fill:#98FB98
+    style GenerateInitialPlan fill:#87CEEB
+    style GeminiPlanGen fill:#87CEEB
+    style GeminiPlanCreate fill:#87CEEB
+    style GeminiPlanReview fill:#87CEEB
+    style ArchivePlanComplete fill:#FFB6C1
+    style AnalyzePlanResults fill:#DDA0DD
+    style UserChat fill:#E6E6FA
+    style GeminiChatResponse fill:#87CEEB
+    style AssembleChatContext fill:#DDA0DD
+    style UpdatePlan fill:#FFA07A
+    style EvaluatePlanAdherence fill:#DDA0DD
+    style GeminiAdaptation fill:#87CEEB
+    style ApplyAutoUpdates fill:#FFA07A
+    style FetchHistoricalSummaries fill:#F0E68C

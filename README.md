@@ -4,6 +4,8 @@ Project Name: kAIzen Coach
 Domain: kaizencoach.training
 Repository: https://github.com/smurphin/my-personal-coach
 
+Architecture docs here https://github.com/smurphin/my-personal-coach/docs/architecture 
+
 1.1. Project Overview
 kAIzen Coach is a personalized, AI-powered endurance coaching application. It is designed to provide athletes with adaptive training plans and data-driven feedback by leveraging their real-world performance data from Strava. The application uses Google's Gemini AI model to act as an elite coach, creating bespoke training schedules based on modern, evidence-based methodologies like polarized training (80/20), Joe Friel's heart rate zones, and Dr. Jack Daniels' VDOT paces.
 

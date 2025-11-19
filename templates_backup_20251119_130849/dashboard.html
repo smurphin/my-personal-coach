@@ -33,7 +33,7 @@
     {% else %}
     <div class="text-center py-4">
         <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
-        <a href="{{ url_for('admin.connections') }}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+        <a href="/connections" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
             Connect Account
         </a>
     </div>
@@ -57,7 +57,7 @@
             <p class="text-brand-light-gray mb-4">
                 Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
             </p>
-            <form action="{{ url_for('dashboard.chat') }}" method="post" onsubmit="showChatSpinner()">
+            <form action="/chat" method="post" onsubmit="showChatSpinner()">
                 <textarea name="user_message" rows="3" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
                 <div class="mt-4">
                     <button type="submit" class="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
@@ -89,7 +89,7 @@
             </div>
             
             <div class="mt-4 text-center">
-                <form action="{{ url_for('dashboard.clear_chat') }}" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
+                <form action="/clear_chat" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
                     <button type="submit" class="text-sm text-gray-400 hover:text-white hover:underline">Delete chat history</button>
                 </form>
             </div>
@@ -392,7 +392,7 @@
                 <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
                 <div class="text-center py-4">
                     <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
-                    <a href="{{ url_for('admin.connections') }}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                    <a href="/connections" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
                         Connect Account
                     </a>
                 </div>
