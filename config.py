@@ -13,7 +13,7 @@ class Config:
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "a_default_secret_key_for_development")
     DEBUG = os.getenv("FLASK_ENV") != "production"
     
-    # Strava
+    # Strava - Will be set from env vars (either .env or AWS Secrets Manager)
     STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
     STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
     STRAVA_API_URL = "https://www.strava.com/api/v3"
@@ -39,12 +39,24 @@ class Config:
     # Garmin
     GARMIN_ENCRYPTION_KEY = os.getenv("GARMIN_ENCRYPTION_KEY")
     
-    @staticmethod
-    def init_app(app):
+    @classmethod
+    def init_app(cls, app):
         """Initialize application with configuration"""
         # If running in production, fetch secrets from AWS Secrets Manager
         if os.getenv('FLASK_ENV') == 'production':
-            Config._load_aws_secrets()
+            print("🔐 Loading secrets from AWS Secrets Manager...")
+            cls._load_aws_secrets()
+            
+            # CRITICAL: Update class variables AFTER secrets are loaded
+            cls.STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
+            cls.STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
+            cls.STRAVA_VERIFY_TOKEN = os.getenv("STRAVA_VERIFY_TOKEN")
+            cls.SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+            cls.GARMIN_ENCRYPTION_KEY = os.getenv("GARMIN_ENCRYPTION_KEY")
+            
+            print(f"✅ Secrets loaded - STRAVA_CLIENT_ID: {cls.STRAVA_CLIENT_ID[:8] if cls.STRAVA_CLIENT_ID else 'MISSING'}...")
+        else:
+            print("🔧 Development mode - using .env file")
     
     @staticmethod
     def _load_aws_secrets():
@@ -77,5 +89,5 @@ class Config:
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "/tmp/gcp_creds.json"
 
         except Exception as e:
-            print(f"Error fetching secrets from AWS Secrets Manager: {e}")
+            print(f"❌ Error fetching secrets from AWS Secrets Manager: {e}")
             raise e
