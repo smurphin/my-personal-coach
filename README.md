@@ -45,3 +45,4 @@ Database: User data is stored in Amazon DynamoDB, a serverless NoSQL database.
 Secrets: All sensitive credentials are securely stored in AWS Secrets Manager.
 
 DNS: The custom domain is managed by AWS Route 53, with Terraform automatically creating all necessary records.
+
