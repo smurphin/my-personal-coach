@@ -212,3 +212,67 @@ users_data.json
 strava_data.json
 strava_token.json
 training_plan.md
+
+# =============================================================================
+# Node.js / NPM
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json  # Optional - some teams commit this, some don't
+.npm
+.pnp
+.pnp.js
+
+# =============================================================================
+# Terraform
+# =============================================================================
+.terraform/
+.terraform.lock.hcl  # Optional - some teams commit this
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.tfstate.lock.info
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# =============================================================================
+# AWS
+# =============================================================================
+.aws-sam/
+aws-exports.js
+amplify-export-temp/
+amplify-build-config.json
+.amplify/
+
+# =============================================================================
+# Docker
+# =============================================================================
+.dockerignore  # Keep this in Git, but listing here for awareness
+docker-compose.override.yml
+
+# =============================================================================
+# OS-specific
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
