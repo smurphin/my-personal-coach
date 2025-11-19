@@ -9,7 +9,7 @@
 {% if log_entries %}
     <div class="space-y-4">
         {% for entry in log_entries %}
-        <a href="{{ url_for('feedback.view_specific_feedback', activity_id=entry.activity_id) }}" class="block bg-brand-gray rounded-xl shadow-lg p-6 transition-transform transform hover:scale-[1.02] hover:bg-gray-700">
+        <a href="{{ url_for('view_specific_feedback', activity_id=entry.activity_id) }}" class="block bg-brand-gray rounded-xl shadow-lg p-6 transition-transform transform hover:scale-[1.02] hover:bg-gray-700">
             <div class="flex justify-between items-center">
                 <div>
                     <h2 class="text-xl font-bold text-brand-blue">{{ entry.activity_name }}</h2>
@@ -32,6 +32,6 @@
 {% endif %}
 
 <div class="mt-8">
-    <a href="{{ url_for('plan.view_plan') }}" class="text-brand-blue hover:underline">← Back to Your Plan</a>
+    <a href="/plan" class="text-brand-blue hover:underline">← Back to Your Plan</a>
 </div>
 {% endblock %}

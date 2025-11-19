@@ -6,32 +6,32 @@
     </div>
 
     <div class="flex space-x-6 mt-4 sm:mt-0">
-        <a href="{{ url_for('dashboard.dashboard') }}"
+        <a href="{{ url_for('dashboard') }}"
             class="font-semibold py-2 px-1 {% if request.endpoint == 'dashboard' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Dashboard
         </a>
 
-        <a href="{{ url_for('plan.view_plan') }}" 
+        <a href="{{ url_for('view_plan') }}" 
            class="font-semibold py-2 px-1 {% if request.endpoint == 'view_plan' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Plan
         </a>
         
-        <a href="{{ url_for('feedback.coaching_log') }}"
+        <a href="{{ url_for('coaching_log') }}"
            class="font-semibold py-2 px-1 {% if request.endpoint == 'coaching_log' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Coaching Log
         </a>
 
-        <a href="{{ url_for('dashboard.chat_log_list') }}"
+        <a href="{{ url_for('chat_log_list') }}"
             class="font-semibold py-2 px-1 {% if request.endpoint == 'chat_log_list' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Chat Log
         </a>
 
-        <a href="{{ url_for('feedback.feedback') }}"
+        <a href="{{ url_for('feedback') }}"
            class="font-semibold py-2 px-1 {% if request.endpoint == 'feedback' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Feedback
         </a>
 
-        <a href="{{ url_for('admin.connections') }}"
+        <a href="{{ url_for('connections') }}"
            class="font-semibold py-2 px-1 {% if request.endpoint == 'connections' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Connections
         </a>

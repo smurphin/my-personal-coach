@@ -17,7 +17,7 @@
                 <p class="text-lg text-green-400">Successfully connected to Garmin.</p>
                 <p class="text-sm text-brand-light-gray">Your daily health stats will enrich your coaching feedback.</p>
             </div>
-            <form action="{{ url_for('admin.garmin_disconnect') }}" method="post" onsubmit="return confirm('Are you sure you want to disconnect your Garmin account?');">
+            <form action="{{ url_for('garmin_disconnect') }}" method="post" onsubmit="return confirm('Are you sure you want to disconnect your Garmin account?');">
                 <button type="submit" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg hover:bg-red-700 transition">
                     Disconnect
                 </button>
@@ -27,7 +27,7 @@
         <p class="text-brand-light-gray mb-4">
             Connect your Garmin account to get a more holistic view of your health and training.
         </p>
-        <form action="{{ url_for('admin.garmin_login') }}" method="post" class="max-w-md">
+        <form action="{{ url_for('garmin_login') }}" method="post" class="max-w-md">
             <div class="mb-4">
                 <label for="garmin_email" class="block text-white mb-1">Garmin Email</label>
                 <input type="email" name="garmin_email" id="garmin_email" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
