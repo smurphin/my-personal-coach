@@ -160,7 +160,12 @@
                     <div class="bg-brand-dark rounded-lg p-4">
                         <p class="text-sm text-brand-light-gray">Body Battery</p>
                         <p class="text-2xl font-bold text-white">${today?.body_battery_high || 'N/A'}</p>
-                        <p class="text-xs text-gray-400">High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}</p>
+                        <p class="text-xs text-gray-400">
+                            ${today?.body_battery_high === today?.body_battery_low 
+                                ? `Current: ${today?.body_battery_high || 'N/A'}` 
+                                : `High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}`
+                            }
+                        </p>
                     </div>
                     <div class="bg-brand-dark rounded-lg p-4">
                         <p class="text-sm text-brand-light-gray">Training Status</p>
@@ -173,12 +178,12 @@
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-semibold text-white">Readiness to Perform</h3>
                         <div class="text-right">
-                            <p class="text-3xl font-bold ${getReadinessColor(data.readiness_score)}">${data.readiness_score || 'N/A'}</p>
+                            <p class="text-3xl font-bold" style="color: ${getReadinessColorValue(data.readiness_score)}">${data.readiness_score || 'N/A'}</p>
                             <p class="text-xs text-gray-400">out of 100</p>
                         </div>
                     </div>
-                    <div class="w-full bg-brand-gray rounded-full h-3 mb-2">
-                        <div class="${getReadinessBgColor(data.readiness_score)} h-3 rounded-full transition-all duration-500" style="width: ${data.readiness_score || 0}%"></div>
+                    <div class="w-full bg-brand-gray rounded-full mb-2" style="height: 12px;">
+                        <div class="rounded-full transition-all duration-500" style="width: ${data.readiness_score || 0}%; height: 12px; background-color: ${getReadinessBgColorValue(data.readiness_score)}"></div>
                     </div>
                     <p class="text-sm text-brand-light-gray">${getReadinessMessage(data.readiness_score)}</p>
                 </div>
@@ -216,6 +221,15 @@
             const bodyBatteryHighData = trendData.map(d => d.body_battery_high);
             const bodyBatteryLowData = trendData.map(d => d.body_battery_low);
             const hrvData = trendData.map(d => d.hrv_value);
+            
+            // Calculate 7-day rolling average for HRV
+            const hrvRollingAvg = hrvData.map((val, idx, arr) => {
+                // Calculate average of current + previous 6 days (or fewer if at start)
+                const windowSize = Math.min(7, idx + 1);
+                const window = arr.slice(Math.max(0, idx - 6), idx + 1);
+                const sum = window.reduce((a, b) => (a || 0) + (b || 0), 0);
+                return sum / windowSize;
+            });
 
             // Common chart options
             const commonOptions = {
@@ -373,17 +387,56 @@
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        data: hrvData,
-                        borderColor: '#F59E0B',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
+                    datasets: [
+                        {
+                            label: 'Daily HRV',
+                            data: hrvData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#F59E0B'
+                        },
+                        {
+                            label: '7-Day Average',
+                            data: hrvRollingAvg,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: '#9CA3AF',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            pointBackgroundColor: '#9CA3AF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            borderWidth: 2
+                        }
+                    ]
                 },
-                options: commonOptions
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                },
+                                usePointStyle: true,
+                                padding: 10,
+                                boxWidth: 20
+                            }
+                        }
+                    }
+                }
             });
 
         })
@@ -400,22 +453,73 @@
         });
 }
 
-// Helper functions for readiness scoring
-function getReadinessColor(score) {
-    if (!score) return 'text-gray-400';
-    if (score >= 80) return 'text-green-400';
-    if (score >= 60) return 'text-yellow-400';
-    return 'text-red-400';
+// Refresh Garmin data function
+function refreshGarminData() {
+    if (!confirm('Fetch fresh data from Garmin?\n\nThis will use Garmin API rate limits - only use if you need the very latest data.')) {
+        return;
+    }
+    
+    console.log('🔄 Refreshing Garmin data...');
+    const container = document.getElementById('garmin-container');
+    
+    // Show loading spinner
+    container.innerHTML = `
+        <div class="flex items-center justify-center py-10">
+            <div class="loader"></div>
+            <p class="ml-4 text-brand-light-gray">Refreshing Garmin data...</p>
+        </div>
+    `;
+    
+    // Call backend to clear cache
+    fetch('/api/garmin-refresh', { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('✓ Refresh response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('✓ Refresh successful:', data);
+        // Wait a moment for cache to clear, then fetch fresh data
+        setTimeout(() => {
+            console.log('📊 Fetching fresh Garmin data...');
+            fetchGarminSummary();
+        }, 1000);
+    })
+    .catch(error => {
+        console.error('❌ Refresh failed:', error);
+        alert(`Could not refresh Garmin data: ${error.message}\n\nPlease try again later.`);
+        // Fall back to showing cached data
+        fetchGarminSummary();
+    });
 }
 
-function getReadinessBgColor(score) {
-    if (!score) return 'bg-gray-600';
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
+// Helper functions for readiness scoring - return actual colors for inline styles
+function getReadinessColorValue(score) {
+    score = Number(score);
+    if (!score) return '#9ca3af';  // gray-400
+    if (score >= 80) return '#4ade80';  // green-400
+    if (score >= 60) return '#facc15';  // yellow-400
+    return '#f87171';  // red-400
+}
+
+function getReadinessBgColorValue(score) {
+    score = Number(score);
+    if (!score) return '#4b5563';  // gray-600
+    if (score >= 80) return '#22c55e';  // green-500
+    if (score >= 60) return '#eab308';  // yellow-500
+    return '#ef4444';  // red-500
 }
 
 function getReadinessMessage(score) {
+    score = Number(score);
     if (!score) return 'Calculating readiness...';
     if (score >= 80) return 'Excellent! You\'re primed for a quality training session.';
     if (score >= 60) return 'Good. Moderate intensity work is appropriate today.';

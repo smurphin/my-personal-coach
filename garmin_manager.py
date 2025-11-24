@@ -80,35 +80,86 @@ class GarminManager:
         """
         Extracts key metrics from a single day's stats for display.
         Returns a dict with cleaned values.
+        
+        FIXES:
+        - Issue #4: HRV now shows today's value (lastNightAvg) instead of weeklyAvg
+        - Issue #3: Body Battery now correctly extracts BOTH high and low values
         """
         metrics = {
             "date": stats.get("fetch_date"),
             "hrv_status": None,
             "hrv_value": None,
+            "hrv_weekly_avg": None,
             "sleep_score": None,
             "body_battery_high": None,
             "body_battery_low": None,
             "training_status": None
         }
 
-        # HRV
+        # === FIX #4: HRV - Show Today's Value ===
         if stats.get("hrv"):
             hrv_data = stats["hrv"]
-            metrics["hrv_status"] = hrv_data.get("hrvSummary", {}).get("status")
-            # Try to get the weekly average as the "value"
-            metrics["hrv_value"] = hrv_data.get("hrvSummary", {}).get("weeklyAvg")
+            hrv_summary = hrv_data.get("hrvSummary", {})
+            metrics["hrv_status"] = hrv_summary.get("status")
+            
+            # Priority order for today's HRV (not weekly average):
+            # 1. lastNightAvg / lastNightAverage (most accurate for today)
+            # 2. lastNightValue (fallback)
+            # 3. weeklyAvg (last resort)
+            metrics["hrv_value"] = (
+                hrv_summary.get("lastNightAvg") or 
+                hrv_summary.get("lastNightAverage") or
+                hrv_summary.get("lastNightValue") or
+                hrv_summary.get("weeklyAvg")
+            )
+            
+            # Also store weekly average for trend analysis
+            # (used for AI context and graph overlay)
+            metrics["hrv_weekly_avg"] = hrv_summary.get("weeklyAvg")
 
         # Sleep Score
         if stats.get("sleep"):
             sleep_data = stats["sleep"]
             metrics["sleep_score"] = sleep_data.get("dailySleepDTO", {}).get("sleepScores", {}).get("overall", {}).get("value")
 
-        # Body Battery - get the HIGH and LOW values for the day
-        if stats.get("body_battery") and isinstance(stats["body_battery"], list):
-            battery_values = [reading.get("charged", 0) for reading in stats["body_battery"] if reading.get("charged") is not None]
-            if battery_values:
-                metrics["body_battery_high"] = max(battery_values)
-                metrics["body_battery_low"] = min(battery_values)
+        # === Body Battery Extraction ===
+        if stats.get("body_battery"):
+            bb_data = stats["body_battery"]
+            
+            # Handle list format (array of day summaries)
+            if isinstance(bb_data, list) and len(bb_data) > 0:
+                day_data = bb_data[0]
+                
+                # The actual readings are in bodyBatteryValuesArray
+                # Format: [[timestamp, level], [timestamp, level], ...]
+                if 'bodyBatteryValuesArray' in day_data:
+                    values_array = day_data['bodyBatteryValuesArray']
+                    
+                    # Extract the battery levels (second element of each pair)
+                    battery_values = [reading[1] for reading in values_array if len(reading) >= 2]
+                    
+                    if battery_values:
+                        metrics["body_battery_high"] = max(battery_values)
+                        metrics["body_battery_low"] = min(battery_values)
+                        print(f"  BB [{stats.get('fetch_date')}]: High {max(battery_values)}, Low {min(battery_values)}")
+                
+                # Fallback: use top-level charged if no array
+                elif 'charged' in day_data:
+                    metrics["body_battery_high"] = day_data.get('charged')
+                    metrics["body_battery_low"] = day_data.get('charged')
+            
+            # Handle dict format (summary object - unlikely with this API)
+            elif isinstance(bb_data, dict):
+                metrics["body_battery_high"] = (
+                    bb_data.get("highestValue") or
+                    bb_data.get("maxValue") or
+                    bb_data.get("charged")
+                )
+                metrics["body_battery_low"] = (
+                    bb_data.get("lowestValue") or
+                    bb_data.get("minValue") or
+                    bb_data.get("drained")
+                )
 
         # Training Status
         if stats.get("training_status"):
@@ -120,82 +171,89 @@ class GarminManager:
         """
         Calculates a readiness-to-perform score (0-100) based on recent health metrics.
         
+        IMPROVED: More balanced weighting and clearer calculation
+        
         Algorithm considers:
-        - Recent sleep quality (last 3 nights, weighted toward most recent)
-        - HRV status and trend
-        - Body battery recovery pattern
-        - Training status
+        - Recent sleep quality (40% weight)
+        - HRV status (25% weight)
+        - Body battery recovery (25% weight)
+        - Training status (10% weight)
         
         Returns: int (0-100) or None if insufficient data
         """
-        if not metrics_timeline or len(metrics_timeline) < 3:
+        if not metrics_timeline or len(metrics_timeline) == 0:
             return None
         
-        # Get last 3 days of data
-        recent_days = metrics_timeline[-3:]
-        today = recent_days[-1]
+        # Use yesterday's data (most recent complete day)
+        latest = metrics_timeline[-1]
         
         score = 0
-        factors_count = 0
+        weighted_score = 0
+        total_weight = 0
         
-        # Sleep Quality (0-30 points) - weighted average of last 3 nights
-        sleep_scores = [d.get('sleep_score') for d in recent_days if d.get('sleep_score')]
-        if sleep_scores:
-            # Weight: today=50%, yesterday=30%, day before=20%
-            weights = [0.2, 0.3, 0.5] if len(sleep_scores) == 3 else [0.4, 0.6] if len(sleep_scores) == 2 else [1.0]
-            weighted_sleep = sum(s * w for s, w in zip(sleep_scores[-len(weights):], weights))
-            score += (weighted_sleep / 100) * 30
-            factors_count += 1
+        print(f"\n=== Readiness Calculation for {latest.get('date')} ===")
         
-        # HRV Status (0-25 points)
-        hrv_status = today.get('hrv_status')
+        # === Sleep Score (40% weight) ===
+        if latest.get('sleep_score') is not None:
+            sleep_score = latest['sleep_score']
+            sleep_contribution = (sleep_score / 100) * 40
+            weighted_score += sleep_contribution
+            total_weight += 40
+            print(f"  Sleep: {sleep_score}/100 → {sleep_contribution:.1f} points (40% weight)")
+        
+        # === HRV Status (25% weight) ===
+        hrv_status = latest.get('hrv_status')
         if hrv_status:
             hrv_map = {
                 'BALANCED': 25,
                 'NORMAL': 20,
-                'LOW': 10,
-                'UNBALANCED': 5,
-                'POOR': 0
+                'LOW': 12,
+                'UNBALANCED': 8,
+                'POOR': 3
             }
-            score += hrv_map.get(hrv_status, 15)
-            factors_count += 1
+            hrv_contribution = hrv_map.get(hrv_status, 15)
+            weighted_score += hrv_contribution
+            total_weight += 25
+            
+            # Show both daily and rolling average for context
+            hrv_daily = latest.get('hrv_value', 'N/A')
+            hrv_garmin_avg = latest.get('hrv_weekly_avg', 'N/A')
+            print(f"  HRV Status: {hrv_status} → {hrv_contribution} points (25% weight)")
+            print(f"    Today: {hrv_daily}ms | Garmin 7-day avg: {hrv_garmin_avg}ms")
         
-        # HRV Trend (0-15 points) - is it improving or declining?
-        hrv_values = [d.get('hrv_value') for d in recent_days if d.get('hrv_value')]
-        if len(hrv_values) >= 2:
-            hrv_trend = hrv_values[-1] - hrv_values[0]
-            if hrv_trend > 2:
-                score += 15  # Improving
-            elif hrv_trend > -2:
-                score += 10  # Stable
-            else:
-                score += 5   # Declining
-            factors_count += 1
+        # === Body Battery Recovery (25% weight) ===
+        # Higher overnight low = better recovery
+        if latest.get('body_battery_low') is not None:
+            bb_low = latest['body_battery_low']
+            bb_contribution = (bb_low / 100) * 25
+            weighted_score += bb_contribution
+            total_weight += 25
+            print(f"  Body Battery Low: {bb_low}/100 → {bb_contribution:.1f} points (25% weight)")
         
-        # Body Battery Recovery (0-20 points) - how well are they recovering?
-        battery_high_values = [d.get('body_battery_high') for d in recent_days if d.get('body_battery_high')]
-        if battery_high_values:
-            avg_peak = sum(battery_high_values) / len(battery_high_values)
-            score += (avg_peak / 100) * 20
-            factors_count += 1
-        
-        # Training Status (0-10 points)
-        training_status = today.get('training_status')
+        # === Training Status (10% weight) ===
+        training_status = latest.get('training_status')
         if training_status:
             status_map = {
                 'PRODUCTIVE': 10,
                 'MAINTAINING': 8,
-                'RECOVERY': 5,
-                'UNPRODUCTIVE': 3,
+                'RECOVERY': 6,
+                'UNPRODUCTIVE': 4,
                 'DETRAINING': 2,
                 'OVERREACHING': 0
             }
-            score += status_map.get(training_status, 5)
-            factors_count += 1
+            ts_contribution = status_map.get(training_status, 5)
+            weighted_score += ts_contribution
+            total_weight += 10
+            print(f"  Training Status: {training_status} → {ts_contribution} points (10% weight)")
         
-        # Normalize to 0-100 scale
-        if factors_count > 0:
-            max_possible = 30 + 25 + 15 + 20 + 10
-            return int((score / max_possible) * 100)
+        # Calculate final score
+        if total_weight > 0:
+            # Normalize to 100-point scale
+            final_score = round((weighted_score / total_weight) * 100)
+            print(f"  Final Readiness: {final_score}/100 (from {total_weight} points of data)")
+            print("=" * 50)
+            return final_score
         
+        print(f"  Insufficient data for readiness calculation")
+        print("=" * 50)
         return None
