@@ -11,6 +11,34 @@ from utils.formatters import format_seconds, format_activity_date
 
 feedback_bp = Blueprint('feedback', __name__)
 
+def safe_save_user_data(athlete_id, user_data):
+    """
+    Wrapper for data_manager.save_user_data that trims data to fit DynamoDB limits.
+    Keeps only last 20 feedback entries and 30 chat messages.
+    """
+    # Trim feedback_log
+    if 'feedback_log' in user_data and len(user_data['feedback_log']) > 20:
+        print(f"⚠️  Trimming feedback_log from {len(user_data['feedback_log'])} to 20 entries")
+        user_data['feedback_log'] = user_data['feedback_log'][:20]
+    
+    # Trim chat_log
+    if 'chat_log' in user_data and len(user_data['chat_log']) > 30:
+        print(f"⚠️  Trimming chat_log from {len(user_data['chat_log'])} to 30 messages")
+        user_data['chat_log'] = user_data['chat_log'][-30:]
+    
+    # Remove analyzed_activities if present
+    if 'analyzed_activities' in user_data:
+        print(f"⚠️  Removing analyzed_activities from DynamoDB")
+        del user_data['analyzed_activities']
+    
+    # Remove duplicate garmin_history if metadata exists
+    if 'garmin_history_metadata' in user_data and 'garmin_history' in user_data:
+        print(f"⚠️  Removing duplicate garmin_history (already in S3)")
+        del user_data['garmin_history']
+    
+    data_manager.save_user_data(athlete_id, user_data)
+
+
 @feedback_bp.route("/feedback")
 @login_required
 def feedback():
@@ -107,6 +135,10 @@ def get_feedback_api():
             per_page=100
         )
         
+        # Check if API call failed
+        if not isinstance(recent_activities_summary, list):
+            return jsonify({'error': 'Failed to fetch activities from Strava'}), 500
+        
         new_activities_to_process = [
             act for act in recent_activities_summary
             if str(act['id']) not in processed_activity_ids
@@ -169,7 +201,7 @@ def get_feedback_api():
                     if 'garmin_history' not in user_data:
                         user_data['garmin_history'] = {}
                     user_data['garmin_history'][first_activity_date_iso] = garmin_data_for_activity
-                    data_manager.save_user_data(athlete_id, user_data)
+                    safe_save_user_data(athlete_id, user_data)
 
         # Generate feedback
         feedback_markdown = ai_service.generate_feedback(
@@ -210,7 +242,7 @@ def get_feedback_api():
             user_data['plan'] = new_plan_markdown
             print(f"--- Plan updated via feedback ---")
         
-        data_manager.save_user_data(athlete_id, user_data)
+        safe_save_user_data(athlete_id, user_data)
 
         feedback_html = render_markdown_with_toc(feedback_markdown)['content']
         return jsonify({'feedback_html': feedback_html})
