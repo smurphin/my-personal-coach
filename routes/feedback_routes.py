@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, jsonify, session, request
 from datetime import datetime, timedelta
+import re
 from data_manager import data_manager
 from services.strava_service import strava_service
 from services.training_service import training_service
@@ -39,6 +40,46 @@ def safe_save_user_data(athlete_id, user_data):
     data_manager.save_user_data(athlete_id, user_data)
 
 
+def process_feedback_markdown(feedback_markdown):
+    """
+    Process feedback markdown to extract and render plan updates nicely.
+    
+    Returns:
+        tuple: (processed_markdown, plan_html or None)
+    """
+    if '[PLAN_UPDATED]' not in feedback_markdown:
+        # No plan update - return as-is
+        return feedback_markdown, None
+    
+    # Extract the plan markdown from the code block
+    match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+    if not match:
+        # Marker found but no code block - return as-is
+        return feedback_markdown, None
+    
+    plan_markdown = match.group(1).strip()
+    
+    # Remove the [PLAN_UPDATED] marker and the code block from the feedback
+    processed_markdown = feedback_markdown.replace('[PLAN_UPDATED]', '').strip()
+    processed_markdown = re.sub(r"```markdown\n.*?```", "", processed_markdown, flags=re.DOTALL).strip()
+    
+    # Render the plan markdown separately
+    plan_html = render_markdown_with_toc(plan_markdown)['content']
+    
+    # Wrap the plan in a nice styled section
+    plan_section = f"""
+    <div class="mt-8 border-l-4 border-brand-blue bg-brand-dark-gray/50 rounded-r-lg p-6">
+        <h3 class="text-xl font-bold text-brand-blue mb-4">📋 Updated Training Plan</h3>
+        <div class="prose prose-invert max-w-none">
+            {plan_html}
+        </div>
+    </div>
+    """
+    
+    return processed_markdown, plan_section
+
+
+
 @feedback_bp.route("/feedback")
 @login_required
 def feedback():
@@ -63,7 +104,15 @@ def view_specific_feedback(activity_id):
         
         if entry_activity_id == activity_id or activity_id in logged_ids:
             print(f"--- MATCH FOUND at index {idx} ---")
-            feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
+            
+            # Process feedback to extract plan updates
+            processed_markdown, plan_html = process_feedback_markdown(entry['feedback_markdown'])
+            feedback_html = render_markdown_with_toc(processed_markdown)['content']
+            
+            # Append plan HTML if it exists
+            if plan_html:
+                feedback_html += plan_html
+            
             return render_template(
                 'feedback.html',
                 feedback_content=feedback_html,
@@ -115,7 +164,14 @@ def get_feedback_api():
                 logged_ids = entry.get('logged_activity_ids', [])
                 
                 if entry_activity_id == requested_activity_id or requested_activity_id in logged_ids:
-                    feedback_html = render_markdown_with_toc(entry['feedback_markdown'])['content']
+                    # Process feedback to extract plan updates
+                    processed_markdown, plan_html = process_feedback_markdown(entry['feedback_markdown'])
+                    feedback_html = render_markdown_with_toc(processed_markdown)['content']
+                    
+                    # Append plan HTML if it exists
+                    if plan_html:
+                        feedback_html += plan_html
+                    
                     return jsonify({'feedback_html': feedback_html})
             
             return jsonify({'error': f'Feedback for activity {requested_activity_id} not found'}), 404
@@ -146,7 +202,14 @@ def get_feedback_api():
 
         if not new_activities_to_process:
             if feedback_log:
-                feedback_html = render_markdown_with_toc(feedback_log[0]['feedback_markdown'])['content']
+                # Process feedback to extract plan updates
+                processed_markdown, plan_html = process_feedback_markdown(feedback_log[0]['feedback_markdown'])
+                feedback_html = render_markdown_with_toc(processed_markdown)['content']
+                
+                # Append plan HTML if it exists
+                if plan_html:
+                    feedback_html += plan_html
+                
                 return jsonify({'feedback_html': feedback_html})
             else:
                 return jsonify({'message': "No new activities to analyze in the last 7 days."})
@@ -234,17 +297,28 @@ def get_feedback_api():
         
         feedback_log.insert(0, new_log_entry)
 
-        # Check for plan update
-        import re
-        match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
-        if match:
-            new_plan_markdown = match.group(1).strip()
-            user_data['plan'] = new_plan_markdown
-            print(f"--- Plan updated via feedback ---")
+        # Check for plan update - only update if [PLAN_UPDATED] marker is present
+        if '[PLAN_UPDATED]' in feedback_markdown:
+            match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+            if match:
+                new_plan_markdown = match.group(1).strip()
+                user_data['plan'] = new_plan_markdown
+                print(f"✅ Plan updated via feedback")
+            else:
+                print(f"⚠️ [PLAN_UPDATED] marker found but no markdown code block")
+        else:
+            print(f"ℹ️ No plan update needed - marker not found")
         
         safe_save_user_data(athlete_id, user_data)
 
-        feedback_html = render_markdown_with_toc(feedback_markdown)['content']
+        # Process feedback to extract plan updates for display
+        processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
+        feedback_html = render_markdown_with_toc(processed_markdown)['content']
+        
+        # Append plan HTML if it exists
+        if plan_html:
+            feedback_html += plan_html
+        
         return jsonify({'feedback_html': feedback_html})
 
     except Exception as e:

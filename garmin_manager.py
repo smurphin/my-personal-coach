@@ -93,7 +93,11 @@ class GarminManager:
             "sleep_score": None,
             "body_battery_high": None,
             "body_battery_low": None,
-            "training_status": None
+            "training_status": None,
+            "acwr_ratio": None,
+            "acwr_status": None,
+            "acute_load": None,
+            "chronic_load": None
         }
 
         # === FIX #4: HRV - Show Today's Value ===
@@ -161,9 +165,37 @@ class GarminManager:
                     bb_data.get("drained")
                 )
 
-        # Training Status
+        # Training Status - Extract BOTH Garmin status AND ACWR data
         if stats.get("training_status"):
-            metrics["training_status"] = stats["training_status"].get("trainingStatus")
+            print(f"\n{'='*60}")
+            print(f"DEBUG - Training Status for {stats.get('fetch_date')}")
+            print(f"{'='*60}")
+            
+            ts_data = stats["training_status"]
+            most_recent = ts_data.get("mostRecentTrainingStatus", {})
+            latest_data = most_recent.get("latestTrainingStatusData", {})
+            
+            # Get first device's data (usually only one primary device)
+            device_data = next(iter(latest_data.values()), {})
+            
+            if device_data:
+                # Extract Garmin's training status phrase
+                status_phrase = device_data.get("trainingStatusFeedbackPhrase", "")
+                metrics["training_status"] = status_phrase
+                
+                # Extract ACWR data (the GOLD for AI coaching!)
+                acwr_data = device_data.get("acuteTrainingLoadDTO", {})
+                metrics["acwr_ratio"] = acwr_data.get("dailyAcuteChronicWorkloadRatio")
+                metrics["acwr_status"] = acwr_data.get("acwrStatus")  # OPTIMAL, LOW, HIGH
+                metrics["acute_load"] = acwr_data.get("dailyTrainingLoadAcute")
+                metrics["chronic_load"] = acwr_data.get("dailyTrainingLoadChronic")
+                
+                print(f"Garmin Status: {status_phrase}")
+                print(f"ACWR Ratio: {metrics['acwr_ratio']} ({metrics['acwr_status']})")
+                print(f"Acute Load (7d): {metrics['acute_load']}")
+                print(f"Chronic Load (28d): {metrics['chronic_load']}")
+            
+            print(f"{'='*60}\n")
 
         return metrics
     
@@ -232,7 +264,13 @@ class GarminManager:
         
         # === Training Status (10% weight) ===
         training_status = latest.get('training_status')
+        acwr_ratio = latest.get('acwr_ratio')
+        acwr_status = latest.get('acwr_status')
+        
         if training_status:
+            # Extract base status from Garmin's phrase (e.g., "MAINTAINING_4" -> "MAINTAINING")
+            base_status = training_status.split('_')[0]
+            
             status_map = {
                 'PRODUCTIVE': 10,
                 'MAINTAINING': 8,
@@ -241,10 +279,14 @@ class GarminManager:
                 'DETRAINING': 2,
                 'OVERREACHING': 0
             }
-            ts_contribution = status_map.get(training_status, 5)
+            ts_contribution = status_map.get(base_status, 5)
             weighted_score += ts_contribution
             total_weight += 10
-            print(f"  Training Status: {training_status} → {ts_contribution} points (10% weight)")
+            
+            # Show both Garmin status and ACWR for context
+            print(f"  Training Status: {base_status} → {ts_contribution} points (10% weight)")
+            if acwr_ratio is not None:
+                print(f"    ACWR: {acwr_ratio:.2f} ({acwr_status}) - Acute: {latest.get('acute_load')}, Chronic: {latest.get('chronic_load')}")
         
         # Calculate final score
         if total_weight > 0:
