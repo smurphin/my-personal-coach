@@ -26,18 +26,9 @@
 
 <div id="garmin-container" class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-8">
     <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
-    {% if garmin_connected %}
     <div class="flex items-center justify-center pt-4">
         <div class="loader"></div>
     </div>
-    {% else %}
-    <div class="text-center py-4">
-        <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
-        <a href="{{ url_for('admin.connections') }}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
-            Connect Account
-        </a>
-    </div>
-    {% endif %}
 </div>
 
 
@@ -98,6 +89,9 @@
 </div>
 
 <script>
+    // Generate URLs that template literals can use
+    const connectionsUrl = "{{ url_for('admin.connections') }}";
+    
     function fetchWeeklySummary() {
         const container = document.getElementById('weekly-summary-container');
         container.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
@@ -121,21 +115,26 @@
     const container = document.getElementById('garmin-container');
     fetch('/api/garmin-summary')
         .then(response => {
+            console.log('Garmin API response status:', response.status);
             if (!response.ok) {
                 throw new Error('No Garmin connection found.');
             }
             return response.json();
         })
         .then(data => {
+            console.log('Garmin API data received:', data);
             if (data.error) {
                 throw new Error(data.error);
             }
             
             const today = data.today;
             const trendData = data.trend_data;
-
-            // Create the display with today's metrics and separate charts
-            container.innerHTML = `
+            
+            console.log('Starting to render Garmin data...');
+            
+            try {
+                // Create the display with today's metrics and separate charts
+                container.innerHTML = `
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-bold text-brand-blue">Health & Recovery</h2>
                     <div class="flex items-center space-x-3">
@@ -160,50 +159,104 @@
                     <div class="bg-brand-dark rounded-lg p-4">
                         <p class="text-sm text-brand-light-gray">Body Battery</p>
                         <p class="text-2xl font-bold text-white">${today?.body_battery_high || 'N/A'}</p>
-                        <p class="text-xs text-gray-400">High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}</p>
+                        <p class="text-xs text-gray-400">
+                            ${today?.body_battery_high === today?.body_battery_low 
+                                ? `Current: ${today?.body_battery_high || 'N/A'}` 
+                                : `High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}`
+                            }
+                        </p>
                     </div>
                     <div class="bg-brand-dark rounded-lg p-4">
                         <p class="text-sm text-brand-light-gray">Training Status</p>
-                        <p class="text-2xl font-bold text-white">${today?.training_status || 'N/A'}</p>
+                        <p class="text-2xl font-bold text-white">${formatTrainingStatus(today?.training_status) || 'N/A'}</p>
                     </div>
                 </div>
 
-                <!-- Readiness Score -->
-                <div class="bg-brand-dark rounded-lg p-6 mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-semibold text-white">Readiness to Perform</h3>
-                        <div class="text-right">
-                            <p class="text-3xl font-bold ${getReadinessColor(data.readiness_score)}">${data.readiness_score || 'N/A'}</p>
-                            <p class="text-xs text-gray-400">out of 100</p>
+                <!-- 2x2 Grid: Readiness/Battery | Sleep/HRV -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Left: 2x2 Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Top-left: Readiness (compact) -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center" style="gap: 6px;">
+                                    <h3 class="text-base font-semibold text-white">Readiness</h3>
+                                    <button onclick="showReadinessInfo()" class="text-gray-400 hover:text-brand-blue transition-colors" title="Learn more" style="display: inline-flex; align-items: center;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="text-2xl font-bold" style="color: ${getReadinessColorValue(data.readiness_score)}">${data.readiness_score || 'N/A'}</p>
+                            </div>
+                            <div class="w-full bg-brand-gray rounded-full mb-2" style="height: 8px;">
+                                <div class="rounded-full transition-all duration-500" style="width: ${data.readiness_score || 0}%; height: 8px; background-color: ${getReadinessBgColorValue(data.readiness_score)}"></div>
+                            </div>
+                            <p class="text-xs text-brand-light-gray">${getReadinessMessage(data.readiness_score)}</p>
+                        </div>
+                        
+                        <!-- Top-right: Body Battery Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-2">Body Battery</h3>
+                            <div style="position: relative; height: 140px;">
+                                <canvas id="batteryChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom-left: Sleep Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-2">Sleep</h3>
+                            <div style="position: relative; height: 140px;">
+                                <canvas id="sleepChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom-right: HRV Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-2">HRV</h3>
+                            <div style="position: relative; height: 140px;">
+                                <canvas id="hrvChart"></canvas>
+                            </div>
                         </div>
                     </div>
-                    <div class="w-full bg-brand-gray rounded-full h-3 mb-2">
-                        <div class="${getReadinessBgColor(data.readiness_score)} h-3 rounded-full transition-all duration-500" style="width: ${data.readiness_score || 0}%"></div>
+
+                    <!-- Right: Training Load Balance -->
+                    <div class="bg-brand-dark rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center" style="gap: 8px;">
+                                <h3 class="text-xl font-semibold text-white">Training Load Balance</h3>
+                                <button onclick="showLoadInfo()" class="text-gray-400 hover:text-brand-blue transition-colors" title="Learn more" style="display: inline-flex; align-items: center;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 20px; height: 20px;">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-3xl font-bold" id="load-ratio-value" style="color: #9ca3af">--</p>
+                                <p class="text-xs text-gray-400" id="load-zone-text">--</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Load Ratio Graph -->
+                        <div class="mb-4">
+                            <p class="text-sm text-brand-light-gray mb-2">Load Ratio (Recent ÷ Baseline)</p>
+                            <div style="position: relative; height: 160px;">
+                                <canvas id="loadRatioChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Acute vs Chronic Load Graph -->
+                        <div class="mb-2">
+                            <p class="text-sm text-brand-light-gray mb-2">Training Load Comparison</p>
+                            <div style="position: relative; height: 160px;">
+                                <canvas id="loadComparisonChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm text-brand-light-gray text-center mt-2">Recent: <span id="load-recent">--</span> | Baseline: <span id="load-baseline">--</span></p>
                     </div>
-                    <p class="text-sm text-brand-light-gray">${getReadinessMessage(data.readiness_score)}</p>
                 </div>
 
-                <!-- Separate Trend Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div class="bg-brand-dark rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-white mb-3">Sleep Quality</h3>
-                        <div style="position: relative; height: 200px;">
-                            <canvas id="sleepChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-brand-dark rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-white mb-3">Body Battery</h3>
-                        <div style="position: relative; height: 200px;">
-                            <canvas id="batteryChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-brand-dark rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-white mb-3">HRV (ms)</h3>
-                        <div style="position: relative; height: 200px;">
-                            <canvas id="hrvChart"></canvas>
-                        </div>
-                    </div>
-                </div>
             `;
 
             // Prepare chart data
@@ -216,6 +269,15 @@
             const bodyBatteryHighData = trendData.map(d => d.body_battery_high);
             const bodyBatteryLowData = trendData.map(d => d.body_battery_low);
             const hrvData = trendData.map(d => d.hrv_value);
+            
+            // Calculate 7-day rolling average for HRV
+            const hrvRollingAvg = hrvData.map((val, idx, arr) => {
+                // Calculate average of current + previous 6 days (or fewer if at start)
+                const windowSize = Math.min(7, idx + 1);
+                const window = arr.slice(Math.max(0, idx - 6), idx + 1);
+                const sum = window.reduce((a, b) => (a || 0) + (b || 0), 0);
+                return sum / windowSize;
+            });
 
             // Common chart options
             const commonOptions = {
@@ -272,6 +334,12 @@
             }
             if (window.hrvChart && typeof window.hrvChart.destroy === 'function') {
                 window.hrvChart.destroy();
+            }
+            if (window.loadRatioChart && typeof window.loadRatioChart.destroy === 'function') {
+                window.loadRatioChart.destroy();
+            }
+            if (window.loadComparisonChart && typeof window.loadComparisonChart.destroy === 'function') {
+                window.loadComparisonChart.destroy();
             }
 
             // Sleep Chart
@@ -373,26 +441,320 @@
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        data: hrvData,
-                        borderColor: '#F59E0B',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
+                    datasets: [
+                        {
+                            label: 'Daily HRV',
+                            data: hrvData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#F59E0B'
+                        },
+                        {
+                            label: '7-Day Average',
+                            data: hrvRollingAvg,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: '#9CA3AF',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            pointBackgroundColor: '#9CA3AF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            borderWidth: 2
+                        }
+                    ]
                 },
-                options: commonOptions
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                },
+                                usePointStyle: true,
+                                padding: 10,
+                                boxWidth: 20
+                            }
+                        }
+                    }
+                }
             });
+
+            // Chart 1: Load Ratio with optimal zone (0.8-1.4)
+            const loadRatioCtx = document.getElementById('loadRatioChart').getContext('2d');
+            const acwrDataPoints = trendData.map(d => d.acwr_ratio);
+            
+            window.loadRatioChart = new Chart(loadRatioCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            // Optimal zone upper (1.4)
+                            label: 'Optimal Upper',
+                            data: new Array(labels.length).fill(1.4),
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                            fill: '+1',
+                            pointRadius: 0,
+                            order: 2
+                        },
+                        {
+                            // Optimal zone lower (0.8)
+                            label: 'Optimal Lower',
+                            data: new Array(labels.length).fill(0.8),
+                            borderColor: 'transparent',
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            pointRadius: 0,
+                            order: 2
+                        },
+                        {
+                            // Load Ratio
+                            label: 'Load Ratio',
+                            data: acwrDataPoints,
+                            borderColor: '#00A9FF',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#00A9FF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: {
+                            backgroundColor: '#2E2F33',
+                            titleColor: '#fff',
+                            bodyColor: '#9CA3AF',
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 2) {
+                                        return 'Ratio: ' + context.parsed.y.toFixed(2);
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 9},
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            min: 0.3,
+                            max: 2.0,
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter'},
+                                stepSize: 0.2
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Acute vs Chronic Load with dynamic optimal zone
+            const loadComparisonCtx = document.getElementById('loadComparisonChart').getContext('2d');
+            const acuteLoadData = trendData.map(d => d.acute_load);
+            const chronicLoadData = trendData.map(d => d.chronic_load);
+            
+            // Calculate dynamic optimal zone (chronic * 0.8 to chronic * 1.4)
+            const optimalLower = chronicLoadData.map(val => val ? val * 0.8 : null);
+            const optimalUpper = chronicLoadData.map(val => val ? val * 1.4 : null);
+            
+            window.loadComparisonChart = new Chart(loadComparisonCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            // Dynamic optimal zone upper
+                            label: 'Optimal Upper',
+                            data: optimalUpper,
+                            borderColor: 'rgba(74, 222, 128, 0.3)',
+                            backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                            borderDash: [3, 3],
+                            fill: '+1',
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            order: 3
+                        },
+                        {
+                            // Dynamic optimal zone lower
+                            label: 'Optimal Lower',
+                            data: optimalLower,
+                            borderColor: 'rgba(74, 222, 128, 0.3)',
+                            backgroundColor: 'transparent',
+                            borderDash: [3, 3],
+                            fill: false,
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            order: 3
+                        },
+                        {
+                            // Acute Load
+                            label: 'Recent (7d)',
+                            data: acuteLoadData,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#9CA3AF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 2
+                        },
+                        {
+                            // Chronic Load
+                            label: 'Baseline (28d)',
+                            data: chronicLoadData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#F59E0B',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 10},
+                                usePointStyle: true,
+                                padding: 6,
+                                boxWidth: 6,
+                                filter: function(item) {
+                                    return !item.text.includes('Optimal');
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#2E2F33',
+                            titleColor: '#fff',
+                            bodyColor: '#9CA3AF',
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label && !label.includes('Optimal')) {
+                                        label += ': ';
+                                        if (context.parsed.y !== null) {
+                                            label += Math.round(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 9},
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter'}
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update load ratio display
+            if (today?.acwr_ratio !== null && today?.acwr_ratio !== undefined) {
+                const ratio = Number(today.acwr_ratio);  // Ensure it's a number, not string
+                document.getElementById('load-ratio-value').textContent = ratio.toFixed(2);
+                document.getElementById('load-recent').textContent = today.acute_load || '--';
+                document.getElementById('load-baseline').textContent = today.chronic_load || '--';
+                
+                let color, zoneLabel;
+                if (ratio < 0.8) {
+                    color = '#ef4444';
+                    zoneLabel = 'Below Optimal';
+                } else if (ratio < 1.05) {
+                    color = '#eab308';
+                    zoneLabel = 'Maintaining';
+                } else if (ratio <= 1.4) {
+                    color = '#22c55e';
+                    zoneLabel = 'Productive';
+                } else {
+                    color = '#dc2626';
+                    zoneLabel = 'Overreaching';
+                }
+                
+                document.getElementById('load-ratio-value').style.color = color;
+                document.getElementById('load-zone-text').textContent = zoneLabel;
+            }
+            
+            console.log('✓ Garmin data rendered successfully!');
+
+            } catch (renderError) {
+                console.error('❌ Error during rendering:', renderError);
+                console.error('Stack trace:', renderError.stack);
+                throw renderError;
+            }
 
         })
         .catch(error => {
+            console.error('❌ Garmin fetch error:', error);
             container.innerHTML = `
                 <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
                 <div class="text-center py-4">
                     <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
-                    <a href="{{ url_for('admin.connections') }}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                    <a href="${connectionsUrl}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
                         Connect Account
                     </a>
                 </div>
@@ -400,22 +762,85 @@
         });
 }
 
-// Helper functions for readiness scoring
-function getReadinessColor(score) {
-    if (!score) return 'text-gray-400';
-    if (score >= 80) return 'text-green-400';
-    if (score >= 60) return 'text-yellow-400';
-    return 'text-red-400';
+// Refresh Garmin data function
+function refreshGarminData() {
+    if (!confirm('Fetch fresh data from Garmin?\n\nThis will use Garmin API rate limits - only use if you need the very latest data.')) {
+        return;
+    }
+    
+    console.log('🔄 Refreshing Garmin data...');
+    const container = document.getElementById('garmin-container');
+    
+    // Show loading spinner
+    container.innerHTML = `
+        <div class="flex items-center justify-center py-10">
+            <div class="loader"></div>
+            <p class="ml-4 text-brand-light-gray">Refreshing Garmin data...</p>
+        </div>
+    `;
+    
+    // Call backend to clear cache
+    fetch('/api/garmin-refresh', { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('✓ Refresh response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('✓ Refresh successful:', data);
+        // Wait a moment for cache to clear, then fetch fresh data
+        setTimeout(() => {
+            console.log('📊 Fetching fresh Garmin data...');
+            fetchGarminSummary();
+        }, 1000);
+    })
+    .catch(error => {
+        console.error('❌ Refresh failed:', error);
+        alert(`Could not refresh Garmin data: ${error.message}\n\nPlease try again later.`);
+        // Fall back to showing cached data
+        fetchGarminSummary();
+    });
 }
 
-function getReadinessBgColor(score) {
-    if (!score) return 'bg-gray-600';
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
+// Helper functions for readiness scoring - return actual colors for inline styles
+function getReadinessColorValue(score) {
+    score = Number(score);
+    if (!score) return '#9ca3af';  // gray-400
+    if (score >= 80) return '#4ade80';  // green-400
+    if (score >= 60) return '#facc15';  // yellow-400
+    return '#f87171';  // red-400
+}
+
+function getReadinessBgColorValue(score) {
+    score = Number(score);
+    if (!score) return '#4b5563';  // gray-600
+    if (score >= 80) return '#22c55e';  // green-500
+    if (score >= 60) return '#eab308';  // yellow-500
+    return '#ef4444';  // red-500
+}
+
+function formatTrainingStatus(status) {
+    if (!status || status === 'N/A') return 'N/A';
+    
+    // Remove numeric suffixes like _2, _4
+    let cleaned = status.split('_')[0];
+    
+    // Convert to proper case
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+    
+    return cleaned;
 }
 
 function getReadinessMessage(score) {
+    score = Number(score);
     if (!score) return 'Calculating readiness...';
     if (score >= 80) return 'Excellent! You\'re primed for a quality training session.';
     if (score >= 60) return 'Good. Moderate intensity work is appropriate today.';
@@ -424,16 +849,8 @@ function getReadinessMessage(score) {
 }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Debug: Check if garmin_connected is set
-        console.log('Garmin connected:', {{ garmin_connected|tojson }});
-        
         fetchWeeklySummary();
-        {% if garmin_connected %}
-        console.log('Fetching Garmin data...');
-        fetchGarminSummary();
-        {% else %}
-        console.log('Garmin not connected, skipping fetch');
-        {% endif %}
+        fetchGarminSummary();  // Always try to fetch - API handles connection check
 
         const refreshButton = document.getElementById('refresh-summary-button');
         refreshButton.addEventListener('click', function() {
@@ -458,6 +875,122 @@ function getReadinessMessage(score) {
             interactionContainer.style.display = 'block';
         }
     }
+
+    // Info modal functions
+    function showLoadInfo() {
+        document.getElementById('loadInfoModal').classList.remove('hidden');
+    }
+
+    function showReadinessInfo() {
+        document.getElementById('readinessInfoModal').classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal-overlay')) {
+            event.target.classList.add('hidden');
+        }
+    }
 </script>
+
+<!-- Info Modals -->
+<!-- Training Load Info Modal -->
+<div id="loadInfoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-2xl font-bold text-brand-blue">Training Load Balance</h2>
+                <button onclick="closeModal('loadInfoModal')" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4">
+                <p class="text-white font-semibold">What is Training Load Balance?</p>
+                <p>Training Load Balance (also known as ACWR - Acute:Chronic Workload Ratio) compares your recent training (last 7 days) to your baseline training load (last 28 days).</p>
+                
+                <p class="text-white font-semibold">How is it calculated?</p>
+                <p><strong>Load Ratio = Recent Load (7 days) ÷ Baseline Load (28 days)</strong></p>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">The Zones:</p>
+                    <ul class="space-y-2 ml-4">
+                        <li><span class="text-red-400">• Below 0.8:</span> Below optimal - risk of detraining</li>
+                        <li><span class="text-yellow-400">• 0.8-1.05:</span> Maintaining - consistent but not pushing for gains</li>
+                        <li><span class="text-green-400">• 1.05-1.4:</span> Productive - optimal zone for improvements</li>
+                        <li><span class="text-red-400">• Above 1.4:</span> Overreaching - increased injury risk</li>
+                    </ul>
+                </div>
+                
+                <p class="text-white font-semibold">Why does this matter?</p>
+                <p>Research shows that keeping your load ratio between 0.8-1.4 minimizes injury risk while maximizing training adaptations. Values above 1.4 are associated with 2-4x higher injury rates.</p>
+                
+                <p class="text-sm italic">Note: During planned tapers or recovery weeks, ratios below 0.8 are expected and appropriate!</p>
+                
+                <div class="mt-6 text-center">
+                    <a href="#" class="text-brand-blue hover:text-blue-400 font-semibold">
+                        📚 Read the full technical FAQ for geeks →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Readiness Info Modal -->
+<div id="readinessInfoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-2xl font-bold text-brand-blue">Readiness to Perform</h2>
+                <button onclick="closeModal('readinessInfoModal')" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4">
+                <p class="text-white font-semibold">What is Readiness to Perform?</p>
+                <p>Your readiness score combines multiple recovery metrics to give you a single number (0-100) indicating how prepared your body is for training.</p>
+                
+                <p class="text-white font-semibold">How is it calculated?</p>
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white">Weighted combination of:</p>
+                    <ul class="space-y-1 ml-4">
+                        <li>• <strong>HRV Status (40%)</strong> - Heart rate variability indicates nervous system recovery</li>
+                        <li>• <strong>Sleep Quality (30%)</strong> - Sleep score from last night</li>
+                        <li>• <strong>Body Battery (20%)</strong> - Energy reserves</li>
+                        <li>• <strong>Training Status (10%)</strong> - Recent training load balance</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">What the scores mean:</p>
+                    <ul class="space-y-2 ml-4">
+                        <li><span class="text-green-400">• 80-100:</span> Excellent - Ready for high intensity</li>
+                        <li><span class="text-yellow-400">• 60-79:</span> Good - Moderate intensity appropriate</li>
+                        <li><span class="text-red-400">• Below 60:</span> Low - Focus on easy training or rest</li>
+                    </ul>
+                </div>
+                
+                <p class="text-white font-semibold">How to use this:</p>
+                <p>Use readiness to adjust your training intensity. High readiness = green light for hard sessions. Low readiness = recovery day or easy training.</p>
+                
+                <div class="mt-6 text-center">
+                    <a href="#" class="text-brand-blue hover:text-blue-400 font-semibold">
+                        📚 Learn more about the readiness calculation →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
