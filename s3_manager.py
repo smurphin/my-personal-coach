@@ -2,13 +2,16 @@ import boto3
 import json
 import gzip
 from botocore.exceptions import ClientError
+from config import Config
 
 class S3Manager:
     """Manages large data storage in S3 with compression."""
     
-    def __init__(self, bucket_name='kaizencoach-data'):
-        self.bucket_name = bucket_name
-        self.s3_client = boto3.client('s3', region_name='eu-west-1')
+    def __init__(self, bucket_name=None):
+        # Use Config.S3_BUCKET if not explicitly provided
+        self.bucket_name = bucket_name or Config.S3_BUCKET
+        self.s3_client = boto3.client('s3', region_name=Config.AWS_REGION)
+        print(f"--- S3Manager initialized with bucket: {self.bucket_name} in region: {Config.AWS_REGION} ---")
     
     def save_large_data(self, athlete_id, data_type, data):
         """

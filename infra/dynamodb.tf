@@ -1,7 +1,7 @@
 # dynamodb.tf
 
 resource "aws_dynamodb_table" "users_table" {
-  name         = "my-personal-coach-users"
+  name         = var.env == "prod" ? "${var.name}-users" : "${var.env}-${var.name}-users"
   billing_mode = "PAY_PER_REQUEST" # This is cost-effective for sporadic traffic
   hash_key     = "athlete_id"
 
@@ -10,8 +10,5 @@ resource "aws_dynamodb_table" "users_table" {
     type = "S" # S for String, as the Strava ID will be the key
   }
 
-  tags = {
-    Project = "My Personal Coach"
-    ManagedBy = "Terraform"
-  }
+  tags = local.common_tags
 }

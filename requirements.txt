@@ -5,6 +5,7 @@ markdown
 requests
 python-dotenv
 google-cloud-aiplatform
+google-auth
 gunicorn
 boto3
 garminconnect
