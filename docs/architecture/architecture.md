@@ -1,5 +1,43 @@
 # My Personal Coach - Application Architecture
 
+<!-- toc -->
+
+- [Overview](#overview)
+- [Core Flows](#core-flows)
+  * [1. Authentication & Onboarding Flow](#1-authentication--onboarding-flow)
+  * [2. Strava Webhook Processing](#2-strava-webhook-processing)
+  * [3. Weekly Summary Generation](#3-weekly-summary-generation)
+  * [7. Chat Interaction & Conversational Coaching](#7-chat-interaction--conversational-coaching)
+  * [8. Dynamic Plan Adaptation](#8-dynamic-plan-adaptation)
+  * [4. Dashboard Display Flow](#4-dashboard-display-flow)
+  * [5. Training Plan Management](#5-training-plan-management)
+  * [6. Plan Completion & Archival](#6-plan-completion--archival)
+- [Critical Decision Points](#critical-decision-points)
+  * [1. Data Storage Strategy](#1-data-storage-strategy)
+  * [2. Garmin API Rate Management](#2-garmin-api-rate-management)
+  * [3. AI Context Preparation](#3-ai-context-preparation)
+  * [4. Recovery Concern Detection](#4-recovery-concern-detection)
+- [External Integrations](#external-integrations)
+  * [Strava Integration](#strava-integration)
+  * [Garmin Connect](#garmin-connect)
+  * [Google Gemini AI](#google-gemini-ai)
+  * [AWS Services](#aws-services)
+- [Data Flow Diagram Summary](#data-flow-diagram-summary)
+- [Error Handling & Resilience](#error-handling--resilience)
+  * [Storage Fallback](#storage-fallback)
+  * [API Resilience](#api-resilience)
+  * [Size Monitoring](#size-monitoring)
+- [Performance Optimizations](#performance-optimizations)
+- [Security Considerations](#security-considerations)
+- [Future Enhancements](#future-enhancements)
+  * [Planned Features](#planned-features)
+  * [Architecture Improvements](#architecture-improvements)
+- [Monitoring & Metrics](#monitoring--metrics)
+  * [Key Metrics to Track](#key-metrics-to-track)
+  * [Health Checks](#health-checks)
+
+<!-- tocstop -->
+
 ## Overview
 This document provides a comprehensive architectural overview of the my-personal-coach application, detailing data flows, decision points, and AI integration patterns.
 

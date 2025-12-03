@@ -2,7 +2,7 @@
 
 # 1. Create the IAM Role that App Runner will use
 resource "aws_iam_role" "apprunner_instance_role" {
-  name = "my-personal-coach-apprunner-role"
+  name = var.env == "prod" ? "${var.name}-apprunner-role" : "${var.env}-${var.name}-apprunner-role"
 
   # This "Assume Role Policy" allows the App Runner service to use this role.
   assume_role_policy = jsonencode({
@@ -18,15 +18,12 @@ resource "aws_iam_role" "apprunner_instance_role" {
     ]
   })
 
-  tags = {
-    Project   = "My Personal Coach"
-    ManagedBy = "Terraform"
-  }
+  tags = local.common_tags
 }
 
 # 2. Create the IAM Policy with specific permissions
 resource "aws_iam_policy" "app_permissions_policy" {
-  name        = "my-personal-coach-app-permissions"
+  name        = var.env == "prod" ? "${var.name}-app-permissions" : "${var.env}-${var.name}-app-permissions"
   description = "Permissions for the My Personal Coach App Runner service"
 
   # This policy document grants read access to our secret, full access to our DynamoDB table,

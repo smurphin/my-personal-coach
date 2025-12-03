@@ -3,6 +3,7 @@ import json
 import boto3
 from decimal import Decimal
 from botocore.exceptions import ClientError
+from config import Config
 
 USERS_DATA_FILE = "users_data.json"
 
@@ -89,8 +90,10 @@ class FileBackend:
 class DynamoDBBackend:
     """A data manager that uses AWS DynamoDB for storage."""
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
-        self.table = self.dynamodb.Table('my-personal-coach-users')
+        self.dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+        # Use Config.DYNAMODB_TABLE instead of hardcoded name
+        self.table = self.dynamodb.Table(Config.DYNAMODB_TABLE)
+        print(f"--- DynamoDB Backend initialized with table: {Config.DYNAMODB_TABLE} ---")
 
     def load_user_data(self, athlete_id):
         try:

@@ -1,13 +1,9 @@
 # s3.tf
 
 resource "aws_s3_bucket" "data_overflow" {
-  bucket = "kaizencoach-data"
+  bucket = var.env == "prod" ? "kaizencoach-data" : "${var.env}-${var.name}-data"
 
-  tags = {
-    Project   = "My Personal Coach"
-    ManagedBy = "Terraform"
-    Purpose   = "DynamoDB Overflow Storage"
-  }
+  tags = local.common_tags
 }
 
 # Enable versioning for data protection

@@ -186,53 +186,80 @@ def weekly_summary_api():
 
     cached_summary_data = user_data['weekly_summaries'].get(week_identifier)
     force_refresh = False
+    weekly_summary = None
 
     # Check if refresh is needed
     if not cached_summary_data:
         print("CACHE: No summary found. Forcing refresh.")
         force_refresh = True
     else:
-        cached_timestamp = datetime.fromisoformat(cached_summary_data.get('timestamp'))
-        if (now - cached_timestamp) > timedelta(hours=24):
-            print("CACHE: Summary older than 24 hours. Forcing refresh.")
+        # Defensive: check if cached data has 'summary' key (old cache format might not)
+        weekly_summary = cached_summary_data.get('summary')
+        if not weekly_summary:
+            print("CACHE: Old cache format detected (no 'summary' key). Forcing refresh.")
             force_refresh = True
-        elif cached_summary_data.get('plan_hash') != current_plan_hash:
-            print("CACHE: Plan updated. Forcing refresh.")
-            force_refresh = True
-        elif cached_summary_data.get('last_feedback_id') != latest_feedback_id:
-            print("CACHE: New feedback added. Forcing refresh.")
-            force_refresh = True
-        elif cached_summary_data.get('last_chat_timestamp') != latest_chat_timestamp:
-            print("CACHE: New chat message added. Forcing refresh.")
-            force_refresh = True
+        else:
+            # Check if cache is still valid
+            try:
+                cached_timestamp = datetime.fromisoformat(cached_summary_data.get('timestamp'))
+                if (now - cached_timestamp) > timedelta(hours=24):
+                    print("CACHE: Summary older than 24 hours. Forcing refresh.")
+                    force_refresh = True
+                elif cached_summary_data.get('plan_hash') != current_plan_hash:
+                    print("CACHE: Plan updated. Forcing refresh.")
+                    force_refresh = True
+                elif cached_summary_data.get('last_feedback_id') != latest_feedback_id:
+                    print("CACHE: New feedback added. Forcing refresh.")
+                    force_refresh = True
+                elif cached_summary_data.get('last_chat_timestamp') != latest_chat_timestamp:
+                    print("CACHE: New chat message added. Forcing refresh.")
+                    force_refresh = True
+            except Exception as e:
+                print(f"CACHE: Error checking cache validity: {e}. Forcing refresh.")
+                force_refresh = True
 
     if force_refresh:
         print("CACHE: Generating new summary from AI.")
-        current_week_text = training_service.get_current_week_plan(user_data['plan'])
-        
-        # Fetch latest Garmin data
-        garmin_data = garmin_service.fetch_yesterday_data(user_data)
-        
-        weekly_summary = ai_service.generate_weekly_summary(
-            current_week_text,
-            user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
-            feedback_log[0]['feedback_markdown'] if feedback_log else None,
-            chat_log,
-            garmin_data
-        )
-        
-        # Save summary
-        user_data['weekly_summaries'][week_identifier] = {
-            'summary': weekly_summary,
-            'timestamp': now.isoformat(),
-            'plan_hash': current_plan_hash,
-            'last_feedback_id': latest_feedback_id,
-            'last_chat_timestamp': latest_chat_timestamp
-        }
-        data_manager.save_user_data(athlete_id, user_data)
+        try:
+            current_week_text = training_service.get_current_week_plan(user_data['plan'])
+            
+            # Fetch latest Garmin data
+            garmin_data = None
+            try:
+                garmin_data = garmin_service.fetch_yesterday_data(user_data)
+            except Exception as e:
+                print(f"Warning: Could not fetch Garmin data: {e}")
+            
+            # Generate summary with AI
+            weekly_summary = ai_service.generate_weekly_summary(
+                current_week_text,
+                user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
+                feedback_log[0].get('feedback_markdown') if feedback_log else None,
+                chat_log,
+                garmin_data
+            )
+            
+            if not weekly_summary or not weekly_summary.strip():
+                raise Exception("AI returned empty summary")
+                
+            # Save summary to cache
+            user_data['weekly_summaries'][week_identifier] = {
+                'summary': weekly_summary,
+                'timestamp': now.isoformat(),
+                'plan_hash': current_plan_hash,
+                'last_feedback_id': latest_feedback_id,
+                'last_chat_timestamp': latest_chat_timestamp
+            }
+            data_manager.save_user_data(athlete_id, user_data)
+            print("CACHE: Successfully generated and saved new summary.")
+            
+        except Exception as e:
+            print(f"ERROR generating weekly summary: {e}")
+            import traceback
+            traceback.print_exc()
+            weekly_summary = "Unable to generate summary at this time. Please try refreshing in a moment."
     else:
         print("CACHE: Using cached summary.")
-        weekly_summary = cached_summary_data['summary']
         
     return jsonify({'summary': weekly_summary})
 

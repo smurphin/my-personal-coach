@@ -1,17 +1,18 @@
 # apprunner.tf
 
 resource "aws_apprunner_service" "main_app_service" {
-  service_name = "my-personal-coach-service"
+  service_name = var.name == "prod" ? "${var.name}-service" : "${var.env}-${var.name}-service"
 
   source_configuration {
     image_repository {
       image_identifier      = "${aws_ecr_repository.app_repository.repository_url}:latest"
       image_repository_type = "ECR"
       image_configuration {
-        port = "8080" # The port exposed in your Dockerfile
+        port = var.app_port # The port exposed in your Dockerfile
         runtime_environment_variables = {
-          FLASK_ENV      = "production"
-          APP_DEBUG_MODE = "False" # Set to "True" to enable, "False" to disable
+          FLASK_ENV      = var.flask_env
+          ENVIRONMENT    = var.env
+          APP_DEBUG_MODE = var.app_debug_mode # Set to "True" to enable, "False" to disable
         }
       }
     }
@@ -22,8 +23,8 @@ resource "aws_apprunner_service" "main_app_service" {
   }
 
   instance_configuration {
-    cpu    = "1024" # 1 vCPU
-    memory = "2048" # 2 GB
+    cpu    = var.cpu
+    memory = var.memory
     instance_role_arn = aws_iam_role.apprunner_instance_role.arn
   }
 
@@ -33,16 +34,13 @@ resource "aws_apprunner_service" "main_app_service" {
     }
   }
 
-  tags = {
-    Project   = "My Personal Coach"
-    ManagedBy = "Terraform"
-  }
+  tags = local.common_tags
 }
 
 # --- ECR Access Role for App Runner ---
 # This is a separate role specifically for allowing App Runner to access ECR.
 resource "aws_iam_role" "apprunner_ecr_access_role" {
-  name = "my-personal-coach-apprunner-ecr-access"
+  name = var.env == "prod" ? "${var.name}-apprunner-ecr-access" : "${var.env}-${var.name}-apprunner-ecr-access"
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [{
@@ -56,7 +54,7 @@ resource "aws_iam_role" "apprunner_ecr_access_role" {
 }
 
 resource "aws_iam_policy" "apprunner_ecr_policy" {
-  name   = "my-personal-coach-apprunner-ecr-policy"
+  name = var.env == "prod" ? "${var.name}-apprunner-ecr-policy" : "${var.env}-${var.name}-apprunner-ecr-policy"
   policy = file("${path.module}/policies/apprunner-ecr-policy.json")
 }
 
