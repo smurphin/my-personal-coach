@@ -1,0 +1,21 @@
+title: kAIzen Coach Documentation
+description: Multi-environment deployment, architecture, and operational guides
+baseurl: "/my-personal-coach"
+url: "https://www.smurphin.com"
+
+# Theme
+theme: jekyll-theme-minimal
+# Or use Cayman, Slate, Midnight, etc.
+# See: https://pages.github.com/themes/
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Include/exclude
+include:
+  - multi_env_setup.md
+  - new_env_deployment.md
+  - secrets-guide.md
