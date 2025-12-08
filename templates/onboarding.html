@@ -3,65 +3,277 @@
 {% block title %}Set Your Goals{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-2xl mx-auto px-4 sm:px-0">
 
-    <div id="loading-spinner" style="display: none;" class="text-center py-20">
-        <div class="loader mx-auto"></div>
-        <p class="mt-4 text-brand-light-gray text-lg">Analyzing your data & building your plan...</p>
-        <p class="text-gray-400">This can take a couple of minutes.</p>
+    <!-- Tutorial Carousel (shown while plan generates) -->
+    <div id="loading-spinner" style="display: none;" class="py-8 sm:py-12">
+        <div class="text-center mb-6">
+            <div class="loader mx-auto mb-4"></div>
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Building Your Personalized Plan...</h2>
+            <p class="text-brand-light-gray text-sm sm:text-base">
+                <span id="tutorial-intro">While you wait, here's how to get the most out of kAIzen Coach</span>
+            </p>
+        </div>
+
+        <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl mx-auto">
+            <div class="p-6 sm:p-8">
+                <!-- Tutorial Slides -->
+                <div id="tutorial-slides" class="relative min-h-[300px]">
+                    
+                    <!-- Slide 1: Activity Syncing -->
+                    <div class="tutorial-slide" data-slide="0">
+                        <div class="flex items-start mb-4">
+                            <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold text-brand-blue mt-2">How Activities Sync from Strava</h3>
+                        </div>
+                        <div class="text-brand-light-gray space-y-3 text-sm sm:text-base">
+                            <p class="text-white font-semibold">When do activities sync?</p>
+                            <p>Activities automatically push to kAIzen Coach <strong>only after you edit them on Strava</strong> - like adding a title or description.</p>
+                            
+                            <div class="bg-brand-dark rounded-lg p-4 mt-4">
+                                <p class="text-white font-semibold mb-2">💡 Pro Tip:</p>
+                                <p class="text-sm">Edit your activity on Strava immediately after saving to trigger the sync. This ensures the AI can analyze it for your next coaching feedback.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 2: Activity Titles -->
+                    <div class="tutorial-slide hidden" data-slide="1">
+                        <div class="flex items-start mb-4">
+                            <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold text-brand-blue mt-2">Name Your Activities for Better Feedback</h3>
+                        </div>
+                        <div class="text-brand-light-gray space-y-3 text-sm sm:text-base">
+                            <p class="text-white font-semibold">Match your plan titles</p>
+                            <p>Use descriptive titles that reference your plan's intended session name.</p>
+                            
+                            <div class="bg-brand-dark rounded-lg p-4 mt-4">
+                                <p class="text-white font-semibold mb-3">Example:</p>
+                                <div class="space-y-2 text-sm">
+                                    <p><span class="text-yellow-400">📋 Plan says:</span> <strong class="text-white">"[IMPORTANT] Easy Run: 45 mins, Zone 2"</strong></p>
+                                    <p><span class="text-green-400">✓ Good title:</span> "Easy Run" or "Easy Run 45min"</p>
+                                    <p><span class="text-red-400">✗ Poor title:</span> "Morning Activity" or "Lunch Run"</p>
+                                </div>
+                            </div>
+                            
+                            <p class="text-sm mt-4">The AI can then easily match completed activities to planned sessions and understand if you achieved the intended goal.</p>
+                        </div>
+                    </div>
+
+                    <!-- Slide 3: Private Notes -->
+                    <div class="tutorial-slide hidden" data-slide="2">
+                        <div class="flex items-start mb-4">
+                            <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold text-brand-blue mt-2">Use Private Notes for Context</h3>
+                        </div>
+                        <div class="text-brand-light-gray space-y-3 text-sm sm:text-base">
+                            <p class="text-white font-semibold">The more context, the better the coaching</p>
+                            <p>Add details in Strava's private notes about how the session felt. This helps the AI understand what's working and adjust your plan.</p>
+                            
+                            <div class="bg-brand-dark rounded-lg p-4 mt-4">
+                                <p class="text-white font-semibold mb-3">What to include:</p>
+                                <ul class="space-y-2 text-sm">
+                                    <li>• <strong>Perceived effort:</strong> "Felt pretty easy today, RPE 3/10"</li>
+                                    <li>• <strong>Heart rate zones:</strong> "HR crept into Z3 on uphills but felt fine"</li>
+                                    <li>• <strong>Terrain impact:</strong> "Hills made it harder than planned"</li>
+                                    <li>• <strong>Injuries/niggles:</strong> "Hamstring tight but manageable, pain 2/10"</li>
+                                    <li>• <strong>Energy levels:</strong> "Tired from work, struggled to maintain pace"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 4: Injury Tracking -->
+                    <div class="tutorial-slide hidden" data-slide="3">
+                        <div class="flex items-start mb-4">
+                            <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold text-brand-blue mt-2">Track Injuries & Recovery</h3>
+                        </div>
+                        <div class="text-brand-light-gray space-y-3 text-sm sm:text-base">
+                            <p class="text-white font-semibold">Consistent tracking = better injury management</p>
+                            <p>The AI tracks pain levels and progress over time. This helps identify patterns and adjust training to prevent aggravation.</p>
+                            
+                            <div class="bg-brand-dark rounded-lg p-4 mt-4">
+                                <p class="text-white font-semibold mb-3">Example progression:</p>
+                                <div class="space-y-2 text-sm">
+                                    <p><span class="text-red-400">Week 1:</span> "Knee pain 6/10 after intervals"</p>
+                                    <p><span class="text-yellow-400">Week 2:</span> "Knee pain 4/10 on easy runs"</p>
+                                    <p><span class="text-green-400">Week 3:</span> "Knee feels fine, pain 1/10"</p>
+                                </div>
+                            </div>
+                            
+                            <p class="mt-4"><strong>Important:</strong> The AI can suggest reduced load, different exercises, or when to consult a professional based on your notes.</p>
+                        </div>
+                    </div>
+
+                    <!-- Slide 5: Context is King -->
+                    <div class="tutorial-slide hidden" data-slide="4">
+                        <div class="flex items-start mb-4">
+                            <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold text-brand-blue mt-2">Context is Everything</h3>
+                        </div>
+                        <div class="text-brand-light-gray space-y-3 text-sm sm:text-base">
+                            <p class="text-white font-semibold">Quality coaching needs quality information</p>
+                            <p>The AI can only coach as well as the information it receives. More detail = more personalized and effective guidance.</p>
+                            
+                            <div class="bg-brand-dark rounded-lg p-4 mt-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-red-400 font-semibold mb-2">❌ Minimal Context</p>
+                                        <p class="text-xs">"Completed run"</p>
+                                        <p class="text-xs text-gray-500 mt-2">Generic feedback only</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-green-400 font-semibold mb-2">✓ Rich Context</p>
+                                        <p class="text-xs">"Easy Run - felt good, HR stayed Z2 except uphills. Right knee slight twinge at 30min but ok. RPE 4/10"</p>
+                                        <p class="text-xs text-gray-500 mt-2">Specific, actionable coaching</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-brand-blue bg-opacity-20 rounded-lg p-4 mt-4 border border-brand-blue">
+                                <p class="text-white font-semibold text-center">🎯 More context = Better coaching = Faster progress</p>
+                            </div>
+                            
+                            <div class="mt-4 text-center">
+                                <a href="{{ url_for('help.help') }}" class="text-brand-blue hover:text-blue-400 text-sm font-semibold">
+                                    📚 View full guide & FAQ →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Navigation -->
+                <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
+                    <button id="prev-slide" class="text-brand-blue hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- Dots -->
+                    <div class="flex space-x-2">
+                        <button class="slide-dot w-2 h-2 rounded-full bg-brand-blue transition-colors" data-slide="0"></button>
+                        <button class="slide-dot w-2 h-2 rounded-full bg-gray-600 transition-colors" data-slide="1"></button>
+                        <button class="slide-dot w-2 h-2 rounded-full bg-gray-600 transition-colors" data-slide="2"></button>
+                        <button class="slide-dot w-2 h-2 rounded-full bg-gray-600 transition-colors" data-slide="3"></button>
+                        <button class="slide-dot w-2 h-2 rounded-full bg-gray-600 transition-colors" data-slide="4"></button>
+                    </div>
+                    
+                    <button id="next-slide" class="text-brand-blue hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Progress -->
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        <span id="slide-progress">Slide 1 of 5</span>
+                        <span id="auto-advance-timer">• Auto-advancing in <span id="countdown">8</span>s</span>
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="content-to-hide">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-white">Set Your Training Goal</h1>
-            <p class="text-brand-light-gray mt-2">This will help the AI create a truly personalized plan.</p>
+        <div class="text-center mb-6 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold text-white">Set Your Training Goal</h1>
+            <p class="text-sm sm:text-base text-brand-light-gray mt-2">This will help the AI create a truly personalized plan.</p>
         </div>
 
-        <div class="bg-brand-gray p-8 rounded-xl shadow-lg">
-            <form action="{{ url_for('plan.generate_plan') }}" method="post" class="space-y-6" onsubmit="showSpinner()">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for message in messages %}
+                        <div class="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-2" role="alert">
+                            <p class="font-medium">{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="bg-brand-gray p-4 sm:p-6 md:p-8 rounded-xl shadow-lg">
+            <form id="onboarding-form" action="{{ url_for('plan.generate_plan') }}" method="post" class="space-y-4 sm:space-y-6">
                 <div>
                     <label for="user_goal" class="block text-sm font-medium text-brand-light-gray mb-1">What is your primary goal?</label>
-                    <textarea id="user_goal" name="user_goal" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30">{{ request.form.get('user_goal', 'Run a sub 40 minute 10k at Regents park 10k on 29th November') }}</textarea>
+                    <textarea id="user_goal" name="user_goal" rows="2" required class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30 or, survive my first trail 10k">{{ request.form.get('user_goal', '') }}</textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                        <label for="sessions_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">Sessions per week</label>
+                        <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="{{ request.form.get('sessions_per_week', 5) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+                        <p class="mt-1 text-xs text-gray-400">How many sessions can you realistically, consistently, commit to each week?</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+
+                    <div>
+                        <label for="hours_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">Hours per week</label>
+                        <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="{{ request.form.get('hours_per_week', 7) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+                        <p class="mt-1 text-xs text-gray-400">How many hours can you realistically, consistently, commit to each week?</p>
+                    </div>
                 </div>
 
                 <div>
-                    <label for="sessions_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">How many training sessions can you realistically commit to per week?</label>
-                    <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="{{ request.form.get('sessions_per_week', 5) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
-                </div>
-
-                <div>
-                    <label for="hours_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">What is the maximum time you can commit to training per week? (in hours)</label>
-                    <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="{{ request.form.get('hours_per_week', 7) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
-                </div>
-
-                <div>
-                    <label for="lifestyle_context" class="block text-sm font-medium text-brand-light-gray mb-1">Is there any other context about your lifestyle or schedule the coach should know?</label>
-                    <textarea id="lifestyle_context" name="lifestyle_context" rows="4" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Mention shift work, recurring travel, or other commitments...">{{ request.form.get('lifestyle_context', "I have childcare every other week, so my available training time alternates between 5 hours on off weeks and 8 hours on on weeks this is my on week. Time trials must be planned during an on week as I have the weekend free. I try to go to my running club every Tuesday evening, this is generally a social recovery run of around 1 hour, I'm keen to keep this as the social connection is important to me. Id like to do a parkrun and use this as a timetrial on Saturday 4th October    I have a busy week at work 6th - 10th October especially tuesday 7th until thursday 9th so will struggle to fit anything too time consuiming in that week, quality over quantity will be more achievable") }}</textarea>
+                    <label for="lifestyle_context" class="block text-sm font-medium text-brand-light-gray mb-1">Lifestyle & schedule context</label>
+                    <textarea id="lifestyle_context" name="lifestyle_context" rows="3" class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="Mention shift work, recurring travel, or other regular commitments, be as specific as possible, the more context you can add the better the plan will fit into your life.  Mention any upcoming plans that may disrupt training, more context can be always added later via the chat if things come up.&#10;&#10; e.g., I have child care every Saturday, I work late on Thursdays, I try and do a social run with my running club every Tuesday evening and I have a big party planned on Friday the 13th November">{{ request.form.get('lifestyle_context', '') }}</textarea>
                 </div>
 
                 <div>
                     <label for="athlete_type" class="block text-sm font-medium text-brand-light-gray mb-1">Which athlete type best describes you?</label>
                     <select id="athlete_type" name="athlete_type" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-brand-blue focus:border-brand-blue transition">
                         <option value="The Disciplinarian" {% if request.form.get('athlete_type') == 'The Disciplinarian' %}selected{% endif %}>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
+
                         <option value="The Improviser" {% if request.form.get('athlete_type') == 'The Improviser' or not request.form.get('athlete_type') %}selected{% endif %}>The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
+                        
                         <option value="The Minimalist" {% if request.form.get('athlete_type') == 'The Minimalist' %}selected{% endif %}>The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
                     </select>
                 </div>
 
-                <div>
-                    <label for="lthr" class="block text-sm font-medium text-brand-light-gray mb-1">What is your Lactate Threshold Heart Rate (LTHR)?</label>
-                    <input type="number" id="lthr" name="lthr" required value="{{ request.form.get('lthr', 160) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 160">
-                    <p class="mt-1 text-xs text-gray-400">Average heart rate from a 30-min all-out effort. A recent 5k/10k race average is a good estimate.</p>
-                </div>
-                
-                <div>
-                    <label for="ftp" class="block text-sm font-medium text-brand-light-gray mb-1">What is your Functional Threshold Power (FTP) for cycling? (Optional)</label>
-                    <input type="number" id="ftp" name="ftp" value="{{ request.form.get('ftp', 200) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 200">
-                    <p class="mt-1 text-xs text-gray-400">Your average power from a 20-min all-out effort.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div>
+                        <label for="lthr" class="block text-sm font-medium text-brand-light-gray mb-1">Lactate Threshold HR (LTHR) - (If known)</label>
+                        <input type="number" id="lthr" name="lthr" value="{{ request.form.get('lthr', '') }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 160">
+                        <p class="mt-1 text-xs text-gray-400">Average HR from a 30-min all-out effort. Don't worry if unknown, we can estimate to get started</p>
+                    </div>
+                    
+                    <div>
+                        <label for="ftp" class="block text-sm font-medium text-brand-light-gray mb-1">Cycling FTP - (If known)</label>
+                        <input type="number" id="ftp" name="ftp" value="{{ request.form.get('ftp', '') }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 200">
+                        <p class="mt-1 text-xs text-gray-400">Average power from 20-min effort. Don't worry if unknown, we can estimate to get started</p>
+                    </div>
                 </div>
 
-                <div class="pt-4">
-                    <button type="submit" class="w-full bg-brand-blue text-white font-bold py-3 px-4 rounded-lg hover:bg-brand-blue-hover transition-colors duration-300">
+                <div class="pt-2 sm:pt-4">
+                    <button type="submit" class="w-full bg-brand-blue text-white font-bold py-3 px-4 text-base sm:text-lg rounded-lg hover:bg-brand-blue-hover transition-colors duration-300">
                         Analyze My Strava & Build My Plan
                     </button>
                 </div>
@@ -69,4 +281,174 @@
         </div>
     </div>
 </div>
+
+<script>
+// Tutorial Carousel Management
+let currentSlide = 0;
+const totalSlides = 5;
+let countdownTimer = null;
+let countdownSeconds = 8;
+
+function showSpinnerWithCarousel() {
+    const contentToHide = document.getElementById('content-to-hide');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    
+    if (!contentToHide || !loadingSpinner) {
+        return false;
+    }
+    
+    contentToHide.style.display = 'none';
+    loadingSpinner.style.display = 'block';
+    
+    // Use setTimeout to ensure DOM is fully rendered before starting carousel
+    setTimeout(() => {
+        startTutorialCarousel();
+    }, 100);
+    
+    return true;
+}
+
+function startTutorialCarousel() {
+    currentSlide = 0;
+    showSlide(0);
+    
+    // Start auto-advance after a brief delay
+    setTimeout(() => {
+        startAutoAdvance();
+    }, 500);
+}
+
+function showSlide(index) {
+    // Hide all slides
+    document.querySelectorAll('.tutorial-slide').forEach(slide => slide.classList.add('hidden'));
+    
+    // Show current slide
+    const slides = document.querySelectorAll('.tutorial-slide');
+    if (slides[index]) {
+        slides[index].classList.remove('hidden');
+    }
+    
+    // Update dots
+    document.querySelectorAll('.slide-dot').forEach((dot, i) => {
+        dot.classList.toggle('bg-brand-blue', i === index);
+        dot.classList.toggle('bg-gray-600', i !== index);
+    });
+    
+    // Update buttons
+    document.getElementById('prev-slide').disabled = (index === 0);
+    document.getElementById('next-slide').disabled = (index === totalSlides - 1);
+    
+    // Update progress
+    document.getElementById('slide-progress').textContent = `Slide ${index + 1} of ${totalSlides}`;
+    
+    currentSlide = index;
+}
+
+function nextSlide() {
+    if (currentSlide < totalSlides - 1) {
+        showSlide(currentSlide + 1);
+        resetAutoAdvance();
+    }
+}
+
+function prevSlide() {
+    if (currentSlide > 0) {
+        showSlide(currentSlide - 1);
+        resetAutoAdvance();
+    }
+}
+
+function startAutoAdvance() {
+    console.log('startAutoAdvance called');
+    
+    // Clear any existing timer
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+    }
+    
+    countdownSeconds = 8;
+    updateCountdown();
+    
+    console.log('Starting countdown timer');
+    countdownTimer = setInterval(() => {
+        countdownSeconds--;
+        console.log('Countdown:', countdownSeconds);
+        updateCountdown();
+        
+        if (countdownSeconds <= 0) {
+            if (currentSlide < totalSlides - 1) {
+                // Move to next slide
+                showSlide(currentSlide + 1);
+                resetAutoAdvance();
+            } else {
+                // On last slide - loop back to beginning
+                showSlide(0);
+                resetAutoAdvance();
+            }
+        }
+    }, 1000);
+}
+
+function resetAutoAdvance() {
+    console.log('resetAutoAdvance called');
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+    }
+    startAutoAdvance();
+}
+
+function updateCountdown() {
+    const countdownEl = document.getElementById('countdown');
+    console.log('updateCountdown - element found:', !!countdownEl, 'seconds:', countdownSeconds);
+    if (countdownEl) {
+        countdownEl.textContent = countdownSeconds;
+    }
+}
+
+// Auto-expand textareas to fit content (no scrollbars)
+function autoExpandTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = (textarea.scrollHeight) + 'px';
+}
+
+// Initialize all auto-expand textareas
+document.addEventListener('DOMContentLoaded', function() {
+    const textareas = document.querySelectorAll('textarea.auto-expand');
+    
+    textareas.forEach(textarea => {
+        autoExpandTextarea(textarea);
+        textarea.addEventListener('input', function() { autoExpandTextarea(this); });
+        textarea.addEventListener('focus', function() { autoExpandTextarea(this); });
+    });
+    
+    // Add form submit handler
+    const form = document.getElementById('onboarding-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            showSpinnerWithCarousel();
+        });
+    }
+    
+    // Navigation button handlers
+    const prevBtn = document.getElementById('prev-slide');
+    const nextBtn = document.getElementById('next-slide');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', prevSlide);
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextSlide);
+    }
+    
+    // Dot navigation
+    document.querySelectorAll('.slide-dot').forEach(dot => {
+        dot.addEventListener('click', function() {
+            showSlide(parseInt(this.getAttribute('data-slide')));
+            resetAutoAdvance();
+        });
+    });
+});
+</script>
+
 {% endblock %}

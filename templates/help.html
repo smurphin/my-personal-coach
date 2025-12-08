@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Guide{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    
+    <!-- Page Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3">Help & Getting Started</h1>
+        <p class="text-brand-light-gray text-base sm:text-lg">Everything you need to know about kAIzen Coach</p>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <a href="#getting-started" class="bg-brand-gray hover:bg-brand-dark p-4 rounded-lg text-center transition-colors">
+            <svg class="w-8 h-8 mx-auto mb-2 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            <p class="text-sm text-white font-semibold">Getting Started</p>
+        </a>
+        <a href="#best-practices" class="bg-brand-gray hover:bg-brand-dark p-4 rounded-lg text-center transition-colors">
+            <svg class="w-8 h-8 mx-auto mb-2 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-sm text-white font-semibold">Best Practices</p>
+        </a>
+        <a href="#faq" class="bg-brand-gray hover:bg-brand-dark p-4 rounded-lg text-center transition-colors">
+            <svg class="w-8 h-8 mx-auto mb-2 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-sm text-white font-semibold">FAQ</p>
+        </a>
+        <a href="#support" class="bg-brand-gray hover:bg-brand-dark p-4 rounded-lg text-center transition-colors">
+            <svg class="w-8 h-8 mx-auto mb-2 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <p class="text-sm text-white font-semibold">Beta Support</p>
+        </a>
+    </div>
+
+    <!-- Getting Started Section -->
+    <div id="getting-started" class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 mb-6">
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">Getting Started with kAIzen Coach</h2>
+        
+        <div class="space-y-6">
+            <!-- Step 1 -->
+            <div class="flex">
+                <div class="bg-brand-blue rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mr-4">
+                    <span class="text-white font-bold">1</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">Connect Your Strava Account</h3>
+                    <p class="text-brand-light-gray mb-2">From the home page, click <strong>"Login with Strava"</strong>.</p>
+                    <p class="text-brand-light-gray">You will be taken to a Strava authorization page. Grant the requested permissions to allow kAIzen Coach to view your profile and activity data.</p>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex">
+                <div class="bg-brand-blue rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mr-4">
+                    <span class="text-white font-bold">2</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">Set Your Goal</h3>
+                    <p class="text-brand-light-gray mb-2">After logging in, you'll be directed to the onboarding page.</p>
+                    <p class="text-brand-light-gray mb-2">Fill out the form with your primary training goal, how many sessions you can realistically do per week, and any other lifestyle context that might affect your training.</p>
+                    <p class="text-brand-light-gray">Click <strong>"Analyze My Strava & Build My Plan"</strong>. The AI will now analyze your data and generate your personalized plan. This may take a minute or two.</p>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex">
+                <div class="bg-brand-blue rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mr-4">
+                    <span class="text-white font-bold">3</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">View Your Plan</h3>
+                    <p class="text-brand-light-gray mb-2">Your new training plan will be displayed on the screen. It is broken down week-by-week.</p>
+                    <p class="text-brand-light-gray mb-2">Each session is marked as <span class="text-yellow-400">[KEY]</span>, <span class="text-green-400">[IMPORTANT]</span>, or <span class="text-gray-400">[STRETCH]</span> to help you prioritize.</p>
+                    <p class="text-brand-light-gray">You can access your plan at any time by clicking the <strong>"Plan"</strong> link from the navigation.</p>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="flex">
+                <div class="bg-brand-blue rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mr-4">
+                    <span class="text-white font-bold">4</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">Get Feedback</h3>
+                    <p class="text-brand-light-gray mb-2">After you complete and upload a workout to Strava, you can get feedback on it.</p>
+                    <p class="text-brand-light-gray mb-2">Give the activity a title that reflects the session from your plan that you completed.  Add some comments in the private notes (see below for some ideas of what to include) save the updated activity and give the coach a minute or two to analyse it.</p>
+                    <p class="text-brand-light-gray mb-2">Then navigate to the <strong>"Get Latest Feedback"</strong> page. The coach will analyze your most recent activity against the goals of your plan and provide a detailed breakdown and an execution score.</p>
+                    <p class="text-brand-light-gray">The coach may occasionally suggest updates to your plan based on your performance, which will be applied automatically.</p>
+                </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="flex">
+                <div class="bg-brand-blue rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mr-4">
+                    <span class="text-white font-bold">5</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">Review Your History</h3>
+                    <p class="text-brand-light-gray">All feedback is saved in your <strong>"Coaching Log"</strong>. You can visit this page to see a complete history of your AI-coached sessions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Best Practices Section -->
+    <div id="best-practices" class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 mb-6">
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">How to Get the Most Out of kAIzen Coach</h2>
+        
+        <div class="space-y-8">
+            <!-- Practice 1: Activity Syncing -->
+            <div class="bg-brand-dark rounded-lg p-6">
+                <div class="flex items-start mb-4">
+                    <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mt-2">How Activities Sync from Strava</h3>
+                </div>
+                <div class="text-brand-light-gray space-y-3">
+                    <p><strong>When do activities sync?</strong></p>
+                    <p>Activities automatically push to kAIzen Coach <strong>only after you edit them on Strava</strong> - like adding a title or description.</p>
+                    <div class="bg-brand-gray rounded-lg p-4 mt-4">
+                        <p class="text-white font-semibold mb-2">💡 Pro Tip:</p>
+                        <p class="text-sm">Edit your activity on Strava soon after uploading to trigger the sync. This ensures the coach can analyze it for your next coaching feedback.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Practice 2: Activity Titles -->
+            <div class="bg-brand-dark rounded-lg p-6">
+                <div class="flex items-start mb-4">
+                    <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mt-2">Name Your Activities for Better Feedback</h3>
+                </div>
+                <div class="text-brand-light-gray space-y-3">
+                    <p><strong>Match your plan titles</strong></p>
+                    <p>Use descriptive titles that reference your plan's intended session name.</p>
+                    <div class="bg-brand-gray rounded-lg p-4 mt-4">
+                        <p class="text-white font-semibold mb-3">Example:</p>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-yellow-400">📋 Plan says:</span> <strong class="text-white">"[IMPORTANT] Easy Run: 45 mins, Zone 2"</strong></p>
+                            <p><span class="text-green-400">✓ Good title:</span> "Easy Run" or "Easy Run 45min"</p>
+                            <p><span class="text-red-400">✗ Poor title:</span> "Morning Activity" or "Lunch Run"</p>
+                        </div>
+                    </div>
+                    <p class="text-sm mt-4">The coach can then easily match completed activities to planned sessions and understand if you achieved the intended goal.</p>
+                </div>
+            </div>
+
+            <!-- Practice 3: Private Notes -->
+            <div class="bg-brand-dark rounded-lg p-6">
+                <div class="flex items-start mb-4">
+                    <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mt-2">Use Private Notes for Context</h3>
+                </div>
+                <div class="text-brand-light-gray space-y-3">
+                    <p><strong>The more context, the better the coaching</strong></p>
+                    <p>Add details in Strava's private notes about how the session felt. This helps the coach understand what's working and adjust your plan.</p>
+                    <div class="bg-brand-gray rounded-lg p-4 mt-4">
+                        <p class="text-white font-semibold mb-3">What to include:</p>
+                        <ul class="space-y-2 text-sm">
+                            <li>• <strong>Perceived effort:</strong> "Felt pretty easy today, RPE 3/10"</li>
+                            <li>• <strong>Heart rate zones:</strong> "HR crept into Z3 on uphills but felt fine"</li>
+                            <li>• <strong>Terrain impact:</strong> "Hills made it harder than planned"</li>
+                            <li>• <strong>Injuries/niggles:</strong> "Hamstring tight but manageable, pain 2/10"</li>
+                            <li>• <strong>Energy levels:</strong> "Tired from work, struggled to maintain pace"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Practice 4: Injury Tracking -->
+            <div class="bg-brand-dark rounded-lg p-6">
+                <div class="flex items-start mb-4">
+                    <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mt-2">Track Injuries & Recovery</h3>
+                </div>
+                <div class="text-brand-light-gray space-y-3">
+                    <p><strong>Consistent tracking = better injury management</strong></p>
+                    <p>The coach tracks pain levels and progress over time. This helps identify patterns and adjust training to prevent aggravation.</p>
+                    <div class="bg-brand-gray rounded-lg p-4 mt-4">
+                        <p class="text-white font-semibold mb-3">Example progression:</p>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-red-400">Week 1:</span> "Knee pain 6/10 after intervals"</p>
+                            <p><span class="text-yellow-400">Week 2:</span> "Knee pain 4/10 on easy runs"</p>
+                            <p><span class="text-green-400">Week 3:</span> "Knee feels fine, pain 1/10"</p>
+                        </div>
+                    </div>
+                    <p class="mt-4"><strong>Important:</strong> The coach can suggest reduced load, different exercises, or when to consult a professional based on your notes.</p>
+                </div>
+            </div>
+
+            <!-- Practice 5: Context is King -->
+            <div class="bg-brand-dark rounded-lg p-6">
+                <div class="flex items-start mb-4">
+                    <div class="bg-brand-blue rounded-full p-3 mr-4 flex-shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mt-2">Context is Everything</h3>
+                </div>
+                <div class="text-brand-light-gray space-y-3">
+                    <p><strong>Quality coaching needs quality information</strong></p>
+                    <p>The coach can only analyse as well as the information it receives. More detail = more personalized and effective guidance.</p>
+                    <div class="bg-brand-gray rounded-lg p-4 mt-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p class="text-red-400 font-semibold mb-2">❌ Minimal Context</p>
+                                <p class="text-xs">"Completed run"</p>
+                                <p class="text-xs text-gray-500 mt-2">Generic feedback only</p>
+                            </div>
+                            <div>
+                                <p class="text-green-400 font-semibold mb-2">✓ Rich Context</p>
+                                <p class="text-xs">"Easy Run - felt good, HR stayed Z2 except uphills. Right knee slight twinge at 30min but ok. RPE 4/10"</p>
+                                <p class="text-xs text-gray-500 mt-2">Specific, actionable coaching</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-brand-blue bg-opacity-20 rounded-lg p-4 mt-4 border border-brand-blue">
+                        <p class="text-white font-semibold text-center">🎯 More context = Better coaching = Faster progress</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div id="faq" class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 mb-6">
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">Frequently Asked Questions</h2>
+        
+        <div class="space-y-6">
+            <!-- FAQ 1 -->
+            <div class="border-b border-gray-700 pb-6">
+                <h3 class="text-lg font-bold text-white mb-2">Is my data safe?</h3>
+                <p class="text-brand-light-gray">Yes. We use the secure Strava OAuth2 protocol to connect to your account. Your training data is stored securely in our database and is only used to generate your plans and feedback.</p>
+            </div>
+
+            <!-- FAQ 2 -->
+            <div class="border-b border-gray-700 pb-6">
+                <h3 class="text-lg font-bold text-white mb-2">What do the session priorities mean?</h3>
+                <div class="text-brand-light-gray space-y-3">
+                    <div>
+                        <p class="text-yellow-400 font-semibold">[KEY]:</p>
+                        <p>These are the most important workouts of the week, typically high-intensity sessions that drive the biggest fitness gains. Prioritize these above all others.</p>
+                    </div>
+                    <div>
+                        <p class="text-green-400 font-semibold">[IMPORTANT]:</p>
+                        <p>These are foundational workouts, like your weekly long run or primary strength session. They are crucial for building endurance and resilience.</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 font-semibold">[STRETCH]:</p>
+                        <p>These are supplementary sessions, like extra recovery runs or mobility work. They are beneficial if you have the time and energy, but are the first to drop if your schedule is tight.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 3 -->
+            <div class="border-b border-gray-700 pb-6">
+                <h3 class="text-lg font-bold text-white mb-2">The plan doesn't have workouts assigned to specific days. Why?</h3>
+                <p class="text-brand-light-gray">kAIzen Coach provides a weekly list of sessions to give you the flexibility to schedule them around your life. As a general rule, you should allow at least one easy or rest day between [KEY] sessions.</p>
+            </div>
+
+            <!-- FAQ 4 -->
+            <div class="border-b border-gray-700 pb-6">
+                <h3 class="text-lg font-bold text-white mb-2">What if I miss a workout?</h3>
+                <p class="text-brand-light-gray">Don't worry! Consistency over perfection is the goal. Simply move on with the plan. If you consistently miss [KEY] sessions, the coach will notice this trend in the feedback loop and may adjust future weeks to be more manageable.</p>
+            </div>
+
+            <!-- FAQ 5 -->
+            <div class="border-b border-gray-700 pb-6">
+                <h3 class="text-lg font-bold text-white mb-2">Can I change my goal?</h3>
+                <p class="text-brand-light-gray">Yes. From the home page, click "Generate a New Plan". This will take you back to the onboarding form where you can input a new goal. The coach will summarize your just-completed training cycle and use it as context to build your new plan.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Beta Support Section -->
+    <div id="support" class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 mb-6">
+        <h2 class="text-2xl font-bold text-brand-blue mb-4">Beta Tester Support</h2>
+        <p class="text-brand-light-gray mb-6">Thank you for being part of our beta! Your feedback helps make kAIzen Coach better for everyone.</p>
+        
+        <div class="bg-brand-dark rounded-lg p-6">
+            <h3 class="text-lg font-bold text-white mb-4">Found a bug or have a suggestion?</h3>
+            <p class="text-brand-light-gray mb-4">We'd love to hear from you! Please submit an issue on our GitHub repository:</p>
+            
+            <a href="https://github.com/smurphin/my-personal-coach/issues/new" target="_blank" class="inline-flex items-center bg-brand-blue hover:bg-brand-blue-hover text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                Report an Issue or Suggest a Feature
+            </a>
+            
+            <div class="mt-6 bg-brand-gray rounded-lg p-4">
+                <p class="text-sm text-brand-light-gray"><strong>What to include:</strong></p>
+                <ul class="text-sm text-brand-light-gray space-y-1 mt-2 ml-4">
+                    <li>• What happened and what you expected to happen</li>
+                    <li>• Steps to reproduce (if it's a bug)</li>
+                    <li>• Screenshots if applicable</li>
+                    <li>• Browser and device information</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top -->
+    <div class="text-center mt-8">
+        <a href="#" class="text-brand-blue hover:text-white transition-colors inline-flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+            </svg>
+            Back to Top
+        </a>
+    </div>
+
+</div>
+{% endblock %}

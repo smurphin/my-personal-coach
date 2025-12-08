@@ -129,6 +129,72 @@ class TrainingService:
             "reason": "No recent, high-intensity race found."
         }
     
+    def estimate_zones_from_activities(self, activities):
+        """
+        Estimate LTHR and FTP from recent activity data.
+        Returns dict with 'lthr' and 'ftp' keys (or None if can't estimate).
+        """
+        estimates = {'lthr': None, 'ftp': None}
+        
+        if not activities:
+            return estimates
+        
+        # Look for recent races or hard efforts (last 8 weeks)
+        eight_weeks_ago = datetime.now() - timedelta(weeks=8)
+        
+        max_hr_values = []
+        max_power_values = []
+        avg_power_values = []
+        
+        for activity in activities:
+            try:
+                activity_date = datetime.strptime(
+                    activity['start_date_local'].split('T')[0],
+                    '%Y-%m-%d'
+                )
+                
+                if activity_date < eight_weeks_ago:
+                    continue
+                
+                # Collect heart rate data
+                if activity.get('max_heartrate'):
+                    max_hr_values.append(activity['max_heartrate'])
+                
+                # Collect power data (for cycling activities)
+                if activity.get('type') in ['Ride', 'VirtualRide']:
+                    if activity.get('average_watts') and activity.get('average_watts') > 0:
+                        # Only use activities longer than 20 minutes for FTP estimation
+                        if activity.get('moving_time', 0) >= 1200:  # 20 minutes in seconds
+                            avg_power_values.append(activity['average_watts'])
+                    
+                    if activity.get('max_watts'):
+                        max_power_values.append(activity['max_watts'])
+                
+            except (ValueError, KeyError):
+                continue
+        
+        # Estimate LTHR from max HR (LTHR is typically 88% of max HR for trained athletes)
+        # Use 88% as a reasonable estimate
+        if max_hr_values:
+            max_hr = max(max_hr_values)
+            estimates['lthr'] = int(max_hr * 0.88)
+            print(f"--- Found {len(max_hr_values)} activities with HR data ---")
+            print(f"--- Max HR found: {max_hr} bpm, Estimated LTHR: {estimates['lthr']} bpm ---")
+            # Show top 5 max HR values for debugging
+            top_hrs = sorted(max_hr_values, reverse=True)[:5]
+            print(f"--- Top 5 max HR values: {top_hrs} ---")
+        
+        # Estimate FTP from average power in longer efforts
+        # Use the 90th percentile of average power values as a conservative FTP estimate
+        if avg_power_values:
+            avg_power_values.sort()
+            # Take the top 10% of average power values
+            top_efforts = avg_power_values[int(len(avg_power_values) * 0.9):]
+            if top_efforts:
+                estimates['ftp'] = int(sum(top_efforts) / len(top_efforts))
+        
+        return estimates
+    
     def get_current_week_plan(self, plan_text, plan_structure=None):
         """
         Finds and returns the markdown for the current or closest upcoming week's plan.

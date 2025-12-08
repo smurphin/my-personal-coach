@@ -51,4 +51,4 @@ USER appuser
 ENV FLASK_ENV=production
 
 EXPOSE 8080
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--threads", "4", "-w", "1", "-b", "0.0.0.0:8080", "app:app"]

@@ -1,40 +1,148 @@
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-4 border-b border-brand-gray">
+<div class="flex flex-col mb-8 pb-4 border-b border-brand-gray">
     
-    <div>
-        <h1 class="text-3xl font-bold text-white">{% block page_title %}{% endblock %}</h1>
-        <p class="text-brand-light-gray mt-1">{% block page_subtitle %}{% endblock %}</p>
+    <!-- Top bar with title and hamburger -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-white">{% block page_title %}{% endblock %}</h1>
+            <p class="text-sm sm:text-base text-brand-light-gray mt-1">{% block page_subtitle %}{% endblock %}</p>
+        </div>
+        
+        <!-- Hamburger button - mobile only -->
+        <button id="mobile-menu-btn" class="lg:hidden text-brand-blue hover:text-white transition-colors p-2" aria-label="Menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
     </div>
 
-    <div class="flex space-x-6 mt-4 sm:mt-0">
+    <!-- Desktop navigation - horizontal -->
+    <div class="hidden lg:flex space-x-6">
         <a href="{{ url_for('dashboard.dashboard') }}"
-            class="font-semibold py-2 px-1 {% if request.endpoint == 'dashboard' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'dashboard' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Dashboard
         </a>
 
         <a href="{{ url_for('plan.view_plan') }}" 
-           class="font-semibold py-2 px-1 {% if request.endpoint == 'view_plan' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'view_plan' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Plan
         </a>
         
         <a href="{{ url_for('feedback.coaching_log') }}"
-           class="font-semibold py-2 px-1 {% if request.endpoint == 'coaching_log' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'coaching_log' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Coaching Log
         </a>
 
         <a href="{{ url_for('dashboard.chat_log_list') }}"
-            class="font-semibold py-2 px-1 {% if request.endpoint == 'chat_log_list' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'chat_log_list' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Chat Log
         </a>
 
         <a href="{{ url_for('feedback.feedback') }}"
-           class="font-semibold py-2 px-1 {% if request.endpoint == 'feedback' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'feedback' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Feedback
         </a>
 
         <a href="{{ url_for('admin.connections') }}"
-           class="font-semibold py-2 px-1 {% if request.endpoint == 'connections' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'connections' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Connections
         </a>
-        
+
+        <a href="{{ url_for('help.help') }}"
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'help.help' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            Help & Guide
+        </a>
     </div>
 </div>
+
+<!-- Mobile menu overlay -->
+<div id="mobile-menu" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden lg:hidden">
+    <div class="fixed right-0 top-0 bottom-0 w-64 bg-brand-gray shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out" id="mobile-menu-panel">
+        <!-- Close button -->
+        <div class="flex justify-between items-center p-4 border-b border-brand-dark">
+            <h2 class="text-lg font-bold text-white">Menu</h2>
+            <button id="mobile-menu-close" class="text-gray-400 hover:text-white transition-colors p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Navigation links -->
+        <nav class="flex flex-col p-4 space-y-1">
+            <a href="{{ url_for('dashboard.dashboard') }}"
+                class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'dashboard' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Dashboard
+            </a>
+
+            <a href="{{ url_for('plan.view_plan') }}" 
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'view_plan' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Plan
+            </a>
+            
+            <a href="{{ url_for('feedback.coaching_log') }}"
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'coaching_log' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Coaching Log
+            </a>
+
+            <a href="{{ url_for('dashboard.chat_log_list') }}"
+                class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'chat_log_list' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Chat Log
+            </a>
+
+            <a href="{{ url_for('feedback.feedback') }}"
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'feedback' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Feedback
+            </a>
+
+            <a href="{{ url_for('admin.connections') }}"
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'connections' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Connections
+            </a>
+            
+            <a href="{{ url_for('help.help') }}"
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'help.help' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Help & Guide
+            </a>
+        </nav>
+    </div>
+</div>
+
+<script>
+// Mobile menu toggle
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+const mobileMenu = document.getElementById('mobile-menu');
+const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+const mobileMenuClose = document.getElementById('mobile-menu-close');
+
+function openMobileMenu() {
+    mobileMenu.classList.remove('hidden');
+    // Trigger reflow for animation
+    setTimeout(() => {
+        mobileMenuPanel.classList.remove('translate-x-full');
+    }, 10);
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+}
+
+function closeMobileMenu() {
+    mobileMenuPanel.classList.add('translate-x-full');
+    setTimeout(() => {
+        mobileMenu.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scrolling
+    }, 300);
+}
+
+mobileMenuBtn.addEventListener('click', openMobileMenu);
+mobileMenuClose.addEventListener('click', closeMobileMenu);
+
+// Close when clicking outside menu
+mobileMenu.addEventListener('click', (e) => {
+    if (e.target === mobileMenu) {
+        closeMobileMenu();
+    }
+});
+
+// Close when clicking a link
+document.querySelectorAll('#mobile-menu nav a').forEach(link => {
+    link.addEventListener('click', closeMobileMenu);
+});
+</script>

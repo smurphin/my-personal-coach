@@ -2059,3 +2059,42 @@ video {
     text-align: left;
   }
 }
+/* ============================================
+   MOBILE OPTIMIZATION - Minimal CSS Additions
+   Add these to the END of your styles.css
+   ============================================ */
+
+/* 1. Hide scrollbars on horizontal navigation (iOS/Safari smooth scrolling) */
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+}
+
+/* 2. CRITICAL: Prevent iOS zoom on form inputs */
+input, textarea, select {
+    font-size: 16px !important;
+}
+
+/* Restore normal size on larger screens */
+@media (min-width: 640px) {
+    input, textarea, select {
+        font-size: 1rem !important;
+    }
+}
+
+/* 3. Better touch targets for accessibility */
+button, 
+a.button,
+[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* 4. Smooth scrolling for anchor links */
+html {
+    scroll-behavior: smooth;
+}
