@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session
+from flask import Blueprint, render_template, request, redirect, session, flash
 from datetime import datetime, timedelta
 import json
 import re
@@ -62,14 +62,64 @@ def generate_plan():
                 del user_data['plan_structure']
         
         # Gather user inputs
+        lthr_raw = request.form.get('lthr', '').strip()
+        ftp_raw = request.form.get('ftp', '').strip()
+        sessions_raw = request.form.get('sessions_per_week', '').strip()
+        hours_raw = request.form.get('hours_per_week', '').strip()
+        
+        # Validate numeric fields
+        validation_errors = []
+        
+        lthr = None
+        if lthr_raw:
+            try:
+                lthr = int(lthr_raw)
+                if lthr <= 0:
+                    validation_errors.append('LTHR must be a positive number')
+            except ValueError:
+                validation_errors.append('LTHR must be a valid number')
+        
+        ftp = None
+        if ftp_raw:
+            try:
+                ftp = int(ftp_raw)
+                if ftp <= 0:
+                    validation_errors.append('FTP must be a positive number')
+            except ValueError:
+                validation_errors.append('FTP must be a valid number')
+        
+        sessions_per_week = None
+        if sessions_raw:
+            try:
+                sessions_per_week = int(sessions_raw)
+                if sessions_per_week <= 0:
+                    validation_errors.append('Sessions per week must be a positive number')
+            except ValueError:
+                validation_errors.append('Sessions per week must be a valid number')
+        
+        hours_per_week = None
+        if hours_raw:
+            try:
+                hours_per_week = float(hours_raw)
+                if hours_per_week <= 0:
+                    validation_errors.append('Hours per week must be a positive number')
+            except ValueError:
+                validation_errors.append('Hours per week must be a valid number')
+        
+        # If there are validation errors, redirect back to onboarding
+        if validation_errors:
+            for error in validation_errors:
+                flash(error)
+            return redirect('/onboarding')
+        
         user_inputs = {
-            'goal': request.form.get('user_goal'),
-            'sessions_per_week': int(request.form.get('sessions_per_week')),
-            'hours_per_week': float(request.form.get('hours_per_week')),
-            'lifestyle_context': request.form.get('lifestyle_context'),
-            'athlete_type': request.form.get('athlete_type'),
-            'lthr': int(request.form.get('lthr')),
-            'ftp': int(request.form.get('ftp'))
+            'goal': request.form.get('user_goal') or None,
+            'sessions_per_week': sessions_per_week,
+            'hours_per_week': hours_per_week,
+            'lifestyle_context': request.form.get('lifestyle_context') or None,
+            'athlete_type': request.form.get('athlete_type') or None,
+            'lthr': lthr,
+            'ftp': ftp
         }
         
         access_token = user_data['token']['access_token']
@@ -86,9 +136,47 @@ def generate_plan():
         )
         athlete_stats = strava_service.get_athlete_stats(access_token, athlete_id)
         
-        # Calculate training zones
-        friel_hr_zones = training_service.calculate_friel_hr_zones(user_inputs['lthr'])
-        friel_power_zones = training_service.calculate_friel_power_zones(user_inputs['ftp'])
+        # Track whether zones are estimated or user-provided
+        lthr_estimated = False
+        ftp_estimated = False
+        
+        # Estimate zones from activity data if not provided by user
+        if not user_inputs['lthr'] or not user_inputs['ftp']:
+            print(f"--- Estimating zones from activity history ---")
+            estimated_zones = training_service.estimate_zones_from_activities(activities_summary)
+            
+            if not user_inputs['lthr'] and estimated_zones['lthr']:
+                user_inputs['lthr'] = estimated_zones['lthr']
+                lthr_estimated = True
+                print(f"--- Estimated LTHR: {estimated_zones['lthr']} bpm ---")
+            
+            if not user_inputs['ftp'] and estimated_zones['ftp']:
+                user_inputs['ftp'] = estimated_zones['ftp']
+                ftp_estimated = True
+                print(f"--- Estimated FTP: {estimated_zones['ftp']} W ---")
+        
+        # Calculate training zones (only if values provided or estimated)
+        friel_hr_zones = training_service.calculate_friel_hr_zones(user_inputs['lthr']) if user_inputs['lthr'] else None
+        friel_power_zones = training_service.calculate_friel_power_zones(user_inputs['ftp']) if user_inputs['ftp'] else None
+        
+        # Add metadata to zone data for the AI
+        if friel_hr_zones:
+            if lthr_estimated:
+                friel_hr_zones['estimated'] = True
+                friel_hr_zones['estimation_note'] = f"Estimated from recent max HR data (88% of max)"
+            else:
+                friel_hr_zones['estimated'] = False
+                friel_hr_zones['user_provided'] = True
+                friel_hr_zones['note'] = "User-provided LTHR value - should be trusted as tested/accurate"
+        
+        if friel_power_zones:
+            if ftp_estimated:
+                friel_power_zones['estimated'] = True
+                friel_power_zones['estimation_note'] = f"Estimated from recent high-effort rides"
+            else:
+                friel_power_zones['estimated'] = False
+                friel_power_zones['user_provided'] = True
+                friel_power_zones['note'] = "User-provided FTP value - should be trusted as tested/accurate"
         
         # Check for VDOT-ready race
         vdot_data = training_service.find_valid_race_for_vdot(
@@ -118,10 +206,18 @@ def generate_plan():
                 activity_to_process = activity_summary
 
             streams = strava_service.get_activity_streams(access_token, activity_to_process['id'])
+            
+            # Build zones dict, ensuring we don't pass None values
+            zones_for_analysis = {}
+            if friel_hr_zones:
+                zones_for_analysis['heart_rate'] = friel_hr_zones
+            if friel_power_zones:
+                zones_for_analysis['power'] = friel_power_zones
+            
             analyzed_activity = training_service.analyze_activity(
                 activity_to_process,
                 streams,
-                {"heart_rate": friel_hr_zones, "power": friel_power_zones}
+                zones_for_analysis
             )
             
             # Format time in zones

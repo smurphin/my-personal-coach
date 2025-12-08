@@ -27,6 +27,7 @@ def create_app():
     from routes.dashboard_routes import dashboard_bp
     from routes.admin_routes import admin_bp
     from routes.api_routes import api_bp
+    from routes.help_routes import help_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(plan_bp)
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(help_bp)
     
     print("✅ Application initialized successfully")
     
@@ -43,4 +45,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)
