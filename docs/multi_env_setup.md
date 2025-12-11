@@ -127,11 +127,20 @@ for project in kaizencoach-dev kaizencoach-staging kaizencoach-prod kaizencoach-
 done
 ```
 
+**Or enable it for a single project:**
+```bash
+gcloud billing projects link kaizencoach-PROJECT --billing-account=$BILLING_ACCOUNT_ID
+```
+
 **Verify billing is enabled:**
 ```bash
 for project in kaizencoach-dev kaizencoach-staging kaizencoach-prod kaizencoach-demo; do
   gcloud billing projects describe $project --format="value(billingEnabled)"
 done
+```
+**Or check for a single project:**
+```bash
+gcloud billing projects describe kaizencoach-PROJECT --format="value(billingEnabled)"
 ```
 Should output "True" for each project.
 
@@ -141,6 +150,10 @@ for project in kaizencoach-dev kaizencoach-staging kaizencoach-prod kaizencoach-
   gcloud services enable aiplatform.googleapis.com --project=$project
   echo "✅ Enabled Vertex AI for $project"
 done
+```
+**Or check for a single project:**
+```bash
+gcloud services enable aiplatform.googleapis.com --project=kaizencoach-PROJECT
 ```
 
 ### 4. Create Service Accounts (one per project)

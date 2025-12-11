@@ -35,7 +35,9 @@ class Config:
     REDIRECT_URIS = {
         'dev': 'http://127.0.0.1:5000/callback',
         'staging': 'https://staging.kaizencoach.training/callback',
-        'prod': 'https://www.kaizencoach.training/callback'
+        'prod': 'https://www.kaizencoach.training/callback',
+        'demo': 'https://demo.kaizencoach.training/callback',
+        'mark': 'https://mark.kaizencoach.training/callback'
     }
     
     # Allow override via environment variable (useful for demo instances)
@@ -46,7 +48,8 @@ class Config:
         'dev': 'kaizencoach-dev',
         'staging': 'kaizencoach-staging',
         'prod': 'kaizencoach-prod',
-        'demo': 'kaizencoach-demo'
+        'demo': 'kaizencoach-demo',
+        'mark': 'kaizencoach-mark'
     }
     
     GCP_PROJECT_ID = GCP_PROJECTS.get(ENVIRONMENT, 'kaizencoach-dev')

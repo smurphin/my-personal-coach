@@ -27,7 +27,7 @@ The week ALWAYS starts on a Monday, unless the Athlete explicitly states otherwi
 
 Structure your response with the following markdown headings:
 
-**You MUST generate a plan of appropriate duration for the athlete's primary goal.**  If no timescale is provided you MUST produce a 6 week plan
+**You MUST generate a plan of appropriate duration for the athlete's primary goal.**  If no timescale is provided you MUST produce a 6 week plan otherwise produce a plan that will last until the date of the Athlete's primary goal.  If only a 6 week plan is provided, make it clear why that is the case, i.e no specific date and the rough timeline of when the goal should be achieved is more than 12 weeks away, explain the athlete can update this by providing a specific date and event in through the chat function.
 
 **IMPORTANT FORMATTING RULE:**
 Each week's heading **MUST** follow this exact markdown format, including the dates: `### Week <plan Week Number>: <Month Name> <Day with suffix> - <Month Name> <Day with suffix>`

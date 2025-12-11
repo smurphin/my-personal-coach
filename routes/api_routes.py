@@ -26,6 +26,34 @@ USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 
 api_bp = Blueprint('api', __name__)
 
+def safe_save_user_data(athlete_id, user_data):
+    """
+    Wrapper for data_manager.save_user_data that trims data to fit DynamoDB limits.
+    Keeps only last 20 feedback entries and 30 chat messages.
+    """
+    # Trim feedback_log
+    if 'feedback_log' in user_data and len(user_data['feedback_log']) > 20:
+        print(f"⚠️  Trimming feedback_log from {len(user_data['feedback_log'])} to 20 entries")
+        user_data['feedback_log'] = user_data['feedback_log'][:20]
+    
+    # Trim chat_log
+    if 'chat_log' in user_data and len(user_data['chat_log']) > 30:
+        print(f"⚠️  Trimming chat_log from {len(user_data['chat_log'])} to 30 messages")
+        user_data['chat_log'] = user_data['chat_log'][-30:]
+    
+    # Remove analyzed_activities if present
+    if 'analyzed_activities' in user_data:
+        print(f"⚠️  Removing analyzed_activities from DynamoDB")
+        del user_data['analyzed_activities']
+    
+    # Remove duplicate garmin_history if metadata exists
+    if 'garmin_history_metadata' in user_data and 'garmin_history' in user_data:
+        print(f"⚠️  Removing duplicate garmin_history (already in S3)")
+        del user_data['garmin_history']
+    
+    data_manager.save_user_data(athlete_id, user_data)
+
+
 @api_bp.route('/strava_webhook', methods=['GET', 'POST'])
 def strava_webhook():
     """Handle Strava webhook events"""
@@ -79,6 +107,27 @@ def strava_webhook():
                 last_fetch_timestamp,
                 per_page=100
             )
+            
+            # Check if API call failed
+            if not isinstance(recent_activities_summary, list):
+                print(f"⚠️ Strava API call failed in webhook handler for athlete {athlete_id}")
+                
+                # Log the actual error response for debugging
+                if hasattr(recent_activities_summary, 'status_code'):
+                    print(f"   Status Code: {recent_activities_summary.status_code}")
+                if hasattr(recent_activities_summary, 'get_json'):
+                    try:
+                        error_data = recent_activities_summary.get_json()
+                        print(f"   Error Response: {error_data}")
+                    except:
+                        pass
+                
+                # Check token validity
+                token_data = user_data.get('token', {})
+                print(f"   Token expires_at: {token_data.get('expires_at', 'unknown')}")
+                print(f"   Current time: {datetime.now().timestamp()}")
+                
+                return 'EVENT_RECEIVED', 200  # Return 200 so Strava doesn't retry
             
             new_activities_to_process = [
                 act for act in recent_activities_summary
@@ -158,14 +207,19 @@ def strava_webhook():
             
             feedback_log.insert(0, new_log_entry)
 
-            # Check for plan update
-            match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
-            if match:
-                new_plan_markdown = match.group(1).strip()
-                user_data['plan'] = new_plan_markdown
-                print(f"--- Plan for athlete {athlete_id} has been updated! ---")
+            # Check for plan update - only update if [PLAN_UPDATED] marker is present
+            if '[PLAN_UPDATED]' in feedback_markdown:
+                match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+                if match:
+                    new_plan_markdown = match.group(1).strip()
+                    user_data['plan'] = new_plan_markdown
+                    print(f"✅ Plan for athlete {athlete_id} has been updated via webhook!")
+                else:
+                    print(f"⚠️ [PLAN_UPDATED] marker found but no markdown code block for athlete {athlete_id}")
+            else:
+                print(f"ℹ️ No plan update needed for athlete {athlete_id} - marker not found")
             
-            data_manager.save_user_data(athlete_id, user_data)
+            safe_save_user_data(athlete_id, user_data)
             print(f"--- Successfully generated and saved feedback for athlete {athlete_id} via webhook. ---")
 
         return 'EVENT_RECEIVED', 200
@@ -192,6 +246,7 @@ def garmin_summary_api():
             "today": garmin_cache['today_metrics'],
             "trend_data": garmin_cache['metrics_timeline'],
             "readiness_score": garmin_cache['readiness_score'],
+            "readiness_metadata": garmin_cache.get('readiness_metadata'),  # May be None for old cache
             "status": "success",
             "cached": True
         })
@@ -212,7 +267,12 @@ def garmin_summary_api():
 
         # Extract metrics
         metrics_timeline = garmin_service.extract_metrics_timeline(stats_range)
-        readiness_score = garmin_service.calculate_readiness(metrics_timeline)
+        
+        # Calculate readiness (now returns dict with score and metadata)
+        readiness_result = garmin_service.calculate_readiness(metrics_timeline)
+        readiness_score = readiness_result['score'] if readiness_result else None
+        readiness_metadata = readiness_result if readiness_result else None
+        
         today_metrics = metrics_timeline[-1] if metrics_timeline else None
 
         # === FIXED: Only use S3 in production ===
@@ -278,16 +338,18 @@ def garmin_summary_api():
             'last_fetch_date': today_iso,
             'today_metrics': today_metrics,
             'metrics_timeline': metrics_timeline,
-            'readiness_score': readiness_score
+            'readiness_score': readiness_score,
+            'readiness_metadata': readiness_metadata  # Store full details for transparency
         }
         
-        data_manager.save_user_data(athlete_id, user_data)
+        safe_save_user_data(athlete_id, user_data)
         print(f"GARMIN CACHE: Fresh data cached for {today_iso}")
 
         return jsonify({
             "today": today_metrics,
             "trend_data": metrics_timeline,
             "readiness_score": readiness_score,
+            "readiness_metadata": readiness_metadata,  # Include metadata for dashboard display
             "status": "success",
             "cached": False
         })
@@ -304,6 +366,7 @@ def garmin_summary_api():
                 "today": garmin_cache['today_metrics'],
                 "trend_data": garmin_cache['metrics_timeline'],
                 "readiness_score": garmin_cache['readiness_score'],
+                "readiness_metadata": garmin_cache.get('readiness_metadata'),
                 "status": "success",
                 "cached": True,
                 "warning": f"Using cached data from {cache_date}"
@@ -320,7 +383,7 @@ def garmin_refresh():
     
     if 'garmin_cache' in user_data:
         del user_data['garmin_cache']
-        data_manager.save_user_data(athlete_id, user_data)
+        safe_save_user_data(athlete_id, user_data)
     
     return jsonify({"status": "cache_cleared", "message": "Refresh the page to fetch new data"})
 

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session, jsonify, url_for
+from flask import Blueprint, render_template, request, redirect, session, jsonify, url_for, flash
 from datetime import datetime, date, timedelta
 import hashlib
 import re
@@ -44,16 +44,10 @@ def dashboard():
     # Check if Garmin is connected
     garmin_connected = 'garmin_credentials' in user_data
 
-    # Pop chat messages from session
-    user_message = session.pop('user_message', None)
-    chat_response_markdown = session.pop('chat_response', None)
-    chat_response_html = render_markdown_with_toc(chat_response_markdown)['content'] if chat_response_markdown else None
-
+    # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
         current_week_plan=current_week_html,
-        user_message=user_message,
-        chat_response=chat_response_html,
         garmin_connected=garmin_connected
     )
 
@@ -112,11 +106,9 @@ def chat():
 
     data_manager.save_user_data(athlete_id, user_data)
 
-    # Store in session for display
-    session['user_message'] = user_message
-    session['chat_response'] = ai_response_markdown
-
-    return redirect('/dashboard')
+    # Don't store in session/flash - chat is already saved in DynamoDB
+    # Redirect to chat log to see the response
+    return redirect('/chat_log')
 
 @dashboard_bp.route("/chat_log")
 @login_required
@@ -156,7 +148,6 @@ def clear_chat():
         
     data_manager.save_user_data(athlete_id, user_data)
     
-    from flask import flash
     flash("Your chat history has been permanently deleted.")
         
     return redirect(request.referrer or url_for('dashboard.dashboard'))
