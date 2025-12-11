@@ -48,41 +48,17 @@
             <p class="text-sm sm:text-base text-brand-light-gray mb-4">
                 Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
             </p>
-            <form action="{{ url_for('dashboard.chat') }}" method="post" onsubmit="showChatSpinner()">
-                <textarea name="user_message" rows="3" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
+            <form action="{{ url_for('dashboard.chat') }}" method="post">
+                <textarea name="user_message" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
                 <div class="mt-4">
                     <button type="submit" class="w-full sm:w-auto bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
                         Send Message
                     </button>
                 </div>
             </form>
-        
-            <div id="chat-interaction-container" class="mt-6 border-t border-brand-dark pt-6" {% if not user_message and not chat_response %}style="display: none;"{% endif %}>
-                {% if user_message %}
-                <div id="user-message-container" class="mb-4">
-                    <h3 class="text-xl font-semibold text-white mb-2">Your Question:</h3>
-                    <div id="user-message-content" class="prose prose-invert max-w-none">
-                        <p>{{ user_message }}</p>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <div id="chat-response-container" {% if not chat_response %}style="display: none;"{% endif %}>
-                    <h3 class="text-xl font-semibold text-white mb-2">Coach's Response:</h3>
-                    <div id="chat-response-content" class="prose prose-invert max-w-none">
-                         {% if chat_response %}{{ chat_response | safe }}{% endif %}
-                    </div>
-                </div>
-            </div>
-        
-            <div id="chat-spinner-container" class="mt-6" style="display: none;">
-                <div class="flex items-center justify-center pt-4"><div class="loader"></div></div>
-            </div>
             
             <div class="mt-4 text-center">
-                <form action="{{ url_for('dashboard.clear_chat') }}" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
-                    <button type="submit" class="text-sm text-gray-400 hover:text-white hover:underline">Delete chat history</button>
-                </form>
+                <a href="{{ url_for('dashboard.chat_log_list') }}" class="text-brand-blue hover:underline text-sm">View full chat history →</a>
             </div>
         </div> 
     </div>
@@ -969,30 +945,50 @@ function getReadinessMessage(score) {
             
             <div class="text-brand-light-gray space-y-4 text-sm sm:text-base">
                 <p class="text-white font-semibold">What is Readiness to Perform?</p>
-                <p>Your readiness score combines multiple recovery metrics to give you a single number (0-100) indicating how prepared your body is for training.</p>
+                <p>Your readiness score indicates how prepared you are for an intense training session TODAY. It combines recovery metrics to give you a single number (0-100).</p>
                 
                 <p class="text-white font-semibold">How is it calculated?</p>
                 <div class="bg-brand-dark rounded-lg p-4 space-y-2">
                     <p class="text-white">Weighted combination of:</p>
                     <ul class="space-y-1 ml-4">
-                        <li>• <strong>HRV Status (40%)</strong> - Heart rate variability indicates nervous system recovery</li>
                         <li>• <strong>Sleep Quality (30%)</strong> - Sleep score from last night</li>
-                        <li>• <strong>Body Battery (20%)</strong> - Energy reserves</li>
-                        <li>• <strong>Training Status (10%)</strong> - Recent training load balance</li>
+                        <li>• <strong>HRV Status (30%)</strong> - Deviation from your 14-day baseline. Higher HRV = better recovery</li>
+                        <li>• <strong>Body Battery (25%)</strong> - Morning peak after overnight recovery</li>
+                        <li>• <strong>Training Status (15%)</strong> - Current training load balance</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">HRV Scoring:</p>
+                    <ul class="space-y-1 ml-4 text-sm">
+                        <li><span class="text-green-400">• +5% to +15% above baseline:</span> Elevated - Excellent readiness</li>
+                        <li><span class="text-blue-400">• -5% to +5% of baseline:</span> At baseline - Good readiness</li>
+                        <li><span class="text-yellow-400">• -5% to -15% below baseline:</span> Below baseline - Moderate readiness</li>
+                        <li><span class="text-red-400">• UNBALANCED or ±15%+ from baseline:</span> Needs recovery</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">Training Status (Readiness Perspective):</p>
+                    <ul class="space-y-1 ml-4 text-sm">
+                        <li><span class="text-green-400">• RECOVERY:</span> Well-rested, ready for intense work</li>
+                        <li><span class="text-blue-400">• MAINTAINING:</span> Steady state, moderate readiness</li>
+                        <li><span class="text-yellow-400">• PRODUCTIVE:</span> Building fitness but fatigued</li>
+                        <li><span class="text-red-400">• OVERREACHING:</span> Needs recovery</li>
                     </ul>
                 </div>
                 
                 <div class="bg-brand-dark rounded-lg p-4 space-y-2">
                     <p class="text-white font-semibold">What the scores mean:</p>
                     <ul class="space-y-2 ml-4">
-                        <li><span class="text-green-400">• 80-100:</span> Excellent - Ready for high intensity</li>
+                        <li><span class="text-green-400">• 80-100:</span> Excellent - Ready for high intensity sessions</li>
                         <li><span class="text-yellow-400">• 60-79:</span> Good - Moderate intensity appropriate</li>
                         <li><span class="text-red-400">• Below 60:</span> Low - Focus on easy training or rest</li>
                     </ul>
                 </div>
                 
                 <p class="text-white font-semibold">How to use this:</p>
-                <p>Use readiness to adjust your training intensity. High readiness = green light for hard sessions. Low readiness = recovery day or easy training.</p>
+                <p>Adjust training intensity based on readiness. High readiness = green light for hard sessions and quality work. Low readiness = recovery day, easy training, or rest.</p>
                 
                 <div class="mt-6 text-center">
                     <a href="#" class="text-brand-blue hover:text-blue-400 font-semibold">

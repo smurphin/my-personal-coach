@@ -72,12 +72,20 @@ class GarminService:
         """
         Extract key metrics from raw stats for display.
         Returns list of metric dicts.
+        Logs debug info only for the first day to avoid log spam.
         """
         if not stats_range:
             return []
         
         garmin_manager = GarminManager("dummy", "dummy")  # Just for method access
-        return [garmin_manager.extract_key_metrics(day) for day in stats_range]
+        
+        # Extract metrics, with debug logging only on first day
+        metrics = []
+        for i, day in enumerate(stats_range):
+            debug_mode = (i == 0)  # Only debug the first day
+            metrics.append(garmin_manager.extract_key_metrics(day, debug=debug_mode))
+        
+        return metrics
     
     def calculate_readiness(self, metrics_timeline):
         """Calculate readiness score from metrics timeline"""

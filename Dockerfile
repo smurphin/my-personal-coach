@@ -49,6 +49,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 CMD ["gunicorn", "--threads", "4", "-w", "1", "-b", "0.0.0.0:8080", "app:app"]

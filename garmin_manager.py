@@ -76,15 +76,26 @@ class GarminManager:
         
         return stats_range
 
-    def extract_key_metrics(self, stats):
+    def extract_key_metrics(self, stats, debug=False):
         """
         Extracts key metrics from a single day's stats for display.
         Returns a dict with cleaned values.
         
+        Args:
+            stats: Daily stats from Garmin
+            debug: If True, prints debug info about available data (use sparingly)
+        
         FIXES:
         - Issue #4: HRV now shows today's value (lastNightAvg) instead of weeklyAvg
         - Issue #3: Body Battery now correctly extracts BOTH high and low values
+        - Added null safety for ACWR data
         """
+        if debug:
+            print(f"\n{'='*60}")
+            print(f"DEBUG - Extracting metrics for {stats.get('fetch_date')}")
+            print(f"Available data types: {[k for k, v in stats.items() if v is not None and k != 'fetch_date']}")
+            print(f"{'='*60}")
+        
         metrics = {
             "date": stats.get("fetch_date"),
             "hrv_status": None,
@@ -167,9 +178,10 @@ class GarminManager:
 
         # Training Status - Extract BOTH Garmin status AND ACWR data
         if stats.get("training_status"):
-            print(f"\n{'='*60}")
-            print(f"DEBUG - Training Status for {stats.get('fetch_date')}")
-            print(f"{'='*60}")
+            if debug:
+                print(f"\n{'='*60}")
+                print(f"DEBUG - Training Status for {stats.get('fetch_date')}")
+                print(f"{'='*60}")
             
             ts_data = stats["training_status"]
             most_recent = ts_data.get("mostRecentTrainingStatus", {})
@@ -179,90 +191,149 @@ class GarminManager:
             device_data = next(iter(latest_data.values()), {})
             
             if device_data:
+                if debug:
+                    print(f"DEBUG: Available device_data keys: {list(device_data.keys())}")
+                
                 # Extract Garmin's training status phrase
                 status_phrase = device_data.get("trainingStatusFeedbackPhrase", "")
                 metrics["training_status"] = status_phrase
                 
                 # Extract ACWR data (the GOLD for AI coaching!)
-                acwr_data = device_data.get("acuteTrainingLoadDTO", {})
-                metrics["acwr_ratio"] = acwr_data.get("dailyAcuteChronicWorkloadRatio")
-                metrics["acwr_status"] = acwr_data.get("acwrStatus")  # OPTIMAL, LOW, HIGH
-                metrics["acute_load"] = acwr_data.get("dailyTrainingLoadAcute")
-                metrics["chronic_load"] = acwr_data.get("dailyTrainingLoadChronic")
+                # FIXED: Handle None values properly
+                acwr_data = device_data.get("acuteTrainingLoadDTO")
                 
-                print(f"Garmin Status: {status_phrase}")
-                print(f"ACWR Ratio: {metrics['acwr_ratio']} ({metrics['acwr_status']})")
-                print(f"Acute Load (7d): {metrics['acute_load']}")
-                print(f"Chronic Load (28d): {metrics['chronic_load']}")
+                if acwr_data and isinstance(acwr_data, dict):
+                    if debug:
+                        print(f"DEBUG: ACWR data available, keys: {list(acwr_data.keys())}")
+                    metrics["acwr_ratio"] = acwr_data.get("dailyAcuteChronicWorkloadRatio")
+                    metrics["acwr_status"] = acwr_data.get("acwrStatus")  # OPTIMAL, LOW, HIGH
+                    metrics["acute_load"] = acwr_data.get("dailyTrainingLoadAcute")
+                    metrics["chronic_load"] = acwr_data.get("dailyTrainingLoadChronic")
+                    
+                    if debug:
+                        print(f"Garmin Status: {status_phrase}")
+                        print(f"ACWR Ratio: {metrics['acwr_ratio']} ({metrics['acwr_status']})")
+                        print(f"Acute Load (7d): {metrics['acute_load']}")
+                        print(f"Chronic Load (28d): {metrics['chronic_load']}")
+                else:
+                    if debug:
+                        print(f"DEBUG: ACWR data NOT available (acwr_data={acwr_data})")
+                        print(f"DEBUG: This device may not support Training Load metrics")
+                    metrics["acwr_ratio"] = None
+                    metrics["acwr_status"] = None
+                    metrics["acute_load"] = None
+                    metrics["chronic_load"] = None
+                    if debug:
+                        print(f"Garmin Status: {status_phrase}")
+                        print(f"ACWR: Not available on this device")
+            else:
+                if debug:
+                    print(f"DEBUG: No device_data found in training_status")
             
-            print(f"{'='*60}\n")
+            if debug:
+                print(f"{'='*60}\n")
 
         return metrics
     
     def calculate_readiness_score(self, metrics_timeline):
         """
-        Calculates a readiness-to-perform score (0-100) based on recent health metrics.
+        Calculate readiness score based on recovery metrics.
+        Readiness = how prepared you are for an intense training session TODAY.
         
-        IMPROVED: More balanced weighting and clearer calculation
+        Weighted scoring:
+        - Sleep Quality: 30% (direct recovery indicator)
+        - HRV Status: 30% (nervous system recovery, compared to 14-day baseline)
+        - Body Battery HIGH: 25% (morning energy after overnight recovery)
+        - Training Status: 15% (current training load balance)
         
-        Algorithm considers:
-        - Recent sleep quality (40% weight)
-        - HRV status (25% weight)
-        - Body battery recovery (25% weight)
-        - Training status (10% weight)
-        
-        Returns: int (0-100) or None if insufficient data
+        Returns dict with score and breakdown.
         """
         if not metrics_timeline or len(metrics_timeline) == 0:
             return None
         
-        # Use yesterday's data (most recent complete day)
         latest = metrics_timeline[-1]
         
-        score = 0
+        print(f"\n=== Readiness Calculation for {latest.get('date', 'unknown')} ===")
+        
         weighted_score = 0
         total_weight = 0
+        metrics_used = []
         
-        print(f"\n=== Readiness Calculation for {latest.get('date')} ===")
-        
-        # === Sleep Score (40% weight) ===
+        # === Sleep Quality (30% weight) ===
         if latest.get('sleep_score') is not None:
             sleep_score = latest['sleep_score']
-            sleep_contribution = (sleep_score / 100) * 40
+            sleep_contribution = (sleep_score / 100) * 30
             weighted_score += sleep_contribution
-            total_weight += 40
-            print(f"  Sleep: {sleep_score}/100 → {sleep_contribution:.1f} points (40% weight)")
+            total_weight += 30
+            metrics_used.append('sleep')
+            print(f"  Sleep: {sleep_score}/100 → {sleep_contribution:.1f} points (30% weight)")
         
-        # === HRV Status (25% weight) ===
+        # === HRV Status (30% weight) - Deviation from 14-day baseline ===
         hrv_status = latest.get('hrv_status')
-        if hrv_status:
-            hrv_map = {
-                'BALANCED': 25,
-                'NORMAL': 20,
-                'LOW': 12,
-                'UNBALANCED': 8,
-                'POOR': 3
-            }
-            hrv_contribution = hrv_map.get(hrv_status, 15)
-            weighted_score += hrv_contribution
-            total_weight += 25
-            
-            # Show both daily and rolling average for context
-            hrv_daily = latest.get('hrv_value', 'N/A')
-            hrv_garmin_avg = latest.get('hrv_weekly_avg', 'N/A')
-            print(f"  HRV Status: {hrv_status} → {hrv_contribution} points (25% weight)")
-            print(f"    Today: {hrv_daily}ms | Garmin 7-day avg: {hrv_garmin_avg}ms")
+        if hrv_status and latest.get('hrv_value') is not None:
+            # Calculate 14-day HRV baseline
+            hrv_values = [day.get('hrv_value') for day in metrics_timeline if day.get('hrv_value')]
+            if len(hrv_values) >= 3:  # Need at least 3 days for baseline
+                baseline_hrv = sum(hrv_values) / len(hrv_values)
+                current_hrv = latest['hrv_value']
+                deviation_pct = ((current_hrv - baseline_hrv) / baseline_hrv) * 100
+                
+                # Scoring logic:
+                # +5% to +15% above baseline = optimal (100% of 30 points)
+                # -5% to +5% = neutral/at baseline (70% of 30 points)
+                # -5% to -15% below baseline = suboptimal (40% of 30 points)
+                # More than ±15% = unbalanced, needs recovery (20% of 30 points)
+                
+                if hrv_status == 'UNBALANCED':
+                    # Unbalanced = needs recovery, regardless of direction
+                    hrv_contribution = 6  # 20% of 30
+                    status_text = "UNBALANCED (needs recovery)"
+                elif 5 <= deviation_pct <= 15:
+                    # Elevated but balanced = excellent readiness
+                    hrv_contribution = 30  # 100% of 30
+                    status_text = f"ELEVATED (+{deviation_pct:.1f}% vs baseline)"
+                elif -5 <= deviation_pct <= 5:
+                    # At baseline = good readiness
+                    hrv_contribution = 21  # 70% of 30
+                    status_text = f"BASELINE ({deviation_pct:+.1f}% vs baseline)"
+                elif -15 <= deviation_pct < -5:
+                    # Below baseline but balanced = moderate readiness
+                    hrv_contribution = 12  # 40% of 30
+                    status_text = f"BELOW BASELINE ({deviation_pct:.1f}% vs baseline)"
+                else:
+                    # Way off baseline = poor readiness
+                    hrv_contribution = 6  # 20% of 30
+                    status_text = f"FAR FROM BASELINE ({deviation_pct:+.1f}% vs baseline)"
+                
+                weighted_score += hrv_contribution
+                total_weight += 30
+                metrics_used.append('hrv')
+                print(f"  HRV Status: {status_text} → {hrv_contribution:.1f} points (30% weight)")
+                print(f"    Today: {current_hrv}ms | 14-day baseline: {baseline_hrv:.1f}ms")
+            else:
+                # Not enough data for baseline, use simple balanced/unbalanced
+                if hrv_status == 'BALANCED':
+                    hrv_contribution = 30
+                    weighted_score += hrv_contribution
+                    total_weight += 30
+                    metrics_used.append('hrv')
+                    print(f"  HRV Status: BALANCED → {hrv_contribution} points (30% weight)")
+                    print(f"    Today: {latest.get('hrv_value')}ms (insufficient data for baseline)")
         
-        # === Body Battery Recovery (25% weight) ===
-        # Higher overnight low = better recovery
-        if latest.get('body_battery_low') is not None:
-            bb_low = latest['body_battery_low']
-            bb_contribution = (bb_low / 100) * 25
+        # === Body Battery HIGH (25% weight) - Morning recovery level ===
+        # HIGH = peak after overnight recovery (what matters for readiness)
+        # LOW = bedtime exhaustion (NOT used for readiness)
+        if latest.get('body_battery_high') is not None:
+            bb_high = latest['body_battery_high']
+            bb_contribution = (bb_high / 100) * 25
             weighted_score += bb_contribution
             total_weight += 25
-            print(f"  Body Battery Low: {bb_low}/100 → {bb_contribution:.1f} points (25% weight)")
+            metrics_used.append('body_battery')
+            print(f"  Body Battery High: {bb_high}/100 → {bb_contribution:.1f} points (25% weight)")
+            print(f"    (Morning recovery level, not bedtime low)")
         
-        # === Training Status (10% weight) ===
+        # === Training Status (15% weight) ===
+        # Readiness perspective: RECOVERY = ready for hard work, PRODUCTIVE = fatigued
         training_status = latest.get('training_status')
         acwr_ratio = latest.get('acwr_ratio')
         acwr_status = latest.get('acwr_status')
@@ -271,30 +342,48 @@ class GarminManager:
             # Extract base status from Garmin's phrase (e.g., "MAINTAINING_4" -> "MAINTAINING")
             base_status = training_status.split('_')[0]
             
+            # Readiness-focused mapping:
+            # RECOVERY = well-rested, ready for intense session (HIGH)
+            # MAINTAINING = steady state, moderate readiness (MEDIUM-HIGH)
+            # PRODUCTIVE = building fitness, fatigued (MEDIUM)
+            # UNPRODUCTIVE/DETRAINING = over-recovered, low fitness (MEDIUM with caution)
+            # OVERREACHING = needs recovery (LOW)
             status_map = {
-                'PRODUCTIVE': 10,
-                'MAINTAINING': 8,
-                'RECOVERY': 6,
-                'UNPRODUCTIVE': 4,
-                'DETRAINING': 2,
-                'OVERREACHING': 0
+                'RECOVERY': 15,        # 100% - Well-rested, ready to go hard
+                'MAINTAINING': 12,     # 80% - Steady, good for moderate work
+                'PRODUCTIVE': 9,       # 60% - Building fitness but fatigued
+                'UNPRODUCTIVE': 9,     # 60% - Over-recovered, needs stimulus
+                'DETRAINING': 6,       # 40% - Low fitness, caution needed
+                'OVERREACHING': 3      # 20% - Needs recovery badly
             }
-            ts_contribution = status_map.get(base_status, 5)
+            ts_contribution = status_map.get(base_status, 7.5)
             weighted_score += ts_contribution
-            total_weight += 10
-            
-            # Show both Garmin status and ACWR for context
-            print(f"  Training Status: {base_status} → {ts_contribution} points (10% weight)")
-            if acwr_ratio is not None:
+            total_weight += 15
+            metrics_used.append('training_status')
+            print(f"  Training Status: {base_status} → {ts_contribution} points (15% weight)")
+            if acwr_ratio is not None and acwr_status:
                 print(f"    ACWR: {acwr_ratio:.2f} ({acwr_status}) - Acute: {latest.get('acute_load')}, Chronic: {latest.get('chronic_load')}")
         
-        # Calculate final score
+        # === Calculate final score ===
+        if len(metrics_used) < 2:
+            print(f"  ⚠️  Insufficient data: Only {len(metrics_used)} metric(s) available")
+            print(f"  Minimum 2 metrics required for reliable readiness score")
+            print("=" * 50)
+            return None
+        
         if total_weight > 0:
             # Normalize to 100-point scale
             final_score = round((weighted_score / total_weight) * 100)
+            
+            print(f"  Metrics used: {', '.join(metrics_used)}")
             print(f"  Final Readiness: {final_score}/100 (from {total_weight} points of data)")
             print("=" * 50)
-            return final_score
+            
+            return {
+                'score': final_score,
+                'metrics_used': metrics_used,
+                'data_quality': 'excellent' if len(metrics_used) >= 3 else 'moderate'
+            }
         
         print(f"  Insufficient data for readiness calculation")
         print("=" * 50)

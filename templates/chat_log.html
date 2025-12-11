@@ -8,6 +8,23 @@
     <p class="text-brand-light-gray mt-1">A complete history of your conversations with the AI coach.</p>
 </div>
 
+<!-- Chat Input Form (at top) -->
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8 mb-6">
+    <h2 class="text-xl font-semibold text-brand-blue mb-4">Ask your coach</h2>
+    <p class="text-sm text-brand-light-gray mb-4">
+        Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
+    </p>
+    <form action="{{ url_for('dashboard.chat') }}" method="post">
+        <textarea name="user_message" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
+        <div class="mt-4">
+            <button type="submit" class="w-full sm:w-auto bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                Send Message
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Chat History -->
 <div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
     {% if chat_history %}
         <div class="space-y-6">
@@ -28,17 +45,20 @@
             {% endfor %}
         </div>
     {% else %}
-        <p class="text-brand-light-gray">You have no chat history yet.</p>
+        <p class="text-brand-light-gray">You have no chat history yet. Start a conversation above! 👆</p>
     {% endif %}
 </div>
 
 <div class="mt-8 flex justify-between items-center">
     <a href="{{ url_for('dashboard.dashboard') }}" class="text-brand-blue hover:underline">← Back to Dashboard</a>
     
+    {% if chat_history %}
     <form action="{{ url_for('dashboard.clear_chat') }}" method="post" onsubmit="return confirm('Are you sure you want to permanently delete your entire chat history?');">
         <button type="submit" class="text-sm text-gray-400 hover:text-white hover:underline">
             Delete Chat History
         </button>
     </form>
+    {% endif %}
 </div>
+
 {% endblock %}
