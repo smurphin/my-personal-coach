@@ -81,7 +81,20 @@ def strava_webhook():
                 print(f"--- Could not find user data for athlete {athlete_id}. Skipping. ---")
                 return 'EVENT_RECEIVED', 200
             
-            access_token = user_data['token']['access_token']
+            # Ensure token is valid (refresh if needed)
+            access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
+            
+            if not access_token:
+                print(f"❌ Could not get valid token for athlete {athlete_id} - marking as disconnected")
+                
+                # Mark athlete as disconnected
+                user_data['strava_connected'] = False
+                user_data['strava_disconnected_at'] = datetime.now().isoformat()
+                user_data['strava_disconnect_reason'] = 'token_refresh_failed'
+                safe_save_user_data(athlete_id, user_data)
+                
+                return 'EVENT_RECEIVED', 200
+            
             training_plan = user_data.get('plan')
             
             if not training_plan:

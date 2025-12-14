@@ -8,12 +8,12 @@ Your app now supports multiple environments (dev, staging, prod, demo) with sepa
 - [Strava OAuth Configuration](#strava-oauth-configuration)
   * [For Your Environments (dev, staging, prod)](#for-your-environments-dev-staging-prod)
   * [For Demo Instances (Friends)](#for-demo-instances-friends)
+- [Application Configuration (config.py)](#application-configuration-configpy)
 - [GCP Setup Steps](#gcp-setup-steps)
   * [1. Create GCP Projects](#1-create-gcp-projects)
   * [2. Enable Billing for Each Project](#2-enable-billing-for-each-project)
   * [3. Enable Vertex AI API for Each Project](#3-enable-vertex-ai-api-for-each-project)
   * [4. Create Service Accounts (one per project)](#4-create-service-accounts-one-per-project)
-  * [5. Create Service Account for Local Dev](#5-create-service-account-for-local-dev)
 - [AWS Secrets Manager Setup](#aws-secrets-manager-setup)
   * [1. Update Secret Structure](#1-update-secret-structure)
   * [2. Populate Secrets with Values](#2-populate-secrets-with-values)
@@ -55,23 +55,20 @@ You can use a **single Strava API app** for all your environments:
 
 1. Go to https://www.strava.com/settings/api
 2. Edit your existing application (or create new if needed)
-3. In "Authorization Callback Domain", add ALL your callback URLs:
+3. In "Authorization Callback Domain", add your specific callback URLs:
    ```
-   127.0.0.1, localhost
-   www.kaizencoach.training
-   staging.kaizencoach.training
+   kaizencoach.training
    ```
 
-4. Your app will automatically select the correct callback based on environment:
-   - dev: `http://127.0.0.1:5000/callback`
-   - staging: `https://staging.kaizencoach.training/callback` (if you set up staging subdomain)
-   - prod: `https://www.kaizencoach.training/callback`
+localhost & 127.0.0.1 are allow listed by default
 
 **Note:** Strava API apps are limited to 1 user (the owner) by default unless you apply for production access.
 
 ### For Demo Instances (Friends)
 
 Since Strava limits apps to 1 user, each friend needs their own Strava API app:
+
+process detailed [here](https://docs.google.com/document/d/1Bef3STD8HHJ_RzrM8mPvkXwhotWv2xqkqkjWkT9UyV0/edit?tab=t.0)
 
 1. **Friend creates Strava API app:**
    - Go to https://www.strava.com/settings/api
@@ -81,7 +78,6 @@ Since Strava limits apps to 1 user, each friend needs their own Strava API app:
 2. **Friend provides you:**
    - `STRAVA_CLIENT_ID`
    - `STRAVA_CLIENT_SECRET`
-   - Their callback URL (e.g., `https://demo-john.kaizencoach.training/callback`)
 
 3. **You configure their demo:**
    - Store credentials in AWS Secrets Manager under `kaizencoach/demo-john/app-secrets`
@@ -89,6 +85,47 @@ Since Strava limits apps to 1 user, each friend needs their own Strava API app:
    - Deploy with `ENVIRONMENT=demo-john`
 
 **Alternative:** Apply for Strava API production access to support multiple users with one app.
+
+## Application Configuration (config.py)
+
+**⚠️ CRITICAL: Update config.py for every new environment BEFORE building Docker image!**
+
+The application needs to know about each environment for OAuth and GCP to work correctly.
+
+**Edit `config.py` to add new environments:**
+
+```python
+# Around line 35-39: Add callback URLs for OAuth
+REDIRECT_URIS = {
+    'dev': 'http://127.0.0.1:5000/callback',
+    'staging': 'https://staging.kaizencoach.training/callback',
+    'prod': 'https://www.kaizencoach.training/callback',
+    'demo-shane': 'https://demo-shane.kaizencoach.training/callback',  # ADD NEW
+}
+
+# Around line 45-50: Add GCP project IDs  
+GCP_PROJECTS = {
+    'dev': 'kaizencoach-dev',
+    'staging': 'kaizencoach-staging',
+    'prod': 'kaizencoach-prod',
+    'demo': 'kaizencoach-demo',
+    'demo-shane': 'kaizencoach-shane',  # ADD NEW
+}
+```
+
+**What These Do:**
+- `REDIRECT_URIS`: Tells Strava OAuth where to send users after authentication
+- `GCP_PROJECTS`: Maps environment name to GCP project for Vertex AI
+
+**Without These:**
+- ❌ OAuth callback errors ("redirect_uri mismatch") 
+- ❌ App starts with wrong GCP project → AI features fail
+- ❌ Need to rebuild and redeploy to fix
+
+**When to Update:**
+- ✅ Before building Docker image for new environment
+- ✅ Before deploying to new domain
+- ✅ Any time you add a demo instance
 
 ## GCP Setup Steps
 
@@ -98,6 +135,11 @@ gcloud projects create kaizencoach-dev --name="kAIzen Coach - Development"
 gcloud projects create kaizencoach-staging --name="kAIzen Coach - Staging"
 gcloud projects create kaizencoach-prod --name="kAIzen Coach - Production"
 gcloud projects create kaizencoach-demo --name="kAIzen Coach - Demo"
+```
+or single project 
+
+```bash
+gcloud projects create kaizencoach-PROJECT --name="kAIzen Coach - PROJECT"
 ```
 
 ### 2. Enable Billing for Each Project
@@ -118,7 +160,7 @@ ACCOUNT_ID            NAME                OPEN  MASTER_ACCOUNT_ID
 **Then link billing to each project:**
 ```bash
 # Set your billing account ID (replace with your actual ID from above)
-BILLING_ACCOUNT_ID="01A234-567B89-CDEF01"
+BILLING_ACCOUNT_ID="xxxxxxxxxx"
 
 # Link billing to all projects
 for project in kaizencoach-dev kaizencoach-staging kaizencoach-prod kaizencoach-demo; do
@@ -172,22 +214,6 @@ gcloud projects add-iam-policy-binding kaizencoach-prod \
 gcloud iam service-accounts keys create prod-sa-key.json \
   --iam-account=vertex-ai-sa@kaizencoach-prod.iam.gserviceaccount.com \
   --project=kaizencoach-prod
-```
-
-### 5. Create Service Account for Local Dev
-```bash
-gcloud iam service-accounts create vertex-ai-sa \
-  --display-name="Vertex AI Service Account" \
-  --project=kaizencoach-dev
-
-gcloud projects add-iam-policy-binding kaizencoach-dev \
-  --member="serviceAccount:vertex-ai-sa@kaizencoach-dev.iam.gserviceaccount.com" \
-  --role="roles/aiplatform.user"
-
-# Generate key for local development
-gcloud iam service-accounts keys create ~/kaizencoach-dev-sa-key.json \
-  --iam-account=vertex-ai-sa@kaizencoach-dev.iam.gserviceaccount.com \
-  --project=kaizencoach-dev
 ```
 
 ## AWS Secrets Manager Setup
@@ -251,12 +277,12 @@ openssl rand -hex 20
 ```
 
 **Prepare the Service Account JSON:**
-```bash
-# Read the service account JSON and format as single-line for insertion
-cat prod-sa-key.json | jq -c '.'
 
-# Copy the output and use it as the value for GOOGLE_APPLICATION_CREDENTIALS_JSON
-```
+Go to https://jsonformatter.org/json-to-one-line and convert the JSON block generated by GCP to a single line JSON
+
+Then go to https://www.freeformatter.com/json-escape.html paste the single line JSON in and escape it.
+
+This will give the correct format for the value for the **GOOGLE_APPLICATION_CREDENTIALS_JSON** key in AWS secretsmanager
 
 **Populate via AWS CLI:**
 ```bash
@@ -466,6 +492,7 @@ gcloud services enable aiplatform.googleapis.com --project=kaizencoach-prod
 - [ ] Enable Vertex AI API on all projects
 - [ ] Create service accounts for each project
 - [ ] Generate service account keys
+- [ ] **Update config.py** (add all environments to REDIRECT_URIS and GCP_PROJECTS) ⚠️ CRITICAL
 - [ ] Update AWS Secrets Manager with new structure
 - [ ] Deploy Terraform infrastructure for each environment (handles DynamoDB, S3, ECR, App Runner, etc.)
 - [ ] Test local dev with kaizencoach-dev project

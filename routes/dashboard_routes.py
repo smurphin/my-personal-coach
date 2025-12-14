@@ -155,7 +155,7 @@ def clear_chat():
 @dashboard_bp.route("/api/weekly-summary")
 @login_required
 def weekly_summary_api():
-    """API endpoint for weekly summary with smart caching"""
+    """API endpoint for weekly summary with smart caching (6-hour window)"""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     
@@ -176,11 +176,14 @@ def weekly_summary_api():
         user_data['weekly_summaries'] = {}
 
     cached_summary_data = user_data['weekly_summaries'].get(week_identifier)
-    force_refresh = False
+    force_refresh = request.args.get('force', 'false').lower() == 'true'
     weekly_summary = None
+    cache_age_hours = None
 
     # Check if refresh is needed
-    if not cached_summary_data:
+    if force_refresh:
+        print("CACHE: Manual force refresh requested.")
+    elif not cached_summary_data:
         print("CACHE: No summary found. Forcing refresh.")
         force_refresh = True
     else:
@@ -193,8 +196,11 @@ def weekly_summary_api():
             # Check if cache is still valid
             try:
                 cached_timestamp = datetime.fromisoformat(cached_summary_data.get('timestamp'))
-                if (now - cached_timestamp) > timedelta(hours=24):
-                    print("CACHE: Summary older than 24 hours. Forcing refresh.")
+                cache_age_hours = (now - cached_timestamp).total_seconds() / 3600
+                
+                # Use 6-hour cache window instead of 24 hours
+                if cache_age_hours > 6:
+                    print(f"CACHE: Summary is {cache_age_hours:.1f} hours old (>6 hour threshold). Forcing refresh.")
                     force_refresh = True
                 elif cached_summary_data.get('plan_hash') != current_plan_hash:
                     print("CACHE: Plan updated. Forcing refresh.")
@@ -205,6 +211,8 @@ def weekly_summary_api():
                 elif cached_summary_data.get('last_chat_timestamp') != latest_chat_timestamp:
                     print("CACHE: New chat message added. Forcing refresh.")
                     force_refresh = True
+                else:
+                    print(f"CACHE: Using cached summary (age: {cache_age_hours:.1f}h).")
             except Exception as e:
                 print(f"CACHE: Error checking cache validity: {e}. Forcing refresh.")
                 force_refresh = True
@@ -244,15 +252,29 @@ def weekly_summary_api():
             data_manager.save_user_data(athlete_id, user_data)
             print("CACHE: Successfully generated and saved new summary.")
             
+            return jsonify({
+                'summary': weekly_summary,
+                'cached': False,
+                'generated_at': now.isoformat()
+            })
+            
         except Exception as e:
             print(f"ERROR generating weekly summary: {e}")
             import traceback
             traceback.print_exc()
             weekly_summary = "Unable to generate summary at this time. Please try refreshing in a moment."
+            return jsonify({
+                'summary': weekly_summary,
+                'cached': False,
+                'error': True
+            })
     else:
-        print("CACHE: Using cached summary.")
-        
-    return jsonify({'summary': weekly_summary})
+        return jsonify({
+            'summary': weekly_summary,
+            'cached': True,
+            'age_hours': round(cache_age_hours, 1) if cache_age_hours else None,
+            'generated_at': cached_summary_data.get('timestamp')
+        })
 
 @dashboard_bp.route("/api/refresh-weekly-summary", methods=['POST'])
 @login_required
