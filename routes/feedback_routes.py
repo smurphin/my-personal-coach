@@ -138,10 +138,14 @@ def get_feedback_api():
     try:
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
-        access_token = user_data.get('token', {}).get('access_token')
+        
+        # Ensure token is valid (refresh if needed)
+        access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
 
         if not access_token:
-            return jsonify({'error': 'Authentication error'}), 401
+            return jsonify({
+                'error': 'Your Strava connection has expired. Please <a href="/logout">log out</a> and log in again.'
+            }), 401
 
         training_plan = user_data.get('plan')
         if not training_plan:

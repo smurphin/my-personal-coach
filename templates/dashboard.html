@@ -68,60 +68,88 @@
     // Generate URLs that template literals can use
     const connectionsUrl = "{{ url_for('admin.connections') }}";
     
-    function fetchWeeklySummary() {
+    async function fetchWeeklySummary(forceRefresh = false) {
         const container = document.getElementById('weekly-summary-container');
         container.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
 
-        fetch('/api/weekly-summary')
-            .then(response => response.json())
-            .then(data => {
-                if (data.summary) {
-                    container.innerHTML = `<p class="text-base sm:text-lg text-brand-light-gray">${data.summary}</p>`;
+        try {
+            // Add timestamp for cache busting + force parameter if needed
+            const timestamp = new Date().getTime();
+            const forceParam = forceRefresh ? '&force=true' : '';
+            const url = `/api/weekly-summary?t=${timestamp}${forceParam}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.summary) {
+                container.innerHTML = `<p class="text-base sm:text-lg text-brand-light-gray">${data.summary}</p>`;
+                
+                // Log cache status for debugging
+                if (data.cached) {
+                    console.log(`Using cached summary (age: ${data.age_hours || 'unknown'}h)`);
                 } else {
-                    container.innerHTML = `<p class="text-red-400">Could not load weekly summary.</p>`;
+                    console.log('Generated fresh weekly summary');
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching weekly summary:', error);
-                container.innerHTML = `<p class="text-red-400">An error occurred while loading the summary.</p>`;
-            });
+            } else {
+                container.innerHTML = `<p class="text-red-400">Could not load weekly summary.</p>`;
+            }
+        } catch (error) {
+            console.error('Error fetching weekly summary:', error);
+            container.innerHTML = `<p class="text-red-400">An error occurred while loading the summary.</p>`;
+        }
     }
 
-    function fetchGarminSummary() {
-    const container = document.getElementById('garmin-container');
-    fetch('/api/garmin-summary')
-        .then(response => {
+    // OPTIMIZED: Split Garmin into API fetch (fast) and UI rendering (slow)
+    // This allows weekly summary to start as soon as cache is updated
+    
+    async function fetchGarminData() {
+        // FAST: Just get the data from API (updates cache)
+        try {
+            const response = await fetch('/api/garmin-summary');
             console.log('Garmin API response status:', response.status);
+            
             if (!response.ok) {
                 throw new Error('No Garmin connection found.');
             }
-            return response.json();
-        })
-        .then(data => {
+            
+            const data = await response.json();
             console.log('Garmin API data received:', data);
+            
             if (data.error) {
                 throw new Error(data.error);
             }
             
-            const today = data.today;
-            const trendData = data.trend_data;
+            return data;
             
-            console.log('Starting to render Garmin data...');
+        } catch (error) {
+            console.error('❌ Garmin API fetch error:', error);
+            throw error;
+        }
+    }
+    
+    function renderGarminUI(data) {
+        // SLOW: Render UI and create Chart.js charts
+        // Can run in parallel with weekly summary
+        const container = document.getElementById('garmin-container');
+        const today = data.today;
+        const trendData = data.trend_data;
             
-            try {
-                // Create the display with today's metrics and separate charts
-                container.innerHTML = `
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-brand-blue">Health & Recovery</h2>
-                    <div class="flex items-center space-x-3">
-                        ${data.cached ? '<span class="text-xs text-gray-400">📊 Cached data</span>' : '<span class="text-xs text-green-400">✓ Fresh data</span>'}
-                        <button onclick="refreshGarminData()" class="text-gray-400 hover:text-white transition-colors" title="Refresh Garmin data (use sparingly)">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 sm:w-6 sm:h-6">
-                                <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
+        console.log('Starting to render Garmin UI...');
+            
+        try {
+            // Create the display with today's metrics and separate charts
+            container.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-brand-blue">Health & Recovery</h2>
+                <div class="flex items-center space-x-3">
+                    ${data.cached ? '<span class="text-xs text-gray-400">📊 Cached data</span>' : '<span class="text-xs text-green-400">✓ Fresh data</span>'}
+                    <button onclick="refreshGarminData()" class="text-gray-400 hover:text-white transition-colors" title="Refresh Garmin data (use sparingly)">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 sm:w-6 sm:h-6">
+                            <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
+            </div>
                 
                 <!-- Today's Key Metrics -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 text-center mb-6 sm:mb-8">
@@ -731,12 +759,25 @@
             } catch (renderError) {
                 console.error('❌ Error during rendering:', renderError);
                 console.error('Stack trace:', renderError.stack);
-                throw renderError;
+                container.innerHTML = `
+                    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                    <div class="text-center py-4">
+                        <p class="text-red-400">Error rendering Garmin data. Please refresh the page.</p>
+                    </div>
+                `;
             }
-
-        })
-        .catch(error => {
-            console.error('❌ Garmin fetch error:', error);
+    }
+    
+    async function fetchGarminSummary() {
+        // LEGACY: Combined function for backwards compatibility
+        // Used by refresh button and other manual calls
+        const container = document.getElementById('garmin-container');
+        
+        try {
+            const data = await fetchGarminData();
+            renderGarminUI(data);
+        } catch (error) {
+            console.error('❌ Garmin error:', error);
             container.innerHTML = `
                 <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
                 <div class="text-center py-4">
@@ -746,8 +787,8 @@
                     </a>
                 </div>
             `;
-        });
-}
+        }
+    }
 
 // Refresh Garmin data function
 function refreshGarminData() {
@@ -836,21 +877,78 @@ function getReadinessMessage(score) {
 }
 
     document.addEventListener('DOMContentLoaded', function() {
-        fetchWeeklySummary();
-        fetchGarminSummary();  // Always try to fetch - API handles connection check
+        // SEQUENTIAL LOADING: Load Garmin first, then summary
+        // This ensures weekly summary uses fresh Garmin data
+        loadDashboardSequentially();
 
         const refreshButton = document.getElementById('refresh-summary-button');
         refreshButton.addEventListener('click', function() {
+            console.log('🔄 Force refreshing weekly summary...');
+            
+            // Disable button during refresh
+            refreshButton.disabled = true;
+            const originalHTML = refreshButton.innerHTML;
+            refreshButton.innerHTML = '<div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #00A9FF; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>';
+            
             fetch('/api/refresh-weekly-summary', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success' || data.status === 'no_op') {
-                        fetchWeeklySummary();
+                        // Force fresh summary (bypass cache)
+                        return fetchWeeklySummary(true);
                     }
                 })
-                .catch(error => console.error('Error clearing cache:', error));
+                .catch(error => console.error('Error clearing cache:', error))
+                .finally(() => {
+                    // Re-enable button
+                    refreshButton.disabled = false;
+                    refreshButton.innerHTML = originalHTML;
+                });
         });
     });
+
+    // Sequential loading function to ensure Garmin loads before summary
+    async function loadDashboardSequentially() {
+        try {
+            console.log('📊 Step 1: Fetching Garmin data from API...');
+            
+            // FAST: Just fetch the data (updates cache)
+            const garminData = await fetchGarminData();
+            console.log('✓ Garmin API data fetched (cache updated)');
+            
+            // Small delay to ensure cache is written to storage
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            console.log('📊 Step 2: Rendering UI and loading summary in parallel...');
+            
+            // PARALLEL: Render Garmin UI + fetch weekly summary
+            // Summary can start immediately since cache is updated
+            // UI rendering (Chart.js) happens in background
+            await Promise.all([
+                (async () => {
+                    renderGarminUI(garminData);
+                    console.log('✓ Garmin UI rendered');
+                })(),
+                (async () => {
+                    await fetchWeeklySummary();
+                    console.log('✓ Weekly summary loaded');
+                })()
+            ]);
+            
+            console.log('✅ Dashboard fully loaded!');
+            
+        } catch (error) {
+            console.error('❌ Error loading dashboard:', error);
+            
+            // If Garmin fails, still try to load summary
+            try {
+                console.log('Attempting to load summary despite Garmin error...');
+                await fetchWeeklySummary();
+            } catch (summaryError) {
+                console.error('Summary also failed:', summaryError);
+            }
+        }
+    }
 
     function showChatSpinner() {
         const interactionContainer = document.getElementById('chat-interaction-container');

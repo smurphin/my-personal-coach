@@ -69,3 +69,4 @@ Complete guides for deploying and managing environments:
 ---
 
 <small>Last updated: December 2025 | [Edit on GitHub](https://github.com/smurphin/my-personal-coach/tree/main/docs)</small>
+

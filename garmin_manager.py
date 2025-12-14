@@ -151,7 +151,9 @@ class GarminManager:
                     values_array = day_data['bodyBatteryValuesArray']
                     
                     # Extract the battery levels (second element of each pair)
-                    battery_values = [reading[1] for reading in values_array if len(reading) >= 2]
+                    # Filter out None values to prevent max/min errors
+                    battery_values = [reading[1] for reading in values_array 
+                                     if len(reading) >= 2 and reading[1] is not None]
                     
                     if battery_values:
                         metrics["body_battery_high"] = max(battery_values)
