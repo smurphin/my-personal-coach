@@ -63,7 +63,7 @@ read -p "> " PRIORITY_CHOICE
 case $PRIORITY_CHOICE in
     1) PRIORITY_LABEL="critical" ;;
     2) PRIORITY_LABEL="high-priority" ;;
-    3) PRIORITY_LABEL="" ;;  # medium is default, no label needed
+    3) PRIORITY_LABEL="medium-priority" ;;  
     4) PRIORITY_LABEL="low-priority" ;;
     5) PRIORITY_LABEL="" ;;
     *) PRIORITY_LABEL="" ;;
@@ -82,7 +82,7 @@ case $SIZE_CHOICE in
     1) SIZE_LABEL="small" ;;
     2) SIZE_LABEL="medium" ;;
     3) SIZE_LABEL="large" ;;
-    4) SIZE_LABEL="" ;;
+    4) SIZE_LABEL="break" ;;
     *) SIZE_LABEL="" ;;
 esac
 
@@ -128,5 +128,5 @@ if [ $? -eq 0 ]; then
 else
     echo ""
     echo "❌ Failed to create issue"
-    exit 1
+    #exit 1
 fi
