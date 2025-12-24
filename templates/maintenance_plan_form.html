@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Create Maintenance Plan{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-0">
+    <div class="mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-white">Create Maintenance Plan</h1>
+        <p class="text-sm sm:text-base text-brand-light-gray mt-1">Generate a maintenance training plan to keep your fitness consistent.</p>
+    </div>
+
+    <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
+        <form action="{{ url_for('plan.generate_maintenance_plan') }}" method="post">
+            <div class="mb-6">
+                <label for="weeks" class="block text-sm font-medium text-white mb-2">
+                    How many weeks would you like the maintenance plan to last?
+                </label>
+                <input 
+                    type="number" 
+                    id="weeks" 
+                    name="weeks" 
+                    min="1" 
+                    max="52" 
+                    value="4" 
+                    required
+                    class="w-full bg-brand-dark border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition"
+                >
+                <p class="text-xs text-brand-light-gray mt-2">Enter a number between 1 and 52 weeks.</p>
+            </div>
+
+            <div class="mb-6">
+                <label for="sessions_per_week" class="block text-sm font-medium text-white mb-2">
+                    How many sessions per week can you commit to?
+                </label>
+                <input 
+                    type="number" 
+                    id="sessions_per_week" 
+                    name="sessions_per_week" 
+                    min="1" 
+                    max="14" 
+                    value="3" 
+                    required
+                    class="w-full bg-brand-dark border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition"
+                >
+                <p class="text-xs text-brand-light-gray mt-2">Enter the number of training sessions you can do per week.</p>
+            </div>
+
+            <div class="mb-6">
+                <label for="hours_per_week" class="block text-sm font-medium text-white mb-2">
+                    How many hours per week can you commit to?
+                </label>
+                <input 
+                    type="number" 
+                    id="hours_per_week" 
+                    name="hours_per_week" 
+                    min="1" 
+                    max="30" 
+                    step="0.5"
+                    value="5" 
+                    required
+                    class="w-full bg-brand-dark border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition"
+                >
+                <p class="text-xs text-brand-light-gray mt-2">Enter the total hours you can dedicate to training per week.</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button 
+                    type="submit" 
+                    id="submit-button"
+                    class="flex-1 bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out"
+                >
+                    Generate Maintenance Plan
+                </button>
+                <a 
+                    href="{{ url_for('dashboard.dashboard') }}" 
+                    id="cancel-link"
+                    class="flex-1 bg-brand-dark border border-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-gray transition text-center"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Loading Spinner (shown while plan generates) -->
+    <div id="loading-spinner" style="display: none;" class="py-8 sm:py-12">
+        <div class="text-center mb-6">
+            <div class="loader mx-auto mb-4"></div>
+            <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Generating Your Maintenance Plan...</h2>
+            <p class="text-brand-light-gray text-sm sm:text-base">
+                This may take a minute or two. Please don't close this page.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelector('form').addEventListener('submit', function(e) {
+        // Show loading spinner
+        document.getElementById('loading-spinner').style.display = 'block';
+        document.querySelector('.bg-brand-gray').style.display = 'none';
+        
+        // Disable submit button and cancel link
+        document.getElementById('submit-button').disabled = true;
+        document.getElementById('cancel-link').style.pointerEvents = 'none';
+        document.getElementById('cancel-link').style.opacity = '0.5';
+    });
+</script>
+{% endblock %}
+

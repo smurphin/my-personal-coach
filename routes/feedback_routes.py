@@ -125,10 +125,35 @@ def view_specific_feedback(activity_id):
 @feedback_bp.route("/log")
 @login_required
 def coaching_log():
-    """Display the coaching log with all feedback entries"""
+    """Display the coaching log with all feedback entries (from DynamoDB + S3)"""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
+    
+    # Load additional entries from S3 if available
+    try:
+        from s3_manager import s3_manager, S3_AVAILABLE
+        import os
+        
+        if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+            s3_key = f"athletes/{athlete_id}/feedback_log.json.gz"
+            s3_feedback_log = s3_manager.load_large_data(s3_key)
+            
+            if s3_feedback_log:
+                # Merge S3 entries with DynamoDB entries (avoid duplicates by activity_id)
+                dynamodb_activity_ids = {entry.get('activity_id') for entry in feedback_log}
+                for entry in s3_feedback_log:
+                    activity_id = entry.get('activity_id')
+                    if activity_id not in dynamodb_activity_ids:
+                        feedback_log.append(entry)
+                        dynamodb_activity_ids.add(activity_id)
+                
+                # Sort by activity_id (most recent first)
+                feedback_log.sort(key=lambda x: x.get('activity_id', 0), reverse=True)
+                print(f"✅ Loaded {len(s3_feedback_log)} additional feedback_log entries from S3")
+    except Exception as e:
+        print(f"⚠️  Error loading feedback_log from S3: {e}")
+    
     return render_template('coaching_log.html', log_entries=feedback_log)
 
 @feedback_bp.route("/api/get-feedback")

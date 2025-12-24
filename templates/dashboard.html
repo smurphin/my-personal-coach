@@ -3,6 +3,81 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
+{% if show_completion_prompt %}
+<!-- Plan Completion Prompt Modal -->
+<div id="plan-completion-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl sm:text-2xl font-bold text-brand-blue">Your Training Plan Has Finished! 🎉</h2>
+                <button onclick="closePlanCompletionModal()" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4 text-sm sm:text-base mb-6">
+                <p>Congratulations on completing your training plan! What would you like to do next?</p>
+            </div>
+            
+            <form action="{{ url_for('plan.plan_completion_choice') }}" method="post" class="space-y-4">
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="new_plan"
+                    class="w-full bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">Create a New Plan</div>
+                            <div class="text-sm font-normal opacity-90">Start a new training cycle with fresh goals</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+                
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="maintenance"
+                    class="w-full bg-brand-dark border border-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-gray transition text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">Maintenance Plan</div>
+                            <div class="text-sm font-normal opacity-90">Keep your fitness consistent with a maintenance plan</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+                
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="no_plan"
+                    class="w-full bg-brand-dark border border-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-gray transition text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">No Plan - Go With the Flow</div>
+                            <div class="text-sm font-normal opacity-90">Take a break from structured training</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="mb-6 sm:mb-8">
     <h1 class="text-2xl sm:text-3xl font-bold text-white">Your Dashboard</h1>
     <p class="text-sm sm:text-base text-brand-light-gray mt-1">Here's your focus for this week.</p>
@@ -980,6 +1055,24 @@ function getReadinessMessage(score) {
             event.target.classList.add('hidden');
         }
     }
+    
+    // Plan completion modal functions
+    function closePlanCompletionModal() {
+        const modal = document.getElementById('plan-completion-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+    
+    // Show plan completion modal on page load if needed
+    {% if show_completion_prompt %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('plan-completion-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    });
+    {% endif %}
 </script>
 
 <!-- Info Modals -->

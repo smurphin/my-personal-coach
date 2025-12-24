@@ -46,18 +46,19 @@ def generate_plan():
             training_history.insert(0, {"summary": summary_text})
             user_data['training_history'] = training_history
             
-            # Archive the plan
+            # Archive the plan ONLY (not feedback_log - that stays forever)
             if 'archive' not in user_data:
                 user_data['archive'] = []
             user_data['archive'].insert(0, {
                 'plan': user_data['plan'],
-                'feedback_log': user_data['feedback_log']
+                'completed_date': datetime.now().isoformat()
+                # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
             })
             
             # Clear current plan data
+            # DO NOT delete feedback_log - it's permanent coaching history
             del user_data['plan']
-            if 'feedback_log' in user_data:
-                del user_data['feedback_log']
+            # feedback_log stays - never delete it!
             if 'plan_structure' in user_data:
                 del user_data['plan_structure']
         
@@ -274,6 +275,12 @@ def generate_plan():
         user_data['plan_structure'] = plan_structure
         user_data['plan_data'] = final_data_for_ai
         
+        # Clear no_active_plan flag if it exists (user is creating a new plan)
+        if 'no_active_plan' in user_data:
+            del user_data['no_active_plan']
+        if 'inactive_plan' in user_data:
+            del user_data['inactive_plan']
+        
         data_manager.save_user_data(athlete_id, user_data)
         
         # Verify save
@@ -320,3 +327,332 @@ def view_plan():
         )
     except Exception as e:
         return f"An error occurred while retrieving the plan: {e}", 500
+
+@plan_bp.route("/plan_completion_choice", methods=['POST'])
+@login_required
+def plan_completion_choice():
+    """Handle user's choice after plan completion"""
+    try:
+        athlete_id = session['athlete_id']
+        user_data = data_manager.load_user_data(athlete_id)
+        
+        if not user_data:
+            return redirect('/dashboard')
+        
+        choice = request.form.get('choice')
+        
+        if choice == 'new_plan':
+            # Clear the plan_completion_prompted flag so they can create a new plan
+            if 'plan_completion_prompted' in user_data:
+                del user_data['plan_completion_prompted']
+            data_manager.save_user_data(athlete_id, user_data)
+            # Redirect to onboarding to create a new plan
+            return redirect('/onboarding')
+        
+        elif choice == 'maintenance':
+            # Store that they want a maintenance plan
+            user_data['plan_completion_choice'] = 'maintenance'
+            user_data['plan_completion_prompted'] = True
+            data_manager.save_user_data(athlete_id, user_data)
+            # Redirect to maintenance plan generation page
+            return redirect('/generate_maintenance_plan')
+        
+        elif choice == 'no_plan':
+            # Store that they want no structured plan - keep plan data but mark as inactive
+            user_data['plan_completion_choice'] = 'no_plan'
+            user_data['plan_completion_prompted'] = True
+            user_data['no_active_plan'] = True  # Flag to indicate no structured training
+            
+            # Archive the completed plan but keep it accessible
+            # IMPORTANT: feedback_log should NEVER be archived - it's permanent coaching history
+            if 'plan' in user_data and user_data.get('plan'):
+                if 'feedback_log' not in user_data:
+                    user_data['feedback_log'] = []
+                
+                # Generate summary of completed plan
+                summary_text = ai_service.summarize_training_cycle(
+                    user_data['plan'],
+                    user_data['feedback_log']
+                )
+                
+                # Store in training history
+                training_history = user_data.get('training_history', [])
+                training_history.insert(0, {"summary": summary_text})
+                user_data['training_history'] = training_history
+                
+                # Archive the plan ONLY (not feedback_log - that stays forever)
+                if 'archive' not in user_data:
+                    user_data['archive'] = []
+                user_data['archive'].insert(0, {
+                    'plan': user_data['plan'],
+                    'completed_date': datetime.now().isoformat()
+                    # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
+                })
+                
+                # Store the plan as inactive (not deleted) so dashboard can still access it
+                user_data['inactive_plan'] = {
+                    'plan': user_data['plan'],
+                    'plan_structure': user_data.get('plan_structure'),
+                    'completed_date': datetime.now().isoformat()
+                }
+                
+                # Clear active plan data but keep it accessible via inactive_plan
+                # DO NOT delete feedback_log - it's permanent coaching history
+                del user_data['plan']
+                # feedback_log stays - never delete it!
+                if 'plan_structure' in user_data:
+                    del user_data['plan_structure']
+            
+            data_manager.save_user_data(athlete_id, user_data)
+            flash("You're now going with the flow - no structured training plan. You can create a new plan anytime from the dashboard.")
+            return redirect('/dashboard')
+        
+        else:
+            flash("Invalid choice. Please try again.")
+            return redirect('/dashboard')
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f"An error occurred: {e}")
+        return redirect('/dashboard')
+
+@plan_bp.route("/generate_maintenance_plan")
+@login_required
+def generate_maintenance_plan_form():
+    """Show form to generate a maintenance plan"""
+    return render_template("maintenance_plan_form.html")
+
+@plan_bp.route("/generate_maintenance_plan", methods=['POST'])
+@login_required
+def generate_maintenance_plan():
+    """Generate a maintenance plan for a specified period"""
+    try:
+        athlete_id = session['athlete_id']
+        user_data = data_manager.load_user_data(athlete_id)
+        
+        if not user_data or 'token' not in user_data:
+            return 'Could not find your session data. Please <a href="/login">log in</a> again.'
+        
+        # Get maintenance plan parameters
+        weeks = request.form.get('weeks', '').strip()
+        sessions_per_week = request.form.get('sessions_per_week', '').strip()
+        hours_per_week = request.form.get('hours_per_week', '').strip()
+        
+        # Validate weeks
+        try:
+            weeks = int(weeks)
+            if weeks <= 0 or weeks > 52:
+                raise ValueError("Weeks must be between 1 and 52")
+        except ValueError as e:
+            flash(f"Invalid number of weeks: {e}")
+            return redirect('/generate_maintenance_plan')
+        
+        # Validate sessions_per_week
+        try:
+            sessions_per_week = int(sessions_per_week)
+            if sessions_per_week <= 0 or sessions_per_week > 14:
+                raise ValueError("Sessions per week must be between 1 and 14")
+        except ValueError as e:
+            flash(f"Invalid number of sessions per week: {e}")
+            return redirect('/generate_maintenance_plan')
+        
+        # Validate hours_per_week
+        try:
+            hours_per_week = float(hours_per_week)
+            if hours_per_week <= 0 or hours_per_week > 30:
+                raise ValueError("Hours per week must be between 1 and 30")
+        except ValueError as e:
+            flash(f"Invalid number of hours per week: {e}")
+            return redirect('/generate_maintenance_plan')
+        
+        # Archive existing plan if present
+        if 'plan' in user_data and user_data.get('plan'):
+            if 'feedback_log' not in user_data:
+                user_data['feedback_log'] = []
+            
+            print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
+            
+            # Generate summary of completed plan
+            summary_text = ai_service.summarize_training_cycle(
+                user_data['plan'],
+                user_data['feedback_log']
+            )
+            
+            # Store in training history
+            training_history = user_data.get('training_history', [])
+            training_history.insert(0, {"summary": summary_text})
+            user_data['training_history'] = training_history
+            
+            # Archive the plan ONLY (not feedback_log - that stays forever)
+            if 'archive' not in user_data:
+                user_data['archive'] = []
+            user_data['archive'].insert(0, {
+                'plan': user_data['plan'],
+                'completed_date': datetime.now().isoformat()
+                # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
+            })
+            
+            # Clear current plan data
+            # DO NOT delete feedback_log - it's permanent coaching history
+            del user_data['plan']
+            # feedback_log stays - never delete it!
+            if 'plan_structure' in user_data:
+                del user_data['plan_structure']
+        
+        # Get user's current fitness data for context
+        access_token = user_data['token']['access_token']
+        
+        # Fetch Strava data - check for Response objects (from decorator redirects)
+        from flask import Response as FlaskResponse
+        
+        strava_zones = strava_service.get_athlete_zones(access_token)
+        if isinstance(strava_zones, FlaskResponse):
+            return strava_zones  # Redirect response from decorator
+        
+        eight_weeks_ago = datetime.now() - timedelta(weeks=8)
+        activities_summary = strava_service.get_recent_activities(
+            access_token,
+            int(eight_weeks_ago.timestamp()),
+            per_page=200
+        )
+        if isinstance(activities_summary, FlaskResponse):
+            return activities_summary  # Redirect response from decorator
+        
+        athlete_stats = strava_service.get_athlete_stats(access_token, athlete_id)
+        if isinstance(athlete_stats, FlaskResponse):
+            return athlete_stats  # Redirect response from decorator
+        
+        # Get existing zones from plan_data if available
+        plan_data = user_data.get('plan_data', {})
+        friel_hr_zones = plan_data.get('friel_hr_zones')
+        friel_power_zones = plan_data.get('friel_power_zones')
+        
+        # If zones not available, estimate them
+        if not friel_hr_zones or not friel_power_zones:
+            if activities_summary:  # Only estimate if we have activities
+                estimated_zones = training_service.estimate_zones_from_activities(activities_summary)
+                if estimated_zones['lthr']:
+                    friel_hr_zones = training_service.calculate_friel_hr_zones(estimated_zones['lthr'])
+                if estimated_zones['ftp']:
+                    friel_power_zones = training_service.calculate_friel_power_zones(estimated_zones['ftp'])
+        
+        # Prepare user inputs for maintenance plan
+        # Get athlete_type from onboarding (influences session planning), but use form values for sessions/hours
+        plan_data = user_data.get('plan_data', {})
+        user_inputs = {
+            'goal': f"Maintenance training plan for {weeks} weeks",
+            'sessions_per_week': sessions_per_week,  # From form
+            'hours_per_week': hours_per_week,  # From form
+            'lifestyle_context': None,  # Not used for maintenance plans - keep it bare bones
+            'athlete_type': plan_data.get('athlete_type', 'General'),  # Keep from onboarding
+            'maintenance_weeks': weeks
+        }
+        
+        # Prepare data for AI - current fitness metrics only, bare bones for maintenance
+        # Filter out any Response objects or None values that shouldn't be there
+        final_data_for_ai = {
+            "athlete_goal": user_inputs['goal'],
+            "sessions_per_week": user_inputs['sessions_per_week'],
+            "hours_per_week": user_inputs['hours_per_week'],
+            "athlete_type": user_inputs['athlete_type'],
+            # Only include current fitness data, not historical analyzed activities or old vdot_data
+            "athlete_stats": athlete_stats if athlete_stats and not isinstance(athlete_stats, FlaskResponse) else {},
+            "strava_zones": strava_zones if strava_zones and not isinstance(strava_zones, FlaskResponse) else {},
+            "friel_hr_zones": friel_hr_zones if friel_hr_zones and not isinstance(friel_hr_zones, FlaskResponse) else None,
+            "friel_power_zones": friel_power_zones if friel_power_zones and not isinstance(friel_power_zones, FlaskResponse) else None,
+            "maintenance_weeks": weeks
+            # Explicitly NOT including: analyzed_activities, vdot_data, lifestyle_context (bare bones maintenance plan)
+        }
+        
+        # Validate that final_data_for_ai is JSON-serializable before proceeding
+        def is_json_serializable(obj):
+            """Check if an object is JSON serializable"""
+            try:
+                json.dumps(obj)
+                return True
+            except (TypeError, ValueError):
+                return False
+        
+        def clean_for_json(obj):
+            """Recursively clean object to make it JSON-serializable"""
+            if isinstance(obj, FlaskResponse):
+                return None
+            elif isinstance(obj, dict):
+                return {k: clean_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_for_json(item) for item in obj]
+            elif not is_json_serializable(obj):
+                # Convert non-serializable objects to strings
+                return str(obj)
+            return obj
+        
+        # Clean the data structure to ensure it's JSON-serializable
+        final_data_for_ai = clean_for_json(final_data_for_ai)
+        
+        # Final validation
+        try:
+            json.dumps(final_data_for_ai, indent=4)
+        except TypeError as e:
+            print(f"--- ERROR: final_data_for_ai still contains non-serializable data after cleaning: {e} ---")
+            flash(f"Error preparing data for AI. Please try again.")
+            return redirect('/generate_maintenance_plan')
+        
+        print("--- Generating maintenance plan from Gemini ---")
+        print(f"--- Maintenance plan data being passed: sessions_per_week={user_inputs['sessions_per_week']}, hours_per_week={user_inputs['hours_per_week']}, weeks={weeks} ---")
+        print(f"--- Athlete type: {user_inputs['athlete_type']} (from onboarding), Lifestyle context: NOT included (bare bones plan) ---")
+        print(f"--- Including training_history summary (last plan summary), NOT including analyzed_activities, vdot_data, or lifestyle_context ---")
+        
+        # Generate maintenance plan - pass training_history summary but not old plan details
+        ai_response_text = ai_service.generate_maintenance_plan(
+            user_inputs,
+            {
+                'training_history': user_data.get('training_history'),  # Include summary of last plan
+                'final_data_for_ai': final_data_for_ai
+            }
+        )
+        
+        # Extract plan structure JSON if present
+        plan_structure = None
+        plan_markdown = ai_response_text
+        
+        json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
+        if json_match:
+            json_string = json_match.group(1).strip()
+            try:
+                plan_structure = json.loads(json_string)
+                plan_markdown = ai_response_text[:json_match.start()].strip()
+                print(f"--- Successfully parsed plan structure from AI response. ---")
+            except json.JSONDecodeError as e:
+                print(f"--- ERROR: Could not decode JSON from AI response: {e} ---")
+                plan_structure = None
+        else:
+            print("--- WARNING: No plan structure JSON block found in AI response. ---")
+        
+        # Save plan
+        user_data['plan'] = plan_markdown
+        user_data['plan_structure'] = plan_structure
+        user_data['plan_data'] = final_data_for_ai
+        user_data['plan_completion_choice'] = None  # Clear the choice
+        user_data['plan_completion_prompted'] = False  # Clear the prompt flag
+        
+        # Clear no_active_plan flag if it exists (user is creating a new plan)
+        if 'no_active_plan' in user_data:
+            del user_data['no_active_plan']
+        if 'inactive_plan' in user_data:
+            del user_data['inactive_plan']
+        
+        data_manager.save_user_data(athlete_id, user_data)
+        
+        # Render and return plan
+        rendered_plan = render_markdown_with_toc(plan_markdown)
+        return render_template(
+            'plan.html',
+            plan_content=rendered_plan['content'],
+            plan_toc=rendered_plan['toc']
+        )
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"An error occurred during maintenance plan generation: {e}", 500
