@@ -61,20 +61,9 @@ def dashboard():
         )
         plan_finished = is_finished
         
-        # TEMPORARY: Force plan_finished for testing if flag is False and plan exists
-        # Remove this after testing!
-        if not plan_finished and not user_data.get('plan_completion_prompted', False):
-            print("DEBUG: Temporarily forcing plan_finished=True for testing (remove this after testing!)")
-            plan_finished = True
-        
-        # Debug check
-        plan_completion_prompted = user_data.get('plan_completion_prompted', False)
-        print(f"DEBUG: plan_finished={plan_finished}, last_end_date={last_end_date}, plan_completion_prompted={plan_completion_prompted}, show_prompt={plan_finished and not plan_completion_prompted}")
-        
         # Show prompt if plan is finished and user hasn't been prompted yet
-        if plan_finished and not plan_completion_prompted:
+        if plan_finished and not user_data.get('plan_completion_prompted', False):
             show_completion_prompt = True
-            print(f"DEBUG: Setting show_completion_prompt to True")
 
     current_week_text = training_service.get_current_week_plan(
         user_data['plan'],
