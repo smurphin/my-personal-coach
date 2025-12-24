@@ -268,6 +268,44 @@ class TrainingService:
             return "\n".join(lines[start_index:end_index])
 
         return "Could not determine the current or upcoming training week from your plan."
+    
+    def is_plan_finished(self, plan_text, plan_structure=None):
+        """
+        Check if the training plan has finished (today is past the last week's end_date).
+        Returns tuple: (is_finished: bool, last_week_end_date: date or None)
+        """
+        today = datetime.now().date()
+        
+        # METHOD 1: Use structured JSON data if available
+        if plan_structure and 'weeks' in plan_structure:
+            weeks = plan_structure.get('weeks', [])
+            if not weeks:
+                return (False, None)
+            
+            # Find the last week's end date
+            last_end_date = None
+            for week in weeks:
+                try:
+                    end_date = datetime.strptime(week['end_date'], '%Y-%m-%d').date()
+                    if last_end_date is None or end_date > last_end_date:
+                        last_end_date = end_date
+                except (ValueError, KeyError):
+                    continue
+            
+            if last_end_date:
+                return (today > last_end_date, last_end_date)
+        
+        # METHOD 2: Fallback to regex parsing
+        from utils.formatters import extract_week_dates_from_plan
+        
+        all_weeks = extract_week_dates_from_plan(plan_text)
+        if not all_weeks:
+            return (False, None)
+        
+        # Find the latest end date
+        last_end_date = max(week['end_date'] for week in all_weeks)
+        
+        return (today > last_end_date, last_end_date)
 
 # Create singleton instance
 training_service = TrainingService()

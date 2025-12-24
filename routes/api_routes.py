@@ -30,10 +30,45 @@ def safe_save_user_data(athlete_id, user_data):
     """
     Wrapper for data_manager.save_user_data that trims data to fit DynamoDB limits.
     Keeps only last 20 feedback entries and 30 chat messages.
+    IMPORTANT: Trimmed feedback_log entries are saved to S3 for permanent storage.
     """
-    # Trim feedback_log
+    # Trim feedback_log - but save trimmed entries to S3 first
     if 'feedback_log' in user_data and len(user_data['feedback_log']) > 20:
+        trimmed_entries = user_data['feedback_log'][20:]  # Entries beyond the first 20
         print(f"⚠️  Trimming feedback_log from {len(user_data['feedback_log'])} to 20 entries")
+        
+        # Save trimmed entries to S3 for permanent storage
+        try:
+            from s3_manager import s3_manager, S3_AVAILABLE
+            import os
+            
+            if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+                # Load existing S3 feedback_log and merge
+                s3_key = f"athletes/{athlete_id}/feedback_log.json.gz"
+                existing_s3_log = s3_manager.load_large_data(s3_key) or []
+                
+                # Merge: add trimmed entries to S3 log (avoid duplicates by activity_id)
+                existing_activity_ids = {entry.get('activity_id') for entry in existing_s3_log}
+                for entry in trimmed_entries:
+                    activity_id = entry.get('activity_id')
+                    if activity_id not in existing_activity_ids:
+                        existing_s3_log.append(entry)
+                        existing_activity_ids.add(activity_id)
+                
+                # Sort by activity_id (most recent first)
+                existing_s3_log.sort(key=lambda x: x.get('activity_id', 0), reverse=True)
+                
+                # Save back to S3
+                s3_manager.save_large_data(athlete_id, 'feedback_log', existing_s3_log)
+                print(f"✅ Saved {len(trimmed_entries)} trimmed feedback_log entries to S3")
+                
+                # Store S3 key reference in user_data
+                if 'feedback_log_s3_key' not in user_data:
+                    user_data['feedback_log_s3_key'] = s3_key
+        except Exception as e:
+            print(f"⚠️  Error saving trimmed feedback_log to S3: {e}")
+        
+        # Now trim the in-memory version
         user_data['feedback_log'] = user_data['feedback_log'][:20]
     
     # Trim chat_log

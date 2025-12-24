@@ -32,8 +32,38 @@ def dashboard():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
 
+    # Check if user has no active plan (chose "go with the flow")
+    if user_data and user_data.get('no_active_plan', False):
+        # User has no active structured plan but should still see dashboard
+        # Show a message that they're going with the flow
+        message_html = '<div class="bg-brand-dark rounded-lg p-6 text-center"><h3 class="text-xl font-bold text-brand-blue mb-2">No Active Training Plan</h3><p class="text-brand-light-gray mb-4">You\'re currently going with the flow - no structured training plan is active.</p><p class="text-brand-light-gray mb-4">You can create a new plan anytime by clicking "Generate a New Plan" in the navigation.</p></div>'
+        
+        return render_template(
+            'dashboard.html',
+            current_week_plan=message_html,
+            garmin_connected='garmin_credentials' in user_data,
+            show_completion_prompt=False,
+            plan_finished=False,
+            no_active_plan=True
+        )
+    
     if not user_data or 'plan' not in user_data:
         return redirect('/onboarding')
+
+    # Check if plan has finished
+    plan_finished = False
+    show_completion_prompt = False
+    
+    if 'plan' in user_data and user_data.get('plan'):
+        is_finished, last_end_date = training_service.is_plan_finished(
+            user_data['plan'],
+            user_data.get('plan_structure')
+        )
+        plan_finished = is_finished
+        
+        # Show prompt if plan is finished and user hasn't been prompted yet
+        if plan_finished and not user_data.get('plan_completion_prompted', False):
+            show_completion_prompt = True
 
     current_week_text = training_service.get_current_week_plan(
         user_data['plan'],
@@ -48,7 +78,10 @@ def dashboard():
     return render_template(
         'dashboard.html',
         current_week_plan=current_week_html,
-        garmin_connected=garmin_connected
+        garmin_connected=garmin_connected,
+        show_completion_prompt=show_completion_prompt,
+        plan_finished=plan_finished,
+        no_active_plan=False
     )
 
 @dashboard_bp.route("/chat", methods=['POST'])

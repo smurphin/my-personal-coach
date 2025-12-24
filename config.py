@@ -56,8 +56,8 @@ class Config:
     }
     
     GCP_PROJECT_ID = GCP_PROJECTS.get(ENVIRONMENT, 'kaizencoach-dev')
-    GCP_LOCATION = "europe-west1"
-    AI_MODEL = "gemini-2.5-flash"
+    GCP_LOCATION = "global"
+    AI_MODEL = "gemini-3-flash-preview"
     
     # AWS Resources - Keep prod names as-is (legacy), new naming for other envs
     AWS_REGION = "eu-west-1"

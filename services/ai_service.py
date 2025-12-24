@@ -65,6 +65,53 @@ class AIService:
         
         return self.generate_content(prompt)
     
+    def generate_maintenance_plan(self, user_inputs, athlete_data):
+        """Generate a maintenance training plan for a specified period"""
+        # Use the same prompt template but with maintenance-specific context
+        with open('prompts/plan_prompt.txt', 'r') as f:
+            template = jinja2.Template(f.read())
+        
+        # Modify the goal to emphasize maintenance
+        maintenance_weeks = user_inputs.get('maintenance_weeks', 4)
+        from datetime import datetime
+        today = datetime.now()
+        
+        maintenance_goal = f"Maintenance training plan for {maintenance_weeks} week{'s' if maintenance_weeks != 1 else ''} starting from {today.strftime('%B %d, %Y')}. Focus on maintaining current fitness level with consistent, moderate-intensity training. No specific race or performance goal - just maintaining fitness and health. Keep sessions simple, varied, and sustainable. Use current date ({today.strftime('%B %d, %Y')}) as the starting point for Week 1."
+        
+        # Pass training_history - it's a summary of the last plan and is relevant
+        training_history = athlete_data.get('training_history')
+        
+        # Log what's being passed
+        final_data = athlete_data['final_data_for_ai']
+        print(f"--- Maintenance plan data summary ---")
+        print(f"  - Goal: {maintenance_goal}")
+        print(f"  - Sessions per week: {user_inputs['sessions_per_week']} (from form)")
+        print(f"  - Hours per week: {user_inputs.get('hours_per_week', 'N/A')} (from form)")
+        print(f"  - Athlete type: {user_inputs.get('athlete_type', 'General')} (from onboarding)")
+        print(f"  - Lifestyle context: NOT included (bare bones plan)")
+        print(f"  - Weeks: {maintenance_weeks}")
+        print(f"  - Training history: {'Included (last plan summary)' if training_history else 'None'}")
+        print(f"  - Has athlete_stats: {bool(final_data.get('athlete_stats'))}")
+        print(f"  - Has strava_zones: {bool(final_data.get('strava_zones'))}")
+        print(f"  - Has friel_hr_zones: {bool(final_data.get('friel_hr_zones'))}")
+        print(f"  - Has analyzed_activities: {'analyzed_activities' in final_data} (should be False)")
+        print(f"  - Has vdot_data: {'vdot_data' in final_data} (should be False)")
+        print(f"  - Has lifestyle_context: {'lifestyle_context' in final_data} (should be False)")
+        print(f"  - Starting date: {today.strftime('%Y-%m-%d')}")
+        
+        prompt = template.render(
+            athlete_goal=maintenance_goal,
+            sessions_per_week=user_inputs['sessions_per_week'],
+            athlete_type=user_inputs.get('athlete_type', 'General'),  # From onboarding
+            lifestyle_context='',  # Empty for maintenance plans - keep it bare bones
+            training_history=training_history,  # Summary of last plan
+            json_data=json.dumps(final_data, indent=4)
+        )
+        
+        print(f"--- Maintenance plan prompt generated (with training_history summary and athlete_type from onboarding, no lifestyle_context) ---")
+        
+        return self.generate_content(prompt)
+    
     def generate_feedback(self, training_plan, feedback_log, completed_sessions, 
                           training_history=None, garmin_health_stats=None):
         """Generate feedback for completed training sessions"""
