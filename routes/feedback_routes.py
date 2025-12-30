@@ -94,7 +94,29 @@ def view_specific_feedback(activity_id):
     user_data = data_manager.load_user_data(athlete_id)
     feedback_log = user_data.get('feedback_log', [])
     
-    print(f"--- Looking for feedback for activity_id: {activity_id} ---")
+    # Load additional entries from S3 if available (same as coaching_log)
+    try:
+        from s3_manager import s3_manager, S3_AVAILABLE
+        import os
+        
+        if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+            s3_key = f"athletes/{athlete_id}/feedback_log.json.gz"
+            s3_feedback_log = s3_manager.load_large_data(s3_key)
+            
+            if s3_feedback_log:
+                # Merge S3 entries with DynamoDB entries (avoid duplicates by activity_id)
+                dynamodb_activity_ids = {entry.get('activity_id') for entry in feedback_log}
+                for entry in s3_feedback_log:
+                    s3_activity_id = entry.get('activity_id')
+                    if s3_activity_id not in dynamodb_activity_ids:
+                        feedback_log.append(entry)
+                        dynamodb_activity_ids.add(s3_activity_id)
+                
+                print(f"✅ Loaded {len(s3_feedback_log)} additional feedback_log entries from S3 for viewing")
+    except Exception as e:
+        print(f"⚠️  Error loading feedback_log from S3: {e}")
+    
+    print(f"--- Looking for feedback for activity_id: {activity_id} (total entries: {len(feedback_log)}) ---")
     
     for idx, entry in enumerate(feedback_log):
         entry_activity_id = entry.get('activity_id')
@@ -172,22 +194,38 @@ def get_feedback_api():
                 'error': 'Your Strava connection has expired. Please <a href="/logout">log out</a> and log in again.'
             }), 401
 
-        training_plan = user_data.get('plan')
-        if not training_plan:
-            return jsonify({
-                'message': 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
-            })
-
         if 'feedback_log' not in user_data:
             user_data['feedback_log'] = []
 
         feedback_log = user_data['feedback_log']
         
-        # Check if a specific activity_id was requested
+        # Load additional entries from S3 if available (needed for viewing old feedback)
+        try:
+            from s3_manager import s3_manager, S3_AVAILABLE
+            import os
+            
+            if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+                s3_key = f"athletes/{athlete_id}/feedback_log.json.gz"
+                s3_feedback_log = s3_manager.load_large_data(s3_key)
+                
+                if s3_feedback_log:
+                    # Merge S3 entries with DynamoDB entries (avoid duplicates by activity_id)
+                    dynamodb_activity_ids = {entry.get('activity_id') for entry in feedback_log}
+                    for entry in s3_feedback_log:
+                        s3_activity_id = entry.get('activity_id')
+                        if s3_activity_id not in dynamodb_activity_ids:
+                            feedback_log.append(entry)
+                            dynamodb_activity_ids.add(s3_activity_id)
+                    
+                    print(f"✅ API: Loaded {len(s3_feedback_log)} additional feedback_log entries from S3")
+        except Exception as e:
+            print(f"⚠️  API: Error loading feedback_log from S3: {e}")
+        
+        # Check if a specific activity_id was requested (viewing existing feedback)
         requested_activity_id = request.args.get('activity_id', type=int)
         
         if requested_activity_id:
-            # Find and return specific feedback
+            # Find and return specific feedback - NO PLAN CHECK NEEDED for viewing
             for entry in feedback_log:
                 entry_activity_id = entry.get('activity_id')
                 logged_ids = entry.get('logged_activity_ids', [])
@@ -205,7 +243,30 @@ def get_feedback_api():
             
             return jsonify({'error': f'Feedback for activity {requested_activity_id} not found'}), 404
         
-        # No specific activity - check for new activities
+        # No specific activity - user wants to generate NEW feedback
+        # NOW check if they have a plan (required for generating new feedback)
+        training_plan = user_data.get('plan')
+        if not training_plan:
+            # Allow viewing existing feedback, but not generating new
+            if feedback_log:
+                # Show most recent existing feedback instead of blocking
+                processed_markdown, plan_html = process_feedback_markdown(feedback_log[0]['feedback_markdown'])
+                feedback_html = render_markdown_with_toc(processed_markdown)['content']
+                
+                if plan_html:
+                    feedback_html += plan_html
+                
+                return jsonify({
+                    'feedback_html': feedback_html,
+                    'message': 'You can view past coaching feedback, but creating a plan is needed to analyze new activities.'
+                })
+            else:
+                # No plan and no existing feedback
+                return jsonify({
+                    'message': 'No training plan found. Please <a href="/onboarding">generate a plan</a> to get coaching feedback on your activities.'
+                })
+        
+        # Check for new activities to process
         processed_activity_ids = set()
         for entry in feedback_log:
             for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):

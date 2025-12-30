@@ -314,8 +314,13 @@ def view_plan():
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         
-        if not user_data or 'plan' not in user_data:
-            return 'No training plan found. Please <a href="/onboarding">generate a plan</a> first.'
+        # If no plan, render a nice page with options instead of ugly error
+        if not user_data or 'plan' not in user_data or user_data.get('no_active_plan', False):
+            # Return template with the completion modal open
+            return render_template(
+                'no_plan.html',
+                show_modal=True
+            )
         
         plan_text = user_data['plan']
         rendered_plan = render_markdown_with_toc(plan_text)

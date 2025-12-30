@@ -105,6 +105,7 @@ class GarminManager:
             "body_battery_high": None,
             "body_battery_low": None,
             "training_status": None,
+            "vo2_max": None,
             "acwr_ratio": None,
             "acwr_status": None,
             "acute_load": None,
@@ -199,6 +200,20 @@ class GarminManager:
                 # Extract Garmin's training status phrase
                 status_phrase = device_data.get("trainingStatusFeedbackPhrase", "")
                 metrics["training_status"] = status_phrase
+                
+                # Extract VO2 Max from mostRecentVO2Max
+                # Structure: training_status -> mostRecentVO2Max -> generic/cycling -> vo2MaxPreciseValue
+                vo2_max_data = ts_data.get("mostRecentVO2Max", {})
+                if vo2_max_data:
+                    # Prioritize running (generic) over cycling
+                    if vo2_max_data.get("generic") and vo2_max_data["generic"].get("vo2MaxPreciseValue"):
+                        metrics["vo2_max"] = vo2_max_data["generic"]["vo2MaxPreciseValue"]
+                        if debug:
+                            print(f"DEBUG: VO2 Max (Running): {metrics['vo2_max']}")
+                    elif vo2_max_data.get("cycling") and vo2_max_data["cycling"].get("vo2MaxPreciseValue"):
+                        metrics["vo2_max"] = vo2_max_data["cycling"]["vo2MaxPreciseValue"]
+                        if debug:
+                            print(f"DEBUG: VO2 Max (Cycling): {metrics['vo2_max']}")
                 
                 # Extract ACWR data (the GOLD for AI coaching!)
                 # FIXED: Handle None values properly
