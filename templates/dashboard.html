@@ -226,13 +226,9 @@
                 </div>
             </div>
                 
-                <!-- Today's Key Metrics -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 text-center mb-6 sm:mb-8">
-                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
-                        <p class="text-xs sm:text-sm text-brand-light-gray">HRV Status</p>
-                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.hrv_status || 'N/A'}</p>
-                        ${today?.hrv_value ? `<p class="text-xs text-gray-400">${today.hrv_value} ms</p>` : ''}
-                    </div>
+                <!-- Today's Key Metrics - 2 Row Layout -->
+                <!-- Row 1: Number-based metrics (3 columns) -->
+                <div class="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 text-center mb-3 sm:mb-4">
                     <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
                         <p class="text-xs sm:text-sm text-brand-light-gray">Sleep Score</p>
                         <p class="text-lg sm:text-2xl font-bold text-white">${today?.sleep_score || 'N/A'}</p>
@@ -242,10 +238,33 @@
                         <p class="text-lg sm:text-2xl font-bold text-white">${today?.body_battery_high || 'N/A'}</p>
                         <p class="text-xs text-gray-400">
                             ${today?.body_battery_high === today?.body_battery_low 
-                                ? `Current: ${today?.body_battery_high || 'N/A'}` 
+                                ? `Low: ${today?.body_battery_low || 'N/A'}` 
                                 : `High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}`
                             }
                         </p>
+                    </div>
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">VO2 Max</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.vo2_max || 'N/A'}</p>
+                        ${today?.vo2_max ? `
+                            <div class="text-xs text-gray-400 mt-1 space-y-0.5">
+                                <p class="${getVo2ChangeClass(today.vo2_max_change_1d)}">
+                                    ${formatVo2Change(today.vo2_max_change_1d)} vs yesterday
+                                </p>
+                                <p class="${getVo2ChangeClass(today.vo2_max_change_14d_avg)}">
+                                    ${formatVo2Change(today.vo2_max_change_14d_avg)} vs 14d avg
+                                </p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- Row 2: Status-based metrics (2 columns) -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 text-center mb-6 sm:mb-8">
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">HRV Status</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.hrv_status || 'N/A'}</p>
+                        ${today?.hrv_value ? `<p class="text-xs text-gray-400">${today.hrv_value} ms</p>` : ''}
                     </div>
                     <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
                         <p class="text-xs sm:text-sm text-brand-light-gray">Training Status</p>
@@ -928,6 +947,24 @@ function getReadinessBgColorValue(score) {
     if (score >= 80) return '#22c55e';  // green-500
     if (score >= 60) return '#eab308';  // yellow-500
     return '#ef4444';  // red-500
+}
+
+// Helper functions for VO2 max changes
+function formatVo2Change(change) {
+    if (change === null || change === undefined) return 'N/A';
+    change = Number(change);  // Convert to number first (handles strings from cache)
+    if (isNaN(change)) return 'N/A';  // Handle invalid numbers
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}`;
+}
+
+function getVo2ChangeClass(change) {
+    if (change === null || change === undefined) return 'text-gray-400';
+    change = Number(change);  // Convert to number first (handles strings from cache)
+    if (isNaN(change)) return 'text-gray-400';  // Handle invalid numbers
+    if (change > 0) return 'text-green-400';
+    if (change < 0) return 'text-red-400';
+    return 'text-gray-400';
 }
 
 function formatTrainingStatus(status) {

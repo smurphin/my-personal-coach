@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, session, jsonif
 from datetime import datetime, date, timedelta
 import hashlib
 import re
+import json
 from data_manager import data_manager
 from services.training_service import training_service
 from services.ai_service import ai_service
@@ -35,8 +36,21 @@ def dashboard():
     # Check if user has no active plan (chose "go with the flow")
     if user_data and user_data.get('no_active_plan', False):
         # User has no active structured plan but should still see dashboard
-        # Show a message that they're going with the flow
-        message_html = '<div class="bg-brand-dark rounded-lg p-6 text-center"><h3 class="text-xl font-bold text-brand-blue mb-2">No Active Training Plan</h3><p class="text-brand-light-gray mb-4">You\'re currently going with the flow - no structured training plan is active.</p><p class="text-brand-light-gray mb-4">You can create a new plan anytime by clicking "Generate a New Plan" in the navigation.</p></div>'
+        # Show a message that they're going with the flow with links to create a plan
+        message_html = '''
+        <div class="bg-brand-dark rounded-lg p-6">
+            <h3 class="text-xl font-bold text-brand-blue mb-2 text-center">No Active Training Plan</h3>
+            <p class="text-brand-light-gray text-center">You're currently going with the flow - no structured training plan is active.</p>
+        </div>
+        <div class="bg-brand-gray rounded-lg p-4 mt-4 space-y-3">
+            <a href="/onboarding" style="text-decoration: none;" class="block w-full bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out text-center">
+                Create a New Plan
+            </a>
+            <a href="/generate_maintenance_plan" style="text-decoration: none;" class="block w-full bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out text-center">
+                Create a Maintenance Plan
+            </a>
+        </div>
+        '''
         
         return render_template(
             'dashboard.html',
@@ -61,9 +75,20 @@ def dashboard():
         )
         plan_finished = is_finished
         
+        # TEMPORARY: Force plan_finished for testing if flag is False and plan exists
+        # Remove this after testing!
+        if not plan_finished and not user_data.get('plan_completion_prompted', False):
+            print("DEBUG: Temporarily forcing plan_finished=True for testing (remove this after testing!)")
+            plan_finished = True
+        
+        # Debug check
+        plan_completion_prompted = user_data.get('plan_completion_prompted', False)
+        print(f"DEBUG: plan_finished={plan_finished}, last_end_date={last_end_date}, plan_completion_prompted={plan_completion_prompted}, show_prompt={plan_finished and not plan_completion_prompted}")
+        
         # Show prompt if plan is finished and user hasn't been prompted yet
-        if plan_finished and not user_data.get('plan_completion_prompted', False):
+        if plan_finished and not plan_completion_prompted:
             show_completion_prompt = True
+            print(f"DEBUG: Setting show_completion_prompt to True")
 
     current_week_text = training_service.get_current_week_plan(
         user_data['plan'],
@@ -191,6 +216,70 @@ def weekly_summary_api():
     """API endpoint for weekly summary with smart caching (6-hour window)"""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
+    
+    # Handle case where user has no active plan ("go with the flow" mode)
+    if user_data and user_data.get('no_active_plan', False):
+        print("--- User in 'go with the flow' mode - generating health-focused summary ---")
+        
+        # Generate a summary focused on health metrics and recent activity
+        try:
+            # Fetch latest Garmin data
+            garmin_data = None
+            try:
+                garmin_data = garmin_service.fetch_yesterday_data(user_data)
+            except Exception as e:
+                print(f"Warning: Could not fetch Garmin data: {e}")
+            
+            # Generate a simple health-focused summary
+            from datetime import datetime
+            
+            # Use a simpler prompt for no-plan mode
+            summary_prompt = f"""Today is {datetime.now().strftime("%A, %B %d, %Y")}.
+
+The athlete is currently taking a break from structured training and going with the flow. They have no active training plan.
+
+Please provide a brief, encouraging weekly summary focusing on:
+1. Their recent health and recovery metrics (if available)
+2. General encouragement to stay active and listen to their body
+3. Remind them they can create a new plan anytime they're ready
+
+Keep it positive, brief (2-3 paragraphs), and supportive.
+
+"""
+            
+            if garmin_data:
+                summary_prompt += f"\n\nRecent Health Metrics:\n{json.dumps(garmin_data, indent=2)}"
+            
+            weekly_summary = ai_service.generate_content(summary_prompt)
+            
+            if not weekly_summary or not weekly_summary.strip():
+                # Fallback message if AI fails
+                weekly_summary = """**Taking a Break** 🌊
+
+You're currently going with the flow without a structured training plan. This is a great time to focus on activities you enjoy, maintain your fitness, and listen to your body.
+
+When you're ready to get back to structured training, you can create a new plan or set up a maintenance plan anytime."""
+            
+            return jsonify({
+                'summary': weekly_summary,
+                'cached': False,
+                'no_plan_mode': True,
+                'generated_at': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            print(f"ERROR generating no-plan summary: {e}")
+            import traceback
+            traceback.print_exc()
+            weekly_summary = """**Taking a Break** 🌊
+
+You're currently going with the flow without a structured training plan. When you're ready, you can create a new plan anytime."""
+            return jsonify({
+                'summary': weekly_summary,
+                'cached': False,
+                'error': True,
+                'no_plan_mode': True
+            })
     
     if not user_data or 'plan' not in user_data:
         return jsonify({"error": "Plan not found"}), 404

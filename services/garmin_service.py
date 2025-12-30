@@ -95,6 +95,43 @@ class GarminService:
         garmin_manager = GarminManager("dummy", "dummy")
         return garmin_manager.calculate_readiness_score(metrics_timeline)
     
+    def calculate_vo2_max_changes(self, metrics_timeline):
+        """
+        Calculate VO2 max changes: previous day and 14-day average.
+        Returns dict with change_1d and change_14d_avg or None if insufficient data.
+        """
+        if not metrics_timeline or len(metrics_timeline) < 2:
+            return None
+        
+        # Get today's VO2 max (last item in timeline)
+        today_vo2 = metrics_timeline[-1].get('vo2_max')
+        if today_vo2 is None:
+            return None
+        
+        # Previous day change
+        yesterday_vo2 = metrics_timeline[-2].get('vo2_max') if len(metrics_timeline) >= 2 else None
+        change_1d = (today_vo2 - yesterday_vo2) if yesterday_vo2 is not None else None
+        
+        # 14-day average change
+        # Get all VO2 max values from last 14 days (excluding today)
+        vo2_values = []
+        for i in range(max(0, len(metrics_timeline) - 15), len(metrics_timeline) - 1):
+            vo2 = metrics_timeline[i].get('vo2_max')
+            if vo2 is not None:
+                vo2_values.append(vo2)
+        
+        if vo2_values:
+            avg_14d = sum(vo2_values) / len(vo2_values)
+            change_14d_avg = today_vo2 - avg_14d
+        else:
+            change_14d_avg = None
+        
+        return {
+            'vo2_max': today_vo2,
+            'change_1d': change_1d,
+            'change_14d_avg': change_14d_avg
+        }
+    
     def store_credentials(self, email, password):
         """Encrypt and prepare credentials for storage"""
         return {

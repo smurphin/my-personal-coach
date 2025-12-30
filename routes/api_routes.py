@@ -321,7 +321,16 @@ def garmin_summary_api():
         readiness_score = readiness_result['score'] if readiness_result else None
         readiness_metadata = readiness_result if readiness_result else None
         
+        # Calculate VO2 max changes
+        vo2_max_data = garmin_service.calculate_vo2_max_changes(metrics_timeline)
+        
         today_metrics = metrics_timeline[-1] if metrics_timeline else None
+        
+        # Add VO2 max data to today's metrics if available
+        if today_metrics and vo2_max_data:
+            today_metrics['vo2_max'] = vo2_max_data['vo2_max']
+            today_metrics['vo2_max_change_1d'] = vo2_max_data['change_1d']
+            today_metrics['vo2_max_change_14d_avg'] = vo2_max_data['change_14d_avg']
 
         # === FIXED: Only use S3 in production ===
         if USE_S3:
