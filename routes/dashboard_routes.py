@@ -75,12 +75,6 @@ def dashboard():
         )
         plan_finished = is_finished
         
-        # TEMPORARY: Force plan_finished for testing if flag is False and plan exists
-        # Remove this after testing!
-        if not plan_finished and not user_data.get('plan_completion_prompted', False):
-            print("DEBUG: Temporarily forcing plan_finished=True for testing (remove this after testing!)")
-            plan_finished = True
-        
         # Debug check
         plan_completion_prompted = user_data.get('plan_completion_prompted', False)
         print(f"DEBUG: plan_finished={plan_finished}, last_end_date={last_end_date}, plan_completion_prompted={plan_completion_prompted}, show_prompt={plan_finished and not plan_completion_prompted}")
@@ -229,9 +223,6 @@ def weekly_summary_api():
                 garmin_data = garmin_service.fetch_yesterday_data(user_data)
             except Exception as e:
                 print(f"Warning: Could not fetch Garmin data: {e}")
-            
-            # Generate a simple health-focused summary
-            from datetime import datetime
             
             # Use a simpler prompt for no-plan mode
             summary_prompt = f"""Today is {datetime.now().strftime("%A, %B %d, %Y")}.
