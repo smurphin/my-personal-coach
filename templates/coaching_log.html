@@ -31,6 +31,16 @@
     </div>
 {% endif %}
 
+<div class="mt-8 data-attribution">
+    <div class="strava-attribution">
+        <img src="{{ url_for('static', filename='images/strava-logo-powered.png') }}" 
+             alt="Powered by Strava" 
+             class="strava-logo"
+             onerror="this.style.display='none'">
+        <span class="text-sm text-gray-400">All activities from Strava</span>
+    </div>
+</div>
+
 <div class="mt-8">
     <a href="{{ url_for('plan.view_plan') }}" class="text-brand-blue hover:underline">← Back to Your Plan</a>
 </div>
