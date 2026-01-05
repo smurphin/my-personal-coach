@@ -9,19 +9,21 @@
 {% if log_entries %}
     <div class="space-y-4">
         {% for entry in log_entries %}
-        <a href="{{ url_for('feedback.view_specific_feedback', activity_id=entry.activity_id) }}" class="block bg-brand-gray rounded-xl shadow-lg p-6 transition-transform transform hover:scale-[1.02] hover:bg-gray-700">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-brand-blue">{{ entry.activity_name }}</h2>
-                    <p class="text-sm text-gray-400 mt-1">{{ entry.activity_date }}</p>
-                </div>
-                <div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
+        <div class="bg-brand-gray rounded-xl shadow-lg p-6">
+            <a href="{{ url_for('feedback.view_specific_feedback', activity_id=entry.activity_id) }}" class="block transition-transform transform hover:scale-[1.01]">
+                <h2 class="text-xl font-bold text-brand-blue hover:text-blue-400 transition-colors">{{ entry.activity_name }}</h2>
+            </a>
+            <div class="flex justify-between items-center mt-2">
+                <p class="text-sm text-gray-400">{{ entry.activity_date }}</p>
+                <div class="text-xs text-gray-400 whitespace-nowrap">
+                    View on <a href="https://www.strava.com/activities/{{ entry.activity_id }}" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="font-semibold hover:underline"
+                       style="color: #FC5200;">Strava</a>
                 </div>
             </div>
-        </a>
+        </div>
         {% endfor %}
     </div>
 {% else %}
@@ -37,11 +39,11 @@
              alt="Powered by Strava" 
              class="strava-logo"
              onerror="this.style.display='none'">
-        <span class="text-sm text-gray-400">All activities from Strava</span>
+        <span class="text-sm text-gray-400">Activity data from Strava</span>
     </div>
 </div>
 
-<div class="mt-8">
+<div class="mt-4">
     <a href="{{ url_for('plan.view_plan') }}" class="text-brand-blue hover:underline">← Back to Your Plan</a>
 </div>
 {% endblock %}

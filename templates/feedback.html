@@ -59,15 +59,23 @@
                     </div>
                     <div class="bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
                         ${newContent}
-                        <div class="data-attribution mt-6 border-t border-gray-700 pt-4">
-                            <div class="strava-attribution">
+                        ${activityId ? `
+                        <div class="mt-6 border-t border-gray-700 pt-4">
+                            <div class="flex items-center justify-between">
                                 <img src="{{ url_for('static', filename='images/strava-logo-powered.png') }}" 
                                      alt="Powered by Strava" 
-                                     class="strava-logo"
+                                     style="height: 16px; width: auto;"
                                      onerror="this.style.display='none'">
-                                <span class="text-sm text-gray-400">Analysis based on Strava activity data</span>
+                                <div class="text-sm text-gray-400">
+                                    View on <a href="https://www.strava.com/activities/${activityId}" 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              class="font-semibold hover:underline"
+                                              style="color: #FC5200;">Strava</a>
+                                </div>
                             </div>
                         </div>
+                        ` : ''}
                     </div>
                     <div class="mt-8">
                         <a href="${activityId ? '/log' : '/dashboard'}" class="text-brand-blue hover:underline">← Back to ${activityId ? 'Coaching Log' : 'Dashboard'}</a>

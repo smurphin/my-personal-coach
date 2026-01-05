@@ -35,7 +35,7 @@ def map_race_distance(distance_meters):
 def format_activity_date(raw_date):
     """
     Format activity date from ISO format to readable format.
-    Example: '2025-10-04T09:36:15Z' -> '04-10-2025 09:36:15'
+    Example: '2025-10-04T09:36:15Z' -> '04-10-2025 09:36'
     """
     if not raw_date:
         return raw_date
@@ -46,7 +46,8 @@ def format_activity_date(raw_date):
         # Reformat date from YYYY-MM-DD to DD-MM-YYYY
         date_parts = date_part.split('-')
         time_clean = time_part.split('.')[0]  # Remove milliseconds
-        return f"{date_parts[2]}-{date_parts[1]}-{date_parts[0]} {time_clean}"
+        time_no_seconds = time_clean[:5]  # HH:MM only (remove :SS)
+        return f"{date_parts[2]}-{date_parts[1]}-{date_parts[0]} {time_no_seconds}"
     
     return raw_date
 
