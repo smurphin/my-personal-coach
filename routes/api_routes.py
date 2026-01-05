@@ -295,6 +295,7 @@ def garmin_summary_api():
             "trend_data": garmin_cache['metrics_timeline'],
             "readiness_score": garmin_cache['readiness_score'],
             "readiness_metadata": garmin_cache.get('readiness_metadata'),  # May be None for old cache
+            "cached_at": garmin_cache.get('cached_at'),  # Timestamp of when data was cached
             "status": "success",
             "cached": True
         })
@@ -391,22 +392,25 @@ def garmin_summary_api():
             }
         
         # Update cache
+        cached_at = datetime.utcnow().isoformat() + 'Z'
         user_data['garmin_cache'] = {
             'last_fetch_date': today_iso,
             'today_metrics': today_metrics,
             'metrics_timeline': metrics_timeline,
             'readiness_score': readiness_score,
-            'readiness_metadata': readiness_metadata  # Store full details for transparency
+            'readiness_metadata': readiness_metadata,  # Store full details for transparency
+            'cached_at': cached_at  # Store when data was cached
         }
         
         safe_save_user_data(athlete_id, user_data)
-        print(f"GARMIN CACHE: Fresh data cached for {today_iso}")
+        print(f"GARMIN CACHE: Fresh data cached for {today_iso} at {cached_at}")
 
         return jsonify({
             "today": today_metrics,
             "trend_data": metrics_timeline,
             "readiness_score": readiness_score,
             "readiness_metadata": readiness_metadata,  # Include metadata for dashboard display
+            "cached_at": cached_at,  # Include timestamp for display
             "status": "success",
             "cached": False
         })
@@ -424,6 +428,7 @@ def garmin_summary_api():
                 "trend_data": garmin_cache['metrics_timeline'],
                 "readiness_score": garmin_cache['readiness_score'],
                 "readiness_metadata": garmin_cache.get('readiness_metadata'),
+                "cached_at": garmin_cache.get('cached_at'),  # Include timestamp even for stale cache
                 "status": "success",
                 "cached": True,
                 "warning": f"Using cached data from {cache_date}"
