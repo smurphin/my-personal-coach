@@ -2139,6 +2139,32 @@ html {
     width: auto;
 }
 
+/* Mobile: smaller logo and stack vertically */
+@media (max-width: 640px) {
+    .data-attribution {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.5rem;
+    }
+    
+    .strava-logo {
+        height: 16px;
+    }
+}
+
+/* Strava branding */
+.strava-attribution {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.strava-logo {
+    height: 20px;
+    width: auto;
+}
+
 .strava-link {
     display: inline-flex;
     align-items: center;
@@ -2159,6 +2185,19 @@ html {
     height: 1rem;
 }
 
+/* Compact Strava link - only "Strava" is orange and clickable */
+.strava-link-compact {
+    color: #FC5200;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.strava-link-compact:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
 /* Garmin branding */
 .garmin-attribution {
     display: flex;
@@ -2169,18 +2208,4 @@ html {
 
 .garmin-text {
     font-size: 0.875rem;
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-    .data-attribution {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    .data-attribution--inline {
-        flex-direction: row;
-        align-items: center;
-    }
 }
