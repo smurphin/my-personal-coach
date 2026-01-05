@@ -17,7 +17,14 @@ Your task is to provide a helpful response to the LATEST user message, using the
     -   **For major issues** (e.g., "I'm sick," "I'm injured," "I missed a whole week"): You MUST adapt the plan. State the reason for the change and then provide the **COMPLETE, UPDATED training plan** inside a markdown code block.
 3.  **Output Format:**
     -   Your entire response must be in markdown.
-    -   If you provide an updated plan, it MUST be enclosed in a markdown code block.
+    -   If you provide an updated plan, it MUST follow the following formatting rules.
+**IMPORTANT FORMATTING RULE:**
+Each week's heading **MUST** follow this exact markdown format, including the dates: `### Week <plan Week Number>: <Month Name> <Day with suffix> - <Month Name> <Day with suffix>`
+- Example: `### Week 1: Sep 29th - Oct 5th`
+- Example: `### Week 2: Oct 6th - Oct 12th`
+This consistent format is critical for the application to read the plan.
+
+No additional detail should exist within the week heading, this makes the plan unreadable
 
 ---
 **CONTEXT**
