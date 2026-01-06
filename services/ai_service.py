@@ -54,13 +54,47 @@ class AIService:
         with open('prompts/plan_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
+        # Extract final_data_for_ai which contains the duration parameters
+        final_data = athlete_data.get('final_data_for_ai', {})
+        
+        # Get duration parameters (will be None if not calculated)
+        weeks_until_goal = final_data.get('weeks_until_goal')
+        goal_date = final_data.get('goal_date')
+        plan_start_date = final_data.get('plan_start_date')
+        has_partial_week = final_data.get('has_partial_week', False)
+        days_in_partial_week = final_data.get('days_in_partial_week', 0)
+        
+        # Get retry feedback if this is a retry attempt
+        retry_feedback = final_data.get('retry_feedback')
+        
+        # Log what we're passing to the template
+        if weeks_until_goal:
+            if has_partial_week:
+                print(f"--- Rendering plan prompt with duration parameters: {weeks_until_goal} weeks ({days_in_partial_week} days Week 0 + {weeks_until_goal-1} full weeks) from {plan_start_date} to {goal_date} ---")
+            else:
+                print(f"--- Rendering plan prompt with duration parameters: {weeks_until_goal} weeks from {plan_start_date} to {goal_date} ---")
+        else:
+            print(f"--- Rendering plan prompt without duration parameters (will default to 6 weeks) ---")
+        
+        if retry_feedback:
+            print(f"--- This is a retry attempt with feedback: {retry_feedback} ---")
+        
         prompt = template.render(
             athlete_goal=user_inputs['goal'],
             sessions_per_week=user_inputs['sessions_per_week'],
+            hours_per_week=user_inputs.get('hours_per_week'),
             athlete_type=user_inputs['athlete_type'],
             lifestyle_context=user_inputs['lifestyle_context'],
             training_history=athlete_data.get('training_history'),
-            json_data=json.dumps(athlete_data['final_data_for_ai'], indent=4)
+            json_data=json.dumps(final_data, indent=4),
+            # Add duration parameters
+            weeks_until_goal=weeks_until_goal,
+            goal_date=goal_date,
+            plan_start_date=plan_start_date,
+            has_partial_week=has_partial_week,
+            days_in_partial_week=days_in_partial_week,
+            # Add retry feedback if present
+            retry_feedback=retry_feedback
         )
         
         return self.generate_content(prompt)
@@ -81,8 +115,15 @@ class AIService:
         # Pass training_history - it's a summary of the last plan and is relevant
         training_history = athlete_data.get('training_history')
         
-        # Log what's being passed
+        # Extract final_data_for_ai which contains the duration parameters
         final_data = athlete_data['final_data_for_ai']
+        
+        # Get duration parameters (should be set in plan_routes for maintenance plans)
+        weeks_until_goal = final_data.get('weeks_until_goal')
+        goal_date = final_data.get('goal_date')
+        plan_start_date = final_data.get('plan_start_date')
+        
+        # Log what's being passed
         print(f"--- Maintenance plan data summary ---")
         print(f"  - Goal: {maintenance_goal}")
         print(f"  - Sessions per week: {user_inputs['sessions_per_week']} (from form)")
@@ -90,6 +131,7 @@ class AIService:
         print(f"  - Athlete type: {user_inputs.get('athlete_type', 'General')} (from onboarding)")
         print(f"  - Lifestyle context: NOT included (bare bones plan)")
         print(f"  - Weeks: {maintenance_weeks}")
+        print(f"  - Duration params: {weeks_until_goal} weeks from {plan_start_date} to {goal_date}")
         print(f"  - Training history: {'Included (last plan summary)' if training_history else 'None'}")
         print(f"  - Has athlete_stats: {bool(final_data.get('athlete_stats'))}")
         print(f"  - Has strava_zones: {bool(final_data.get('strava_zones'))}")
@@ -102,10 +144,15 @@ class AIService:
         prompt = template.render(
             athlete_goal=maintenance_goal,
             sessions_per_week=user_inputs['sessions_per_week'],
+            hours_per_week=user_inputs.get('hours_per_week'),
             athlete_type=user_inputs.get('athlete_type', 'General'),  # From onboarding
             lifestyle_context='',  # Empty for maintenance plans - keep it bare bones
             training_history=training_history,  # Summary of last plan
-            json_data=json.dumps(final_data, indent=4)
+            json_data=json.dumps(final_data, indent=4),
+            # Add duration parameters
+            weeks_until_goal=weeks_until_goal,
+            goal_date=goal_date,
+            plan_start_date=plan_start_date
         )
         
         print(f"--- Maintenance plan prompt generated (with training_history summary and athlete_type from onboarding, no lifestyle_context) ---")

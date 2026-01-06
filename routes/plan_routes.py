@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, session, flash
 from datetime import datetime, timedelta
 import json
 import re
+from dateutil import parser as date_parser
 from data_manager import data_manager
 from services.strava_service import strava_service
 from services.training_service import training_service
@@ -12,10 +13,218 @@ from utils.formatters import format_seconds
 
 plan_bp = Blueprint('plan', __name__)
 
+
+def get_next_monday(include_partial_week=False):
+    """
+    Get the date of the next Monday (or today if today is Monday)
+    
+    Args:
+        include_partial_week: If True and today is not Monday, returns today
+                             to allow for a partial "Week 0"
+    
+    Returns:
+        date: The start date for the plan
+    """
+    today = datetime.now().date()
+    
+    if include_partial_week and today.weekday() != 0:
+        # Start today to avoid wasting days
+        return today
+    
+    days_until_monday = (7 - today.weekday()) % 7
+    if days_until_monday == 0:  # Today is Monday
+        return today
+    return today + timedelta(days=days_until_monday)
+
+
+def calculate_weeks_until_goal(goal_date_str, start_date=None, include_partial_week=True):
+    """
+    Calculate the number of complete weeks from start date to goal date.
+    
+    Args:
+        goal_date_str: Goal date as string (various formats supported)
+        start_date: Optional start date (defaults to next Monday, or today if include_partial_week)
+        include_partial_week: If True, starts today (creates Week 0 if not Monday)
+    
+    Returns:
+        tuple: (weeks_count, start_date_str, goal_date_str, has_partial_week, days_in_partial_week) 
+               or (None, None, None, False, 0)
+    """
+    try:
+        # Parse the goal date - be flexible with formats
+        goal_date = date_parser.parse(goal_date_str, fuzzy=True)
+        
+        # If no start date provided, use next Monday or today based on preference
+        if start_date is None:
+            start_date = get_next_monday(include_partial_week=include_partial_week)
+        elif isinstance(start_date, str):
+            start_date = date_parser.parse(start_date).date()
+        
+        # Ensure goal_date is date object
+        goal_date = goal_date.date()
+        
+        # Calculate days difference
+        days_diff = (goal_date - start_date).days
+        if days_diff < 0:
+            print(f"--- WARNING: Goal date {goal_date} is in the past relative to start date {start_date} ---")
+            return None, None, None, False, 0
+        
+        # Check if we have a partial week at the start
+        has_partial_week = (start_date.weekday() != 0)  # Not Monday
+        days_in_partial_week = 0
+        
+        if has_partial_week:
+            # Days until next Monday
+            days_in_partial_week = 7 - start_date.weekday()
+            # Calculate full weeks after the partial week
+            days_after_partial = days_diff - days_in_partial_week
+            full_weeks = (days_after_partial // 7) + (1 if days_after_partial % 7 > 0 else 0)
+            # Total weeks = partial week (Week 0) + full weeks
+            weeks_count = full_weeks + 1
+        else:
+            # Starting on Monday, no partial week
+            weeks_count = (days_diff // 7) + (1 if days_diff % 7 > 0 else 0)
+        
+        # Ensure at least 1 week for very short timeframes
+        if weeks_count < 1:
+            weeks_count = 1
+        
+        # Format dates for prompt
+        start_str = start_date.strftime('%Y-%m-%d')
+        goal_str = goal_date.strftime('%Y-%m-%d')
+        
+        return weeks_count, start_str, goal_str, has_partial_week, days_in_partial_week
+        
+    except (ValueError, TypeError) as e:
+        print(f"--- Could not parse goal date from '{goal_date_str}': {e} ---")
+        return None, None, None, False, 0
+
+
+# ============================================================================
+# VALIDATION REMOVED (January 2026)
+# ============================================================================
+# Markdown-based validation was causing production crashes and false failures.
+# Validation will be re-implemented once structured data (JSON) is in place.
+# 
+# Previous issues:
+# - Regex parsing too fragile (found duplicates, missed variations)
+# - AI occasionally skipped weeks (e.g., Week 10)
+# - Retries didn't help (prompt ambiguity repeated)
+# - Site crashed after max retries instead of delivering plan
+#
+# Future validation (with JSON structure):
+# - Parse JSON schema instead of markdown regex
+# - Reliable week counting: [w['week_number'] for w in plan['weeks']]
+# - Graceful degradation: warn user but deliver plan
+# - Specific error messages for AI to fix
+# ============================================================================
+
+
+def extract_goal_date_from_text(goal_text):
+    """
+    Try to extract a date from the goal text.
+    
+    First tries to extract date-like patterns with regex, then parses them.
+    
+    Looks for patterns like:
+    - "on March 29, 2025"
+    - "on Saturday 21st March 2025"
+    - "March 29th"
+    - "21/03/2025"
+    - "2025-03-29"
+    
+    Args:
+        goal_text: The goal description text
+    
+    Returns:
+        str or None: Extracted date string (YYYY-MM-DD) or None if not found
+    """
+    if not goal_text:
+        return None
+    
+    import re
+    
+    # Define patterns to extract date-like strings
+    # Order matters - more specific patterns first
+    date_patterns = [
+        # Full dates with year
+        r'\bon\s+[A-Za-z]+\s+(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})',  # on Saturday 21st March 2025
+        r'([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})',  # March 21st, 2025 or March 21, 2025
+        r'(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})',  # 21st March 2025
+        r'(\d{4}-\d{2}-\d{2})',  # 2025-03-29
+        r'(\d{1,2}[/-]\d{1,2}[/-]\d{4})',  # 21/03/2025 or 03/21/2025
+        # Dates without year (will default to next occurrence)
+        r'\bon\s+[A-Za-z]+\s+(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+)',  # on Saturday 21st March
+        r'([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?)',  # March 21st or March 21
+        r'(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+)',  # 21st March
+    ]
+    
+    for pattern in date_patterns:
+        match = re.search(pattern, goal_text, re.IGNORECASE)
+        if match:
+            date_str = match.group(1)
+            print(f"--- Extracted date string: '{date_str}' from goal text ---")
+            
+            try:
+                # Parse the extracted date string
+                # Use current year + 1 as default for dates without year
+                # This ensures we don't accidentally parse dates in the past
+                current_year = datetime.now().year
+                default_date = datetime(current_year, 1, 1)
+                
+                parsed_date = date_parser.parse(date_str, default=default_date)
+                
+                # If the parsed date is in the past, try next year
+                if parsed_date.date() <= datetime.now().date():
+                    print(f"--- Date {parsed_date.date()} is in past, trying next year ---")
+                    default_date = datetime(current_year + 1, 1, 1)
+                    parsed_date = date_parser.parse(date_str, default=default_date)
+                
+                # Only return if still in the future
+                if parsed_date.date() > datetime.now().date():
+                    result = parsed_date.strftime('%Y-%m-%d')
+                    print(f"--- Successfully parsed goal date: {result} ---")
+                    return result
+                else:
+                    print(f"--- Date {parsed_date.date()} is still in past, skipping ---")
+                    
+            except (ValueError, TypeError) as e:
+                print(f"--- Could not parse extracted date '{date_str}': {e} ---")
+                continue
+    
+    print(f"--- Could not extract valid future date from goal text ---")
+    return None
+
+
 @plan_bp.route("/onboarding")
+@login_required
 def onboarding():
     """Show the onboarding form"""
-    return render_template("onboarding.html")
+    try:
+        athlete_id = session.get('athlete_id')
+        user_data = data_manager.load_user_data(athlete_id) if athlete_id else None
+        
+        # Get existing athlete profile if available
+        athlete_profile = user_data.get('athlete_profile') if user_data else None
+        
+        # For legacy users, check plan_data for lifestyle_context if not in profile
+        if user_data and not athlete_profile:
+            plan_data = user_data.get('plan_data', {})
+            legacy_lifestyle_context = plan_data.get('lifestyle_context')
+            legacy_athlete_type = plan_data.get('athlete_type')
+            
+            # Create temporary profile dict for template prepopulation
+            if legacy_lifestyle_context or legacy_athlete_type:
+                athlete_profile = {
+                    'lifestyle_context': legacy_lifestyle_context,
+                    'athlete_type': legacy_athlete_type
+                }
+                print(f"--- Loading legacy profile data for athlete {athlete_id} ---")
+        
+        return render_template("onboarding.html", athlete_profile=athlete_profile)
+    except Exception as e:
+        print(f"Error loading onboarding: {e}")
+        return render_template("onboarding.html", athlete_profile=None)
 
 @plan_bp.route("/generate_plan", methods=['POST'])
 @login_required
@@ -113,36 +322,116 @@ def generate_plan():
                 flash(error)
             return redirect('/onboarding')
         
+        # Save persistent athlete profile separately
+        lifestyle_context = request.form.get('lifestyle_context', '').strip() or None
+        athlete_type = request.form.get('athlete_type') or None
+        
+        # Check if we need to migrate from legacy structure
+        if not user_data.get('athlete_profile'):
+            # Check for legacy data in plan_data
+            plan_data = user_data.get('plan_data', {})
+            if not lifestyle_context and plan_data.get('lifestyle_context'):
+                lifestyle_context = plan_data.get('lifestyle_context')
+                print(f"--- Migrating legacy lifestyle_context to athlete_profile ---")
+            if not athlete_type and plan_data.get('athlete_type'):
+                athlete_type = plan_data.get('athlete_type')
+                print(f"--- Migrating legacy athlete_type to athlete_profile ---")
+        
+        athlete_profile = {
+            'lifestyle_context': lifestyle_context,
+            'athlete_type': athlete_type,
+            'updated_at': datetime.now().isoformat()
+        }
+        user_data['athlete_profile'] = athlete_profile
+        print(f"--- Saved athlete_profile for athlete {athlete_id} ---")
+        
+        # Get upcoming commitments (specific to this plan, not saved to profile)
+        upcoming_commitments = request.form.get('upcoming_commitments', '').strip() or None
+        
+        # Combine lifestyle context and upcoming commitments for AI
+        # Lifestyle context is persistent, upcoming commitments are plan-specific
+        combined_context = lifestyle_context
+        if upcoming_commitments:
+            if combined_context:
+                combined_context += f"\n\nUpcoming commitments for this training cycle:\n{upcoming_commitments}"
+            else:
+                combined_context = f"Upcoming commitments for this training cycle:\n{upcoming_commitments}"
+        
         user_inputs = {
             'goal': request.form.get('user_goal') or None,
             'sessions_per_week': sessions_per_week,
             'hours_per_week': hours_per_week,
-            'lifestyle_context': request.form.get('lifestyle_context') or None,
-            'athlete_type': request.form.get('athlete_type') or None,
+            'lifestyle_context': combined_context,  # Combined context for AI
+            'athlete_type': athlete_type,
             'lthr': lthr,
             'ftp': ftp
         }
+        
+        # Get goal date - prioritize explicit date picker over text extraction
+        goal_date_str = request.form.get('goal_date', '').strip()
+        
+        if goal_date_str:
+            # User provided explicit date via date picker
+            print(f"--- Goal date from form field: {goal_date_str} ---")
+        else:
+            # Try to extract goal date from goal text
+            goal_date_str = extract_goal_date_from_text(user_inputs['goal'])
+            if goal_date_str:
+                print(f"--- Goal date extracted from text: {goal_date_str} ---")
+            else:
+                print(f"--- No goal date found, will generate default 6-week plan ---")
+        
+        # Calculate plan duration if goal date found
+        weeks_until_goal = None
+        plan_start_date = None
+        goal_date = None
+        has_partial_week = False
+        days_in_partial_week = 0
+        
+        if goal_date_str:
+            weeks_until_goal, plan_start_date, goal_date, has_partial_week, days_in_partial_week = calculate_weeks_until_goal(
+                goal_date_str,
+                include_partial_week=True  # Start training today if not Monday
+            )
+            if weeks_until_goal:
+                if has_partial_week:
+                    print(f"--- Calculated plan duration: {weeks_until_goal} weeks ({days_in_partial_week} days partial Week 0 + {weeks_until_goal-1} full weeks) from {plan_start_date} to {goal_date} ---")
+                else:
+                    print(f"--- Calculated plan duration: {weeks_until_goal} weeks from {plan_start_date} to {goal_date} ---")
+            else:
+                print(f"--- Could not calculate plan duration from goal date: {goal_date_str} ---")
         
         access_token = user_data['token']['access_token']
 
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
         
-        # Fetch Strava data
+        # Fetch Strava data - check for Response objects (from decorator redirects)
+        from flask import Response as FlaskResponse
+        
         strava_zones = strava_service.get_athlete_zones(access_token)
+        if isinstance(strava_zones, FlaskResponse):
+            return strava_zones  # Redirect response from decorator
+        
         eight_weeks_ago = datetime.now() - timedelta(weeks=8)
         activities_summary = strava_service.get_recent_activities(
             access_token,
             int(eight_weeks_ago.timestamp()),
             per_page=200
         )
+        if isinstance(activities_summary, FlaskResponse):
+            return activities_summary  # Redirect response from decorator
+        
         athlete_stats = strava_service.get_athlete_stats(access_token, athlete_id)
+        if isinstance(athlete_stats, FlaskResponse):
+            return athlete_stats  # Redirect response from decorator
         
         # Track whether zones are estimated or user-provided
         lthr_estimated = False
         ftp_estimated = False
         
         # Estimate zones from activity data if not provided by user
-        if not user_inputs['lthr'] or not user_inputs['ftp']:
+        # Only estimate if we have valid activities data (not a Response object)
+        if (not user_inputs['lthr'] or not user_inputs['ftp']) and activities_summary and not isinstance(activities_summary, FlaskResponse):
             print(f"--- Estimating zones from activity history ---")
             estimated_zones = training_service.estimate_zones_from_activities(activities_summary)
             
@@ -179,53 +468,56 @@ def generate_plan():
                 friel_power_zones['user_provided'] = True
                 friel_power_zones['note'] = "User-provided FTP value - should be trusted as tested/accurate"
         
-        # Check for VDOT-ready race
-        vdot_data = training_service.find_valid_race_for_vdot(
-            activities_summary,
-            access_token,
-            friel_hr_zones,
-            strava_service
-        )
+        # Check for VDOT-ready race (only if we have valid activities)
+        vdot_data = None
+        if activities_summary and not isinstance(activities_summary, FlaskResponse):
+            vdot_data = training_service.find_valid_race_for_vdot(
+                activities_summary,
+                access_token,
+                friel_hr_zones,
+                strava_service
+            )
         
-        # Analyze activities
+        # Analyze activities (only if we have valid activities data)
         analyzed_activities = []
-        one_week_ago = datetime.now() - timedelta(weeks=1)
-        
-        for activity_summary in activities_summary:
-            activity_date = datetime.strptime(
-                activity_summary['start_date_local'],
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
+        if activities_summary and not isinstance(activities_summary, FlaskResponse):
+            one_week_ago = datetime.now() - timedelta(weeks=1)
             
-            # Get detailed data for recent activities
-            if activity_date > one_week_ago:
-                activity_to_process = strava_service.get_activity_detail(
-                    access_token,
-                    activity_summary['id']
+            for activity_summary in activities_summary:
+                activity_date = datetime.strptime(
+                    activity_summary['start_date_local'],
+                    "%Y-%m-%dT%H:%M:%SZ"
                 )
-            else:
-                activity_to_process = activity_summary
+                
+                # Get detailed data for recent activities
+                if activity_date > one_week_ago:
+                    activity_to_process = strava_service.get_activity_detail(
+                        access_token,
+                        activity_summary['id']
+                    )
+                else:
+                    activity_to_process = activity_summary
 
-            streams = strava_service.get_activity_streams(access_token, activity_to_process['id'])
-            
-            # Build zones dict, ensuring we don't pass None values
-            zones_for_analysis = {}
-            if friel_hr_zones:
-                zones_for_analysis['heart_rate'] = friel_hr_zones
-            if friel_power_zones:
-                zones_for_analysis['power'] = friel_power_zones
-            
-            analyzed_activity = training_service.analyze_activity(
-                activity_to_process,
-                streams,
-                zones_for_analysis
-            )
-            
-            # Format time in zones
-            for key, seconds in analyzed_activity["time_in_hr_zones"].items():
-                analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
-            
-            analyzed_activities.append(analyzed_activity)
+                streams = strava_service.get_activity_streams(access_token, activity_to_process['id'])
+                
+                # Build zones dict, ensuring we don't pass None values
+                zones_for_analysis = {}
+                if friel_hr_zones:
+                    zones_for_analysis['heart_rate'] = friel_hr_zones
+                if friel_power_zones:
+                    zones_for_analysis['power'] = friel_power_zones
+                
+                analyzed_activity = training_service.analyze_activity(
+                    activity_to_process,
+                    streams,
+                    zones_for_analysis
+                )
+                
+                # Format time in zones
+                for key, seconds in analyzed_activity["time_in_hr_zones"].items():
+                    analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
+                
+                analyzed_activities.append(analyzed_activity)
 
         # Prepare data for AI
         final_data_for_ai = {
@@ -239,12 +531,29 @@ def generate_plan():
             "friel_hr_zones": friel_hr_zones,
             "friel_power_zones": friel_power_zones,
             "vdot_data": vdot_data,
-            "analyzed_activities": analyzed_activities
+            "analyzed_activities": analyzed_activities,
+            # Add calculated duration parameters
+            "weeks_until_goal": weeks_until_goal,
+            "goal_date": goal_date,
+            "plan_start_date": plan_start_date,
+            "has_partial_week": has_partial_week,
+            "days_in_partial_week": days_in_partial_week
         }
 
         print("--- Generating content from Gemini ---")
+        if weeks_until_goal:
+            if has_partial_week:
+                print(f"--- Requesting {weeks_until_goal}-week plan ({days_in_partial_week} days Week 0 + {weeks_until_goal-1} full weeks) from {plan_start_date} to {goal_date} ---")
+            else:
+                print(f"--- Requesting {weeks_until_goal}-week plan from {plan_start_date} to {goal_date} ---")
+        else:
+            print(f"--- No goal date provided, requesting default 6-week plan ---")
         
-        # Generate plan
+        # Generate plan - VALIDATION TEMPORARILY DISABLED
+        # Markdown parsing validation was causing false failures and crashing the site
+        # Will re-enable once structured data (JSON) is implemented
+        print(f"--- Generating plan (validation disabled) ---")
+        
         ai_response_text = ai_service.generate_training_plan(
             user_inputs,
             {
@@ -252,6 +561,8 @@ def generate_plan():
                 'final_data_for_ai': final_data_for_ai
             }
         )
+        
+        print(f"--- Plan generated successfully ---")
 
         # Extract plan structure JSON if present
         plan_structure = None
@@ -542,6 +853,12 @@ def generate_maintenance_plan():
                 if estimated_zones['ftp']:
                     friel_power_zones = training_service.calculate_friel_power_zones(estimated_zones['ftp'])
         
+        # Calculate duration parameters for maintenance plan
+        start_date = get_next_monday()
+        goal_date = start_date + timedelta(weeks=weeks)
+        plan_start_date = start_date.strftime('%Y-%m-%d')
+        goal_date_str = goal_date.strftime('%Y-%m-%d')
+        
         # Prepare user inputs for maintenance plan
         # Get athlete_type from onboarding (influences session planning), but use form values for sessions/hours
         plan_data = user_data.get('plan_data', {})
@@ -566,7 +883,11 @@ def generate_maintenance_plan():
             "strava_zones": strava_zones if strava_zones and not isinstance(strava_zones, FlaskResponse) else {},
             "friel_hr_zones": friel_hr_zones if friel_hr_zones and not isinstance(friel_hr_zones, FlaskResponse) else None,
             "friel_power_zones": friel_power_zones if friel_power_zones and not isinstance(friel_power_zones, FlaskResponse) else None,
-            "maintenance_weeks": weeks
+            "maintenance_weeks": weeks,
+            # Add calculated duration parameters
+            "weeks_until_goal": weeks,
+            "goal_date": goal_date_str,
+            "plan_start_date": plan_start_date
             # Explicitly NOT including: analyzed_activities, vdot_data, lifestyle_context (bare bones maintenance plan)
         }
         
@@ -605,6 +926,7 @@ def generate_maintenance_plan():
         
         print("--- Generating maintenance plan from Gemini ---")
         print(f"--- Maintenance plan data being passed: sessions_per_week={user_inputs['sessions_per_week']}, hours_per_week={user_inputs['hours_per_week']}, weeks={weeks} ---")
+        print(f"--- Requesting {weeks}-week plan from {plan_start_date} to {goal_date_str} ---")
         print(f"--- Athlete type: {user_inputs['athlete_type']} (from onboarding), Lifestyle context: NOT included (bare bones plan) ---")
         print(f"--- Including training_history summary (last plan summary), NOT including analyzed_activities, vdot_data, or lifestyle_context ---")
         
@@ -616,6 +938,12 @@ def generate_maintenance_plan():
                 'final_data_for_ai': final_data_for_ai
             }
         )
+        
+        # Validate duration
+        is_valid, actual_weeks, message = validate_plan_duration(ai_response_text, weeks)
+        if not is_valid:
+            print(f"--- WARNING: Maintenance plan validation failed: {message} ---")
+            flash(f"Warning: Generated plan is {actual_weeks} weeks instead of requested {weeks} weeks.", "warning")
         
         # Extract plan structure JSON if present
         plan_structure = None

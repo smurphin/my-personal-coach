@@ -11,3 +11,4 @@ boto3
 garminconnect
 cryptography
 gevent==24.2.1
+python-dateutil
