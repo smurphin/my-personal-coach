@@ -26,6 +26,11 @@
            class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'view_plan' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Plan
         </a>
+
+        <a href="{{ url_for('plan.view_s_and_c_library') }}" 
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'view_s_and_c_library' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            S&C Library
+        </a>
         
         <a href="{{ url_for('feedback.coaching_log') }}"
            class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'coaching_log' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
@@ -50,6 +55,11 @@
         <a href="{{ url_for('help.help') }}"
            class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'help.help' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
             Help & Guide
+        </a>
+
+        <a href="{{ url_for('dashboard.settings') }}"
+           class="font-semibold py-2 px-1 whitespace-nowrap {% if request.endpoint == 'settings' %} text-white border-b-2 border-brand-blue {% else %} text-brand-blue hover:text-white {% endif %} transition-colors duration-300">
+            Settings
         </a>
     </div>
 </div>
@@ -78,6 +88,11 @@
                class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'view_plan' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
                 Plan
             </a>
+
+            <a href="{{ url_for('plan.view_s_and_c_library') }}" 
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'view_s_and_c_library' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                S&C Library
+            </a>
             
             <a href="{{ url_for('feedback.coaching_log') }}"
                class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'coaching_log' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
@@ -102,6 +117,11 @@
             <a href="{{ url_for('help.help') }}"
                class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'help.help' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
                 Help & Guide
+            </a>
+
+            <a href="{{ url_for('dashboard.settings') }}"
+               class="font-semibold py-3 px-4 rounded-lg {% if request.endpoint == 'settings' %} bg-brand-blue text-white {% else %} text-brand-light-gray hover:bg-brand-dark hover:text-white {% endif %} transition-all duration-200">
+                Settings
             </a>
         </nav>
     </div>

@@ -190,6 +190,7 @@ def strava_webhook():
             
             # Analyze new activities
             analyzed_sessions = []
+            raw_activities = []  # Store raw Strava data for VDOT detection
             friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
             
             for activity_summary in new_activities_to_process:
@@ -204,10 +205,18 @@ def strava_webhook():
                     {"heart_rate": friel_hr_zones}
                 )
                 
+                # Store raw time_in_zones BEFORE formatting
+                raw_time_in_zones = analyzed_session["time_in_hr_zones"].copy()
+                
+                # Format time in zones for display
                 for key, seconds in analyzed_session["time_in_hr_zones"].items():
                     analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
                 
                 analyzed_sessions.append(analyzed_session)
+                raw_activities.append({
+                    'activity': activity,  # Raw Strava activity
+                    'time_in_zones': raw_time_in_zones  # Unformatted time_in_zones
+                })
 
             if not analyzed_sessions:
                 return jsonify({"message": "Found new activities, but could not analyze their details."})
@@ -225,14 +234,222 @@ def strava_webhook():
                     first_activity_date_iso
                 )
 
-            # Generate feedback
+            # ============================================
+            # VDOT DETECTION (same as feedback_routes.py)
+            # ============================================
+            if raw_activities and analyzed_sessions:
+                from services.vdot_detection_service import vdot_detection_service
+                from utils.vdot_calculator import VDOTCalculator
+                
+                print("\n" + "="*70)
+                print("VDOT DETECTION - DEBUG LOG (WEBHOOK)")
+                print("="*70)
+                
+                # Use RAW activity for VDOT detection
+                raw_activity = raw_activities[0]['activity']
+                time_in_zones_raw = raw_activities[0]['time_in_zones']  # Unformatted
+                
+                # Convert zone keys: 'Zone 1' -> 'Z1', 'Zone 2' -> 'Z2', etc.
+                time_in_zones = {}
+                for zone_name, zone_time in time_in_zones_raw.items():
+                    if 'Zone' in zone_name:
+                        # Convert 'Zone 1' to 'Z1', 'Zone 2' to 'Z2', etc.
+                        zone_num = zone_name.replace('Zone ', '')
+                        time_in_zones[f'Z{zone_num}'] = zone_time
+                    else:
+                        # Already in correct format
+                        time_in_zones[zone_name] = zone_time
+                
+                print(f"📊 Activity being analyzed:")
+                print(f"   Name: {raw_activity.get('name')}")
+                print(f"   Distance: {raw_activity.get('distance')} meters")
+                print(f"   Time: {raw_activity.get('moving_time')} seconds")
+                print(f"   Type: {raw_activity.get('type')}")
+                print(f"   Workout Type: {raw_activity.get('workout_type')} (1=Race)")
+                print(f"\n⏱️  Time in zones:")
+                for zone, time_secs in time_in_zones.items():
+                    if time_secs and isinstance(time_secs, (int, float)):
+                        minutes = int(time_secs / 60)
+                        seconds = int(time_secs % 60)
+                        percent = (time_secs / raw_activity.get('moving_time', 1)) * 100
+                        print(f"   {zone}: {minutes}:{seconds:02d} ({time_secs}s, {percent:.1f}%)")
+                
+                print(f"\n🔍 Calling vdot_detection_service...")
+                vdot_result = vdot_detection_service.calculate_vdot_from_activity(
+                    raw_activity,  # Pass RAW activity
+                    time_in_zones  # Now with correct Z1, Z2, Z3, Z4, Z5 keys!
+                )
+                
+                if vdot_result:
+                    print(f"\n✅ VDOT DETECTION SUCCESSFUL!")
+                    print(f"   Distance: {vdot_result['distance']}")
+                    print(f"   Time: {vdot_result['time_seconds']}s")
+                    print(f"   Calculated VDOT: {vdot_result['vdot']}")
+                    print(f"   Is Race: {vdot_result['is_race']}")
+                    print(f"   Reason: {vdot_result['intensity_reason']}")
+                else:
+                    print(f"\n❌ Activity does not qualify for VDOT calculation")
+                    print(f"   (Not a race or insufficient intensity)")
+                
+                if vdot_result:
+                    # Get current VDOT
+                    current_vdot = None
+                    if 'training_metrics' in user_data and 'vdot' in user_data['training_metrics']:
+                        current_vdot_data = user_data['training_metrics']['vdot']
+                        if isinstance(current_vdot_data, dict):
+                            current_vdot = current_vdot_data.get('value')
+                    
+                    new_vdot = int(vdot_result['vdot'])
+                    
+                    print(f"\n💾 VDOT STORAGE:")
+                    print(f"   Current VDOT in DB: {current_vdot}")
+                    print(f"   New VDOT calculated: {new_vdot}")
+                    print(f"   Will update: {not current_vdot or new_vdot >= (current_vdot + 1)}")
+                    
+                    # Only flag for confirmation if significant improvement (>= 1 point)
+                    if not current_vdot or new_vdot >= (current_vdot + 1):
+                        print(f"\n🎯 UPDATING VDOT: {current_vdot} → {new_vdot}")
+                        
+                        # Calculate paces from Jack Daniels' tables
+                        print(f"\n📏 Calculating training paces from VDOT {new_vdot}...")
+                        calc = VDOTCalculator()
+                        paces = calc.get_training_paces(new_vdot)
+                        
+                        print(f"✅ Training paces calculated:")
+                        for pace_name, pace_value in paces.items():
+                            print(f"   {pace_name}: {pace_value}")
+                        
+                        # Initialize training_metrics if needed
+                        if 'training_metrics' not in user_data:
+                            user_data['training_metrics'] = {'version': 1}
+                        
+                        # Store previous VDOT for rollback
+                        previous_vdot = None
+                        if 'vdot' in user_data['training_metrics']:
+                            previous_vdot = user_data['training_metrics']['vdot'].copy()
+                        
+                        # Store new VDOT with pending confirmation
+                        user_data['training_metrics']['vdot'] = {
+                            'value': new_vdot,
+                            'source': 'RACE_DETECTION',
+                            'date_set': datetime.now().isoformat(),
+                            'user_confirmed': False,
+                            'pending_confirmation': True,
+                            'detected_from': {
+                                'activity_id': vdot_result['activity_id'],
+                                'activity_name': vdot_result['activity_name'],
+                                'distance': vdot_result['distance'],
+                                'distance_meters': vdot_result['distance_meters'],
+                                'time_seconds': vdot_result['time_seconds'],
+                                'is_race': vdot_result['is_race'],
+                                'intensity_reason': vdot_result['intensity_reason']
+                            },
+                            'paces': paces,
+                            'previous_value': previous_vdot
+                        }
+                        
+                        print(f"\n💾 Stored in training_metrics['vdot']:")
+                        print(f"   value: {new_vdot}")
+                        print(f"   source: RACE_DETECTION")
+                        print(f"   user_confirmed: False")
+                        print(f"   paces: {len(paces)} pace entries")
+                        print(f"   detected_from: {vdot_result['activity_name']}")
+                        
+                        # Save immediately (before AI call)
+                        safe_save_user_data(athlete_id, user_data)
+                        
+                        print(f"\n✅ VDOT data saved to DynamoDB")
+                        print("="*70 + "\n")
+                        
+                        # Reload user_data to get the updated training_metrics
+                        user_data = data_manager.load_user_data(athlete_id)
+            
+            # Prepare VDOT context for AI
+            from utils.vdot_context import prepare_vdot_context
+            
+            print("\n" + "="*70)
+            print("AI PROMPT PREPARATION - DEBUG LOG (WEBHOOK)")
+            print("="*70)
+            print(f"📝 Preparing VDOT context for AI...")
+            
+            vdot_data = prepare_vdot_context(user_data)
+            
+            if vdot_data and vdot_data.get('current_vdot'):
+                print(f"\n✅ VDOT data prepared for AI:")
+                print(f"   current_vdot: {vdot_data['current_vdot']}")
+                print(f"   easy_pace: {vdot_data.get('easy_pace')}")
+                print(f"   marathon_pace: {vdot_data.get('marathon_pace')}")
+                print(f"   threshold_pace: {vdot_data.get('threshold_pace')}")
+                print(f"   interval_pace: {vdot_data.get('interval_pace')}")
+                print(f"   repetition_pace: {vdot_data.get('repetition_pace')}")
+                if vdot_data.get('source_activity'):
+                    print(f"   source_activity: {vdot_data['source_activity']}")
+            else:
+                print(f"\nℹ️  No VDOT data available - athlete hasn't completed qualifying effort")
+            
+            print(f"\n🤖 Calling AI service with:")
+            print(f"   - Analyzed sessions: {len(analyzed_sessions)}")
+            print(f"   - Feedback log entries: {len(feedback_log)}")
+            print(f"   - VDOT data: {'Yes' if vdot_data and vdot_data.get('current_vdot') else 'No'}")
+            print(f"   - Garmin data: {'Yes' if garmin_data_for_activity else 'No'}")
+            print("="*70 + "\n")
+
+            # Generate feedback (NOW WITH VDOT DATA)
             feedback_markdown = ai_service.generate_feedback(
                 training_plan,
                 feedback_log,
                 analyzed_sessions,
                 user_data.get('training_history'),
-                garmin_data_for_activity
+                garmin_data_for_activity,
+                incomplete_sessions=None,  # Webhook doesn't use this yet
+                vdot_data=vdot_data  # PASS VDOT DATA TO AI
             )
+            
+            print("\n" + "="*70)
+            print("AI RESPONSE - DEBUG LOG (WEBHOOK)")
+            print("="*70)
+            print(f"✅ AI response received ({len(feedback_markdown)} characters)")
+            
+            # Check if AI mentioned VDOT
+            if 'VDOT' in feedback_markdown or 'vdot' in feedback_markdown.lower():
+                print(f"\n🔍 AI mentioned VDOT in response")
+                
+                # Extract lines mentioning VDOT for debugging
+                vdot_lines = [line.strip() for line in feedback_markdown.split('\n') 
+                             if 'vdot' in line.lower() and line.strip()]
+                
+                if vdot_lines:
+                    print(f"   Found {len(vdot_lines)} lines mentioning VDOT:")
+                    for i, line in enumerate(vdot_lines[:5], 1):  # Show first 5
+                        # Truncate long lines
+                        display_line = line[:100] + "..." if len(line) > 100 else line
+                        print(f"   {i}. {display_line}")
+                    if len(vdot_lines) > 5:
+                        print(f"   ... and {len(vdot_lines) - 5} more")
+                
+                # Check for problematic patterns
+                if re.search(r'calculate.*vdot|vdot.*calculate', feedback_markdown, re.IGNORECASE):
+                    print(f"\n⚠️  WARNING: AI used phrase 'calculate VDOT' - this should not happen!")
+                
+                if re.search(r'based on this.*vdot|vdot.*based on', feedback_markdown, re.IGNORECASE):
+                    print(f"\n⚠️  WARNING: AI said 'based on this, VDOT...' - might be calculating!")
+                
+                # Check if AI used the correct VDOT value
+                if vdot_data and vdot_data.get('current_vdot'):
+                    expected_vdot = int(vdot_data['current_vdot'])
+                    if f"VDOT {expected_vdot}" in feedback_markdown or f"VDOT of {expected_vdot}" in feedback_markdown:
+                        print(f"\n✅ AI correctly referenced VDOT {expected_vdot}")
+                    else:
+                        print(f"\n⚠️  WARNING: Expected VDOT {expected_vdot} not found in response")
+                        
+                        # Look for other VDOT numbers
+                        vdot_numbers = re.findall(r'VDOT[:\s]+(\d+)', feedback_markdown, re.IGNORECASE)
+                        if vdot_numbers:
+                            print(f"   Found these VDOT values instead: {', '.join(set(vdot_numbers))}")
+            else:
+                print(f"\nℹ️  AI did not mention VDOT (expected if no VDOT established)")
+            
+            print("="*70 + "\n")
 
             # Create descriptive name
             activity_names = [session['name'] for session in analyzed_sessions]

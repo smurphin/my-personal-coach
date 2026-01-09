@@ -7,9 +7,14 @@ from data_manager import data_manager
 from services.strava_service import strava_service
 from services.training_service import training_service
 from services.ai_service import ai_service
+from services.vdot_detection_service import vdot_detection_service
+from models.training_plan import TrainingMetrics
 from markdown_manager import render_markdown_with_toc
 from utils.decorators import login_required
 from utils.formatters import format_seconds
+from utils.migration import parse_ai_response_to_v2
+from utils.s_and_c_utils import get_routine_link, load_default_s_and_c_library, process_s_and_c_session
+from utils.vdot_context import prepare_vdot_context
 
 plan_bp = Blueprint('plan', __name__)
 
@@ -468,15 +473,106 @@ def generate_plan():
                 friel_power_zones['user_provided'] = True
                 friel_power_zones['note'] = "User-provided FTP value - should be trusted as tested/accurate"
         
-        # Check for VDOT-ready race (only if we have valid activities)
-        vdot_data = None
+        # Initialize training_metrics if not present
+        if 'training_metrics' not in user_data:
+            user_data['training_metrics'] = TrainingMetrics(version=1).to_dict()
+            print(f"--- Initialized training_metrics for athlete {athlete_id} ---")
+        
+        # Scan for VDOT-worthy races in last 8 weeks (only if we have valid activities)
         if activities_summary and not isinstance(activities_summary, FlaskResponse):
-            vdot_data = training_service.find_valid_race_for_vdot(
-                activities_summary,
-                access_token,
-                friel_hr_zones,
-                strava_service
-            )
+            print(f"--- Scanning {len(activities_summary)} activities for VDOT-qualifying races ---")
+            
+            qualifying_races = []
+            metrics = TrainingMetrics.from_dict(user_data['training_metrics'])
+            
+            for activity in activities_summary:
+                # Only process runs
+                if activity.get('type') not in ['Run', 'VirtualRun']:
+                    continue
+                
+                try:
+                    # Get detailed activity with HR zones
+                    detailed = strava_service.get_activity(access_token, activity['id'])
+                    
+                    # Calculate time in zones from activity data
+                    time_in_zones = {'Z1': 0, 'Z2': 0, 'Z3': 0, 'Z4': 0, 'Z5': 0}
+                    
+                    if detailed.get('has_heartrate') and friel_hr_zones:
+                        # Get streams for detailed zone calculation
+                        streams = strava_service.get_activity_streams(access_token, detailed['id'])
+                        if streams and 'heartrate' in streams:
+                            hr_data = streams['heartrate']['data']
+                            time_data = streams['time']['data']
+                            
+                            # Calculate time in each zone
+                            for i, hr in enumerate(hr_data):
+                                duration = 1  # 1 second per data point (approximate)
+                                if i > 0:
+                                    duration = time_data[i] - time_data[i-1]
+                                
+                                # Determine zone based on HR
+                                if hr < friel_hr_zones['Z1'][1]:
+                                    time_in_zones['Z1'] += duration
+                                elif hr < friel_hr_zones['Z2'][1]:
+                                    time_in_zones['Z2'] += duration
+                                elif hr < friel_hr_zones['Z3'][1]:
+                                    time_in_zones['Z3'] += duration
+                                elif hr < friel_hr_zones['Z4'][1]:
+                                    time_in_zones['Z4'] += duration
+                                else:
+                                    time_in_zones['Z5'] += duration
+                    
+                    # Check if qualifies for VDOT
+                    vdot_result = vdot_detection_service.calculate_vdot_from_activity(
+                        detailed,
+                        time_in_zones
+                    )
+                    
+                    if vdot_result:
+                        qualifying_races.append({
+                            'activity_id': activity['id'],
+                            'name': activity['name'],
+                            'date': activity['start_date_local'][:10],
+                            'vdot': int(vdot_result['vdot']),
+                            'distance': vdot_result['distance'],
+                            'time_seconds': vdot_result['time_seconds'],
+                            'is_race': vdot_result['is_race']
+                        })
+                        print(f"✅ Qualifying race: {activity['name']} - VDOT {int(vdot_result['vdot'])}")
+                
+                except Exception as e:
+                    # Silently skip activities that fail (don't break plan generation)
+                    continue
+            
+            # Use most recent qualifying race for VDOT
+            if qualifying_races:
+                qualifying_races.sort(key=lambda x: x['date'], reverse=True)
+                most_recent = qualifying_races[0]
+                
+                print(f"--- Using most recent race for VDOT: {most_recent['name']} (VDOT {most_recent['vdot']}) ---")
+                
+                # Update training_metrics with detected VDOT
+                metrics.update_vdot(
+                    value=float(most_recent['vdot']),
+                    activity_id=most_recent['activity_id'],
+                    activity_name=most_recent['name'],
+                    detection_method='csv_lookup',
+                    distance=most_recent['distance'],
+                    activity_time=most_recent['time_seconds']
+                )
+                user_data['training_metrics'] = metrics.to_dict()
+                print(f"--- Stored VDOT {most_recent['vdot']} in training_metrics ---")
+            else:
+                print(f"--- No qualifying races found in last 8 weeks ---")
+        
+        # Prepare VDOT context for AI prompt
+        vdot_data = prepare_vdot_context(user_data)
+        
+        # Check if we need to add goal_includes_cycling for the prompt
+        goal_includes_cycling = False
+        if user_inputs.get('goal'):
+            goal_lower = user_inputs['goal'].lower()
+            goal_includes_cycling = 'cycling' in goal_lower or 'triathlon' in goal_lower or 'bike' in goal_lower
         
         # Analyze activities (only if we have valid activities data)
         analyzed_activities = []
@@ -531,6 +627,7 @@ def generate_plan():
             "friel_hr_zones": friel_hr_zones,
             "friel_power_zones": friel_power_zones,
             "vdot_data": vdot_data,
+            "goal_includes_cycling": goal_includes_cycling,
             "analyzed_activities": analyzed_activities,
             # Add calculated duration parameters
             "weeks_until_goal": weeks_until_goal,
@@ -554,36 +651,39 @@ def generate_plan():
         # Will re-enable once structured data (JSON) is implemented
         print(f"--- Generating plan (validation disabled) ---")
         
+        # Prepare VDOT context for AI
+        vdot_data = prepare_vdot_context(user_data)
+        
         ai_response_text = ai_service.generate_training_plan(
             user_inputs,
             {
                 'training_history': user_data.get('training_history'),
-                'final_data_for_ai': final_data_for_ai
-            }
+                'final_data_for_ai': final_data_for_ai,
+                'athlete_id': athlete_id
+            },
+            vdot_data=vdot_data
         )
         
         print(f"--- Plan generated successfully ---")
 
-        # Extract plan structure JSON if present
+        # Parse AI response into structured format
+        plan_v2, plan_markdown = parse_ai_response_to_v2(
+            ai_response_text, athlete_id, user_inputs
+        )
+        
+        # Extract plan_structure JSON separately
         plan_structure = None
-        plan_markdown = ai_response_text
-
         json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
         if json_match:
-            json_string = json_match.group(1).strip()
             try:
-                plan_structure = json.loads(json_string)
-                plan_markdown = ai_response_text[:json_match.start()].strip()
-                print(f"--- Successfully parsed plan structure from AI response. ---")
-            except json.JSONDecodeError as e:
-                print(f"--- ERROR: Could not decode JSON from AI response: {e} ---")
-                plan_structure = None
-        else:
-            print("--- WARNING: No plan structure JSON block found in AI response. ---")
+                plan_structure = json.loads(json_match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
 
-        # Save plan
-        user_data['plan'] = plan_markdown
-        user_data['plan_structure'] = plan_structure
+        # Save both formats
+        user_data['plan'] = plan_markdown  # Markdown for display
+        user_data['plan_structure'] = plan_structure  # Week dates JSON
+        user_data['plan_v2'] = plan_v2.to_dict()  # Structured sessions
         user_data['plan_data'] = final_data_for_ai
         
         # Clear no_active_plan flag if it exists (user is creating a new plan)
@@ -626,23 +726,71 @@ def view_plan():
         user_data = data_manager.load_user_data(athlete_id)
         
         # If no plan, render a nice page with options instead of ugly error
-        if not user_data or 'plan' not in user_data or user_data.get('no_active_plan', False):
-            # Return template with the completion modal open
+        if not user_data or ('plan' not in user_data and 'plan_v2' not in user_data) or user_data.get('no_active_plan', False):
             return render_template(
                 'no_plan.html',
                 show_modal=True
             )
         
-        plan_text = user_data['plan']
-        rendered_plan = render_markdown_with_toc(plan_text)
+        # Use plan_v2 if available (structured data), otherwise fall back to markdown
+        if 'plan_v2' in user_data:
+            from models.training_plan import TrainingPlan
+            plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            
+            return render_template(
+                'plan_v2.html',
+                plan=plan_v2,
+                athlete_goal=plan_v2.athlete_goal,
+                goal_date=plan_v2.goal_date,
+                get_routine_link=get_routine_link
+            )
+        else:
+            # Fallback to old markdown plan
+            plan_text = user_data['plan']
+            rendered_plan = render_markdown_with_toc(plan_text)
+            
+            return render_template(
+                'plan.html',
+                plan_content=rendered_plan['content'],
+                plan_toc=rendered_plan['toc']
+            )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"An error occurred while retrieving the plan: {e}", 500
+
+@plan_bp.route("/s-and-c-library")
+@login_required
+def view_s_and_c_library():
+    """View the S&C exercise library"""
+    try:
+        athlete_id = session['athlete_id']
+        user_data = data_manager.load_user_data(athlete_id)
+        
+        # Get S&C library from plan_v2
+        library_content = None
+        if 'plan_v2' in user_data:
+            from models.training_plan import TrainingPlan
+            plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            library_content = plan_v2.libraries.get('s_and_c')
+        
+        if not library_content:
+            # No library in current plan - use default
+            library_content = load_default_s_and_c_library()
+        
+        # Render markdown to HTML
+        rendered_library = render_markdown_with_toc(library_content)
         
         return render_template(
-            'plan.html',
-            plan_content=rendered_plan['content'],
-            plan_toc=rendered_plan['toc']
+            's_and_c_library.html',
+            library_content=rendered_library['content'],
+            library_toc=rendered_library['toc']
         )
+        
     except Exception as e:
-        return f"An error occurred while retrieving the plan: {e}", 500
+        import traceback
+        traceback.print_exc()
+        return f"An error occurred while retrieving the S&C library: {e}", 500
 
 @plan_bp.route("/plan_completion_choice", methods=['POST'])
 @login_required
@@ -945,26 +1093,24 @@ def generate_maintenance_plan():
             print(f"--- WARNING: Maintenance plan validation failed: {message} ---")
             flash(f"Warning: Generated plan is {actual_weeks} weeks instead of requested {weeks} weeks.", "warning")
         
-        # Extract plan structure JSON if present
-        plan_structure = None
-        plan_markdown = ai_response_text
+        # Parse AI response into structured format
+        plan_v2, plan_markdown = parse_ai_response_to_v2(
+            ai_response_text, athlete_id, user_inputs
+        )
         
+        # Extract plan_structure JSON separately
+        plan_structure = None
         json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
         if json_match:
-            json_string = json_match.group(1).strip()
             try:
-                plan_structure = json.loads(json_string)
-                plan_markdown = ai_response_text[:json_match.start()].strip()
-                print(f"--- Successfully parsed plan structure from AI response. ---")
-            except json.JSONDecodeError as e:
-                print(f"--- ERROR: Could not decode JSON from AI response: {e} ---")
-                plan_structure = None
-        else:
-            print("--- WARNING: No plan structure JSON block found in AI response. ---")
+                plan_structure = json.loads(json_match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
         
-        # Save plan
-        user_data['plan'] = plan_markdown
-        user_data['plan_structure'] = plan_structure
+        # Save both formats
+        user_data['plan'] = plan_markdown  # Markdown for display
+        user_data['plan_structure'] = plan_structure  # Week dates JSON
+        user_data['plan_v2'] = plan_v2.to_dict()  # Structured sessions
         user_data['plan_data'] = final_data_for_ai
         user_data['plan_completion_choice'] = None  # Clear the choice
         user_data['plan_completion_prompted'] = False  # Clear the prompt flag
@@ -989,3 +1135,7 @@ def generate_maintenance_plan():
         import traceback
         traceback.print_exc()
         return f"An error occurred during maintenance plan generation: {e}", 500
+
+
+
+# Plan Generation Helper Functions

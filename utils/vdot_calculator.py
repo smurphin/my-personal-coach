@@ -135,9 +135,9 @@ class VDOTCalculator:
             print(f"⚠️  Unknown distance: {distance}")
             return self._calculate_vdot_fallback(distance, time_seconds)
         
-        # Find closest match in table
-        closest_vdot = None
-        smallest_diff = float('inf')
+        # Find the highest VDOT where athlete's time meets or beats the standard
+        # VDOT is a threshold - you only achieve it by running that fast or faster
+        qualified_vdots = []
         
         for vdot, row in self.vdot_table.items():
             if column_name not in row or not row[column_name]:
@@ -148,19 +148,22 @@ class VDOTCalculator:
             if table_time is None:
                 continue
             
-            time_diff = abs(table_time - time_seconds)
-            
-            if time_diff < smallest_diff:
-                smallest_diff = time_diff
-                closest_vdot = vdot
+            # Athlete qualifies for this VDOT if their time is equal to or faster
+            # (lower time = faster, so actual_time <= table_time)
+            if time_seconds <= table_time:
+                qualified_vdots.append((vdot, table_time))
         
-        if closest_vdot is not None:
-            print(f"✅ VDOT lookup: {distance} in {time_seconds}s → VDOT {closest_vdot}")
-            return closest_vdot
+        if not qualified_vdots:
+            # Athlete didn't meet any VDOT standard in the table
+            print(f"⚠️  Time {time_seconds}s for {distance} slower than lowest VDOT in table")
+            return self._calculate_vdot_fallback(distance, time_seconds)
         
-        # Fallback if distance not found in table
-        print(f"⚠️  Distance {distance} not found in VDOT table, using fallback")
-        return self._calculate_vdot_fallback(distance, time_seconds)
+        # Take the highest VDOT the athlete qualified for
+        # This automatically rounds down - you get credit for what you achieved
+        best_vdot = max(qualified_vdots, key=lambda x: x[0])[0]
+        
+        print(f"✅ VDOT lookup: {distance} in {time_seconds}s → VDOT {best_vdot}")
+        return best_vdot
     
     def _parse_time(self, time_str: str) -> Optional[int]:
         """

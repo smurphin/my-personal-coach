@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Your Training Plan{% endblock %}
+
+{% block content %}
+<div class="mb-6 sm:mb-8">
+    <h1 class="text-2xl sm:text-3xl font-bold text-white">Your Training Plan</h1>
+    <p class="text-sm text-brand-light-gray mt-1">
+        <a href="/s-and-c-library" class="text-brand-blue hover:text-brand-light-blue">View S&C Library</a>
+    </p>
+</div>
+
+<!-- Mobile: Collapsible TOC -->
+<div class="lg:hidden mb-6">
+    <button onclick="toggleMobileTOC()" class="w-full bg-brand-gray rounded-xl shadow-lg p-4 flex justify-between items-center">
+        <span class="text-lg font-bold text-brand-blue">Plan Sections</span>
+        <svg id="toc-chevron" class="w-5 h-5 text-brand-blue transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+    <div id="mobile-toc" class="hidden mt-2 bg-brand-gray rounded-xl shadow-lg p-4">
+        <div class="prose prose-invert prose-sm max-w-none toc">
+            {{ plan_toc | safe }}
+        </div>
+    </div>
+</div>
+
+<!-- Desktop: Side-by-side layout -->
+<div class="lg:flex lg:space-x-8">
+    
+    <!-- Desktop sidebar - hidden on mobile -->
+    <div class="hidden lg:block lg:w-1/4 mb-8 lg:mb-0">
+        <div class="sticky top-8 bg-brand-gray rounded-xl shadow-lg p-6">
+            <h2 class="text-xl font-bold text-brand-blue mb-4">Plan Sections</h2>
+            <div class="prose prose-invert prose-sm max-w-none toc">
+                {{ plan_toc | safe }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="lg:w-3/4">
+        <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
+            <div class="prose prose-invert max-w-none prose-sm sm:prose-base">
+                {{ plan_content | safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleMobileTOC() {
+    const toc = document.getElementById('mobile-toc');
+    const chevron = document.getElementById('toc-chevron');
+    
+    if (toc.classList.contains('hidden')) {
+        toc.classList.remove('hidden');
+        chevron.classList.add('rotate-180');
+    } else {
+        toc.classList.add('hidden');
+        chevron.classList.remove('rotate-180');
+    }
+}
+
+// Close mobile TOC after clicking a link
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toc a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const mobileTOC = document.getElementById('mobile-toc');
+            if (mobileTOC && !mobileTOC.classList.contains('hidden')) {
+                toggleMobileTOC();
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

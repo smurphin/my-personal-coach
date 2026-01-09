@@ -1,0 +1,1260 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+{% if show_completion_prompt %}
+<!-- Plan Completion Prompt Modal -->
+<div id="plan-completion-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl sm:text-2xl font-bold text-brand-blue">Your Training Plan Has Finished! 🎉</h2>
+                <button onclick="closePlanCompletionModal()" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4 text-sm sm:text-base mb-6">
+                <p>Congratulations on completing your training plan! What would you like to do next?</p>
+            </div>
+            
+            <form action="{{ url_for('plan.plan_completion_choice') }}" method="post" class="space-y-4">
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="new_plan"
+                    class="w-full bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">Create a New Plan</div>
+                            <div class="text-sm font-normal opacity-90">Start a new training cycle with fresh goals</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+                
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="maintenance"
+                    class="w-full bg-brand-dark border border-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-gray transition text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">Maintenance Plan</div>
+                            <div class="text-sm font-normal opacity-90">Keep your fitness consistent with a maintenance plan</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+                
+                <button 
+                    type="submit" 
+                    name="choice" 
+                    value="no_plan"
+                    class="w-full bg-brand-dark border border-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-gray transition text-left"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-lg">No Plan - Go With the Flow</div>
+                            <div class="text-sm font-normal opacity-90">Take a break from structured training</div>
+                        </div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="mb-6 sm:mb-8">
+    <h1 class="text-2xl sm:text-3xl font-bold text-white">Your Dashboard</h1>
+    <p class="text-sm sm:text-base text-brand-light-gray mt-1">Here's your focus for this week.</p>
+</div>
+
+<div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 min-h-[150px]">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl sm:text-2xl font-bold text-brand-blue">Weekly Focus</h2>
+        <button id="refresh-summary-button" title="Refresh Weekly Focus" class="text-gray-400 hover:text-white transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 sm:w-6 sm:h-6">
+  <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" /></svg>
+        </button>
+    </div>
+    
+    <div id="weekly-summary-container">
+        <div class="flex items-center justify-center pt-4">
+            <div class="loader"></div>
+        </div>
+    </div>
+</div>
+
+<div id="garmin-container" class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
+    <h2 class="text-xl sm:text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+    <div class="flex items-center justify-center pt-4">
+        <div class="loader"></div>
+    </div>
+    <div class="data-attribution mt-4">
+        <div class="garmin-attribution">
+            <span class="garmin-text">Health metrics from Garmin Connect</span>
+        </div>
+    </div>
+
+</div>
+
+
+<div class="lg:flex lg:space-x-8">
+    <div class="lg:w-1/2">
+        <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
+            <h2 class="text-xl sm:text-2xl font-bold text-brand-blue mb-4">This Week's Sessions</h2>
+            <div class="prose prose-invert max-w-none prose-sm sm:prose-base">
+                {{ current_week_plan | safe }}
+            </div>
+        </div>
+    </div>
+
+    <div class="lg:w-1/2">
+        <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
+            <h2 class="text-xl sm:text-2xl font-bold text-brand-blue mb-4">Chat with your Coach</h2>
+            <p class="text-sm sm:text-base text-brand-light-gray mb-4">
+                Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
+            </p>
+            <form action="{{ url_for('dashboard.chat') }}" method="post">
+                <textarea name="user_message" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
+                <div class="mt-4">
+                    <button type="submit" class="w-full sm:w-auto bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                        Send Message
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('dashboard.chat_log_list') }}" class="text-brand-blue hover:underline text-sm">View full chat history →</a>
+            </div>
+        </div> 
+    </div>
+</div>
+
+<script>
+    // Generate URLs that template literals can use
+    const connectionsUrl = "{{ url_for('admin.connections') }}";
+    
+    async function fetchWeeklySummary(forceRefresh = false) {
+        const container = document.getElementById('weekly-summary-container');
+        container.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
+
+        try {
+            // Add timestamp for cache busting + force parameter if needed
+            const timestamp = new Date().getTime();
+            const forceParam = forceRefresh ? '&force=true' : '';
+            const url = `/api/weekly-summary?t=${timestamp}${forceParam}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.summary) {
+                container.innerHTML = `<p class="text-base sm:text-lg text-brand-light-gray">${data.summary}</p>`;
+                
+                // Log cache status for debugging
+                if (data.cached) {
+                    console.log(`Using cached summary (age: ${data.age_hours || 'unknown'}h)`);
+                } else {
+                    console.log('Generated fresh weekly summary');
+                }
+            } else {
+                container.innerHTML = `<p class="text-red-400">Could not load weekly summary.</p>`;
+            }
+        } catch (error) {
+            console.error('Error fetching weekly summary:', error);
+            container.innerHTML = `<p class="text-red-400">An error occurred while loading the summary.</p>`;
+        }
+    }
+
+    // OPTIMIZED: Split Garmin into API fetch (fast) and UI rendering (slow)
+    // This allows weekly summary to start as soon as cache is updated
+    
+    // Helper function to format cache timestamp in human-readable format
+    function formatCacheTimestamp(isoTimestamp) {
+        if (!isoTimestamp) return 'Unknown';
+        
+        const cachedTime = new Date(isoTimestamp);
+        const now = new Date();
+        const diffMs = now - cachedTime;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        if (diffDays === 1) return 'Yesterday';
+        return `${diffDays} days ago`;
+    }
+
+    async function fetchGarminData() {
+        // FAST: Just get the data from API (updates cache)
+        try {
+            const response = await fetch('/api/garmin-summary');
+            console.log('Garmin API response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error('No Garmin connection found.');
+            }
+            
+            const data = await response.json();
+            console.log('Garmin API data received:', data);
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            return data;
+            
+        } catch (error) {
+            console.error('❌ Garmin API fetch error:', error);
+            throw error;
+        }
+    }
+    
+    function renderGarminUI(data) {
+        // SLOW: Render UI and create Chart.js charts
+        // Can run in parallel with weekly summary
+        const container = document.getElementById('garmin-container');
+        const today = data.today;
+        const trendData = data.trend_data;
+        const cachedAt = data.cached_at;
+        const cacheAge = formatCacheTimestamp(cachedAt);
+            
+        console.log('Starting to render Garmin UI...');
+            
+        try {
+            // Create the display with today's metrics and separate charts
+            container.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-brand-blue">Health & Recovery</h2>
+                    <p class="text-xs text-gray-400 mt-1">Data retrieved: ${cacheAge}</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    ${data.cached ? '<span class="text-xs text-gray-400">📊 Cached data</span>' : '<span class="text-xs text-green-400">✓ Fresh data</span>'}
+                    <button onclick="refreshGarminData()" class="text-gray-400 hover:text-white transition-colors" title="Refresh Garmin data (use sparingly)">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 sm:w-6 sm:h-6">
+                            <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+                
+                <!-- Today's Key Metrics - 2 Row Layout -->
+                <!-- Row 1: Number-based metrics (3 columns) -->
+                <div class="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 text-center mb-3 sm:mb-4">
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">Sleep Score</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.sleep_score || 'N/A'}</p>
+                    </div>
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">Body Battery</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.body_battery_high || 'N/A'}</p>
+                        <p class="text-xs text-gray-400">
+                            ${today?.body_battery_high === today?.body_battery_low 
+                                ? `Low: ${today?.body_battery_low || 'N/A'}` 
+                                : `High: ${today?.body_battery_high || 'N/A'} | Low: ${today?.body_battery_low || 'N/A'}`
+                            }
+                        </p>
+                    </div>
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">VO2 Max</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.vo2_max || 'N/A'}</p>
+                        ${today?.vo2_max ? `
+                            <div class="text-xs text-gray-400 mt-1 space-y-0.5">
+                                <p class="${getVo2ChangeClass(today.vo2_max_change_1d)}">
+                                    ${formatVo2Change(today.vo2_max_change_1d)} vs yesterday
+                                </p>
+                                <p class="${getVo2ChangeClass(today.vo2_max_change_14d_avg)}">
+                                    ${formatVo2Change(today.vo2_max_change_14d_avg)} vs 14d avg
+                                </p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- Row 2: Status-based metrics (2 columns) -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 text-center mb-6 sm:mb-8">
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">HRV Status</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${today?.hrv_status || 'N/A'}</p>
+                        ${today?.hrv_value ? `<p class="text-xs text-gray-400">${today.hrv_value} ms</p>` : ''}
+                    </div>
+                    <div class="bg-brand-dark rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-brand-light-gray">Training Status</p>
+                        <p class="text-lg sm:text-2xl font-bold text-white">${formatTrainingStatus(today?.training_status) || 'N/A'}</p>
+                    </div>
+                </div>
+
+                <!-- Health Metrics & Charts -->
+                <div class="space-y-4 mb-6">
+                    <!-- Health Charts - FULL WIDTH on mobile, 2 cols on desktop -->
+                    <div class="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+                        <!-- Readiness -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center" style="gap: 6px;">
+                                    <h3 class="text-base font-semibold text-white">Readiness</h3>
+                                    <button onclick="showReadinessInfo()" class="text-gray-400 hover:text-brand-blue transition-colors" title="Learn more" style="display: inline-flex; align-items: center;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 16px; height: 16px;">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="text-2xl font-bold" style="color: ${getReadinessColorValue(data.readiness_score)}">${data.readiness_score || 'N/A'}</p>
+                            </div>
+                            <div class="w-full bg-brand-gray rounded-full mb-2" style="height: 8px;">
+                                <div class="rounded-full transition-all duration-500" style="width: ${data.readiness_score || 0}%; height: 8px; background-color: ${getReadinessBgColorValue(data.readiness_score)}"></div>
+                            </div>
+                            <p class="text-xs text-brand-light-gray">${getReadinessMessage(data.readiness_score)}</p>
+                        </div>
+                        
+                        <!-- Body Battery Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-3">Body Battery</h3>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="batteryChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Sleep Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-3">Sleep</h3>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="sleepChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- HRV Graph -->
+                        <div class="bg-brand-dark rounded-lg p-4">
+                            <h3 class="text-base font-semibold text-white mb-3">HRV</h3>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="hrvChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Training Load Balance - Full width card -->
+                    <div class="bg-brand-dark rounded-lg p-4 lg:p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center" style="gap: 8px;">
+                                <h3 class="text-lg lg:text-xl font-semibold text-white">Training Load Balance</h3>
+                                <button onclick="showLoadInfo()" class="text-gray-400 hover:text-brand-blue transition-colors" title="Learn more" style="display: inline-flex; align-items: center;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 18px; height: 18px;">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl lg:text-3xl font-bold" id="load-ratio-value" style="color: #9ca3af">--</p>
+                                <p class="text-xs text-gray-400" id="load-zone-text">--</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Load Ratio Graph -->
+                        <div class="mb-4">
+                            <p class="text-sm text-brand-light-gray mb-2">Load Ratio (Recent ÷ Baseline)</p>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="loadRatioChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Acute vs Chronic Load Graph -->
+                        <div class="mb-2">
+                            <p class="text-sm text-brand-light-gray mb-2">Training Load Comparison</p>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="loadComparisonChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm text-brand-light-gray text-center mt-2">Recent: <span id="load-recent">--</span> | Baseline: <span id="load-baseline">--</span></p>
+                    </div>
+                </div>
+
+            `;
+
+            // Prepare chart data
+            const labels = trendData.map(d => {
+                const dateObj = new Date(d.date);
+                return dateObj.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+            });
+
+            const sleepData = trendData.map(d => d.sleep_score);
+            const bodyBatteryHighData = trendData.map(d => d.body_battery_high);
+            const bodyBatteryLowData = trendData.map(d => d.body_battery_low);
+            const hrvData = trendData.map(d => d.hrv_value);
+            
+            // Calculate 7-day rolling average for HRV
+            const hrvRollingAvg = hrvData.map((val, idx, arr) => {
+                // Calculate average of current + previous 6 days (or fewer if at start)
+                const windowSize = Math.min(7, idx + 1);
+                const window = arr.slice(Math.max(0, idx - 6), idx + 1);
+                const sum = window.reduce((a, b) => (a || 0) + (b || 0), 0);
+                return sum / windowSize;
+            });
+
+            // Common chart options - mobile responsive
+            const isMobile = window.innerWidth < 768;
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#2E2F33',
+                        titleColor: '#E0E0E0',
+                        bodyColor: '#E0E0E0',
+                        borderColor: '#00A9FF',
+                        borderWidth: 1,
+                        titleFont: {
+                            size: isMobile ? 11 : 12
+                        },
+                        bodyFont: {
+                            size: isMobile ? 10 : 12
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#9CA3AF',
+                            font: {
+                                family: 'Inter',
+                                size: isMobile ? 9 : 10
+                            },
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: isMobile ? 7 : 10
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#9CA3AF',
+                            font: {
+                                family: 'Inter',
+                                size: isMobile ? 10 : 11
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Destroy existing charts if they exist
+            if (window.sleepChart && typeof window.sleepChart.destroy === 'function') {
+                window.sleepChart.destroy();
+            }
+            if (window.batteryChart && typeof window.batteryChart.destroy === 'function') {
+                window.batteryChart.destroy();
+            }
+            if (window.hrvChart && typeof window.hrvChart.destroy === 'function') {
+                window.hrvChart.destroy();
+            }
+            if (window.loadRatioChart && typeof window.loadRatioChart.destroy === 'function') {
+                window.loadRatioChart.destroy();
+            }
+            if (window.loadComparisonChart && typeof window.loadComparisonChart.destroy === 'function') {
+                window.loadComparisonChart.destroy();
+            }
+
+            // Sleep Chart
+            const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+            window.sleepChart = new Chart(sleepCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: sleepData,
+                        borderColor: '#00A9FF',
+                        backgroundColor: 'rgba(0, 169, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: isMobile ? 2 : 3,
+                        pointHoverRadius: isMobile ? 4 : 5
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: {
+                            ...commonOptions.scales.y,
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                ...commonOptions.scales.y.ticks,
+                                stepSize: 25
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Body Battery Chart (with range)
+            const batteryCtx = document.getElementById('batteryChart').getContext('2d');
+            window.batteryChart = new Chart(batteryCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'High',
+                            data: bodyBatteryHighData,
+                            borderColor: '#4ADE80',
+                            backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                            tension: 0.4,
+                            fill: '+1',
+                            pointRadius: isMobile ? 2 : 3,
+                            pointHoverRadius: isMobile ? 4 : 5
+                        },
+                        {
+                            label: 'Low',
+                            data: bodyBatteryLowData,
+                            borderColor: '#4ADE80',
+                            backgroundColor: 'rgba(74, 222, 128, 0.3)',
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: isMobile ? 2 : 3,
+                            pointHoverRadius: isMobile ? 4 : 5,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#E0E0E0',
+                                font: {
+                                    family: 'Inter',
+                                    size: 10
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        ...commonOptions.scales,
+                        y: {
+                            ...commonOptions.scales.y,
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                ...commonOptions.scales.y.ticks,
+                                stepSize: 25
+                            }
+                        }
+                    }
+                }
+            });
+
+            // HRV Chart
+            const hrvCtx = document.getElementById('hrvChart').getContext('2d');
+            window.hrvChart = new Chart(hrvCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Daily HRV',
+                            data: hrvData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: isMobile ? 2 : 4,
+                            pointHoverRadius: isMobile ? 5 : 6,
+                            pointBackgroundColor: '#F59E0B'
+                        },
+                        {
+                            label: '7-Day Average',
+                            data: hrvRollingAvg,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: '#9CA3AF',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: isMobile ? 2 : 3,
+                            pointHoverRadius: isMobile ? 4 : 5,
+                            pointBackgroundColor: '#9CA3AF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        ...commonOptions.plugins,
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                },
+                                usePointStyle: true,
+                                padding: 10,
+                                boxWidth: 20
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 1: Load Ratio with optimal zone (0.8-1.4)
+            const loadRatioCtx = document.getElementById('loadRatioChart').getContext('2d');
+            const acwrDataPoints = trendData.map(d => d.acwr_ratio);
+            
+            window.loadRatioChart = new Chart(loadRatioCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            // Optimal zone upper (1.4)
+                            label: 'Optimal Upper',
+                            data: new Array(labels.length).fill(1.4),
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                            fill: '+1',
+                            pointRadius: 0,
+                            order: 2
+                        },
+                        {
+                            // Optimal zone lower (0.8)
+                            label: 'Optimal Lower',
+                            data: new Array(labels.length).fill(0.8),
+                            borderColor: 'transparent',
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            pointRadius: 0,
+                            order: 2
+                        },
+                        {
+                            // Load Ratio
+                            label: 'Load Ratio',
+                            data: acwrDataPoints,
+                            borderColor: '#00A9FF',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#00A9FF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 2,
+                            pointRadius: isMobile ? 2 : 4,
+                            pointHoverRadius: isMobile ? 5 : 6,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: {
+                            backgroundColor: '#2E2F33',
+                            titleColor: '#fff',
+                            bodyColor: '#9CA3AF',
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 2) {
+                                        return 'Ratio: ' + context.parsed.y.toFixed(2);
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 9},
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            min: 0.3,
+                            max: 2.0,
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter'},
+                                stepSize: 0.2
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Acute vs Chronic Load with dynamic optimal zone
+            const loadComparisonCtx = document.getElementById('loadComparisonChart').getContext('2d');
+            const acuteLoadData = trendData.map(d => d.acute_load);
+            const chronicLoadData = trendData.map(d => d.chronic_load);
+            
+            // Calculate dynamic optimal zone (chronic * 0.8 to chronic * 1.4)
+            const optimalLower = chronicLoadData.map(val => val ? val * 0.8 : null);
+            const optimalUpper = chronicLoadData.map(val => val ? val * 1.4 : null);
+            
+            window.loadComparisonChart = new Chart(loadComparisonCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            // Dynamic optimal zone upper
+                            label: 'Optimal Upper',
+                            data: optimalUpper,
+                            borderColor: 'rgba(74, 222, 128, 0.3)',
+                            backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                            borderDash: [3, 3],
+                            fill: '+1',
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            order: 3
+                        },
+                        {
+                            // Dynamic optimal zone lower
+                            label: 'Optimal Lower',
+                            data: optimalLower,
+                            borderColor: 'rgba(74, 222, 128, 0.3)',
+                            backgroundColor: 'transparent',
+                            borderDash: [3, 3],
+                            fill: false,
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            order: 3
+                        },
+                        {
+                            // Acute Load
+                            label: 'Recent (7d)',
+                            data: acuteLoadData,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#9CA3AF',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            pointRadius: isMobile ? 2 : 3,
+                            pointHoverRadius: isMobile ? 4 : 5,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 2
+                        },
+                        {
+                            // Chronic Load
+                            label: 'Baseline (28d)',
+                            data: chronicLoadData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'transparent',
+                            pointBackgroundColor: '#F59E0B',
+                            pointBorderColor: '#1F2937',
+                            pointBorderWidth: 1,
+                            pointRadius: isMobile ? 2 : 3,
+                            pointHoverRadius: isMobile ? 4 : 5,
+                            tension: 0.3,
+                            fill: false,
+                            borderWidth: 2,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 10},
+                                usePointStyle: true,
+                                padding: 6,
+                                boxWidth: 6,
+                                filter: function(item) {
+                                    return !item.text.includes('Optimal');
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#2E2F33',
+                            titleColor: '#fff',
+                            bodyColor: '#9CA3AF',
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label && !label.includes('Optimal')) {
+                                        label += ': ';
+                                        if (context.parsed.y !== null) {
+                                            label += Math.round(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                    return null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter', size: 9},
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: {color: 'rgba(255, 255, 255, 0.05)'},
+                            ticks: {
+                                color: '#9CA3AF',
+                                font: {family: 'Inter'}
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update load ratio display
+            if (today?.acwr_ratio !== null && today?.acwr_ratio !== undefined) {
+                const ratio = Number(today.acwr_ratio);  // Ensure it's a number, not string
+                document.getElementById('load-ratio-value').textContent = ratio.toFixed(2);
+                document.getElementById('load-recent').textContent = today.acute_load || '--';
+                document.getElementById('load-baseline').textContent = today.chronic_load || '--';
+                
+                let color, zoneLabel;
+                if (ratio < 0.8) {
+                    color = '#ef4444';
+                    zoneLabel = 'Below Optimal';
+                } else if (ratio < 1.05) {
+                    color = '#eab308';
+                    zoneLabel = 'Maintaining';
+                } else if (ratio <= 1.4) {
+                    color = '#22c55e';
+                    zoneLabel = 'Productive';
+                } else {
+                    color = '#dc2626';
+                    zoneLabel = 'Overreaching';
+                }
+                
+                document.getElementById('load-ratio-value').style.color = color;
+                document.getElementById('load-zone-text').textContent = zoneLabel;
+            }
+            
+            console.log('✓ Garmin data rendered successfully!');
+
+            } catch (renderError) {
+                console.error('❌ Error during rendering:', renderError);
+                console.error('Stack trace:', renderError.stack);
+                container.innerHTML = `
+                    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                    <div class="text-center py-4">
+                        <p class="text-red-400">Error rendering Garmin data. Please refresh the page.</p>
+                    </div>
+                `;
+            }
+    }
+    
+    async function fetchGarminSummary() {
+        // LEGACY: Combined function for backwards compatibility
+        // Used by refresh button and other manual calls
+        const container = document.getElementById('garmin-container');
+        
+        try {
+            const data = await fetchGarminData();
+            renderGarminUI(data);
+        } catch (error) {
+            console.error('❌ Garmin error:', error);
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                <div class="text-center py-4">
+                    <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
+                    <a href="${connectionsUrl}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                        Connect Account
+                    </a>
+                </div>
+            `;
+        }
+    }
+
+// Refresh Garmin data function
+function refreshGarminData() {
+    if (!confirm('Fetch fresh data from Garmin?\n\nThis will use Garmin API rate limits - only use if you need the very latest data.')) {
+        return;
+    }
+    
+    console.log('🔄 Refreshing Garmin data...');
+    const container = document.getElementById('garmin-container');
+    
+    // Show loading spinner
+    container.innerHTML = `
+        <div class="flex items-center justify-center py-10">
+            <div class="loader"></div>
+            <p class="ml-4 text-brand-light-gray">Refreshing Garmin data...</p>
+        </div>
+    `;
+    
+    // Call backend to clear cache
+    fetch('/api/garmin-refresh', { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('✓ Refresh response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('✓ Refresh successful:', data);
+        // Wait a moment for cache to clear, then fetch fresh data
+        setTimeout(() => {
+            console.log('📊 Fetching fresh Garmin data...');
+            fetchGarminSummary();
+        }, 1000);
+    })
+    .catch(error => {
+        console.error('❌ Refresh failed:', error);
+        alert(`Could not refresh Garmin data: ${error.message}\n\nPlease try again later.`);
+        // Fall back to showing cached data
+        fetchGarminSummary();
+    });
+}
+
+// Helper functions for readiness scoring - return actual colors for inline styles
+function getReadinessColorValue(score) {
+    score = Number(score);
+    if (!score) return '#9ca3af';  // gray-400
+    if (score >= 80) return '#4ade80';  // green-400
+    if (score >= 60) return '#facc15';  // yellow-400
+    return '#f87171';  // red-400
+}
+
+function getReadinessBgColorValue(score) {
+    score = Number(score);
+    if (!score) return '#4b5563';  // gray-600
+    if (score >= 80) return '#22c55e';  // green-500
+    if (score >= 60) return '#eab308';  // yellow-500
+    return '#ef4444';  // red-500
+}
+
+// Helper functions for VO2 max changes
+function formatVo2Change(change) {
+    if (change === null || change === undefined) return 'N/A';
+    change = Number(change);  // Convert to number first (handles strings from cache)
+    if (isNaN(change)) return 'N/A';  // Handle invalid numbers
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}`;
+}
+
+function getVo2ChangeClass(change) {
+    if (change === null || change === undefined) return 'text-gray-400';
+    change = Number(change);  // Convert to number first (handles strings from cache)
+    if (isNaN(change)) return 'text-gray-400';  // Handle invalid numbers
+    if (change > 0) return 'text-green-400';
+    if (change < 0) return 'text-red-400';
+    return 'text-gray-400';
+}
+
+function formatTrainingStatus(status) {
+    if (!status || status === 'N/A') return 'N/A';
+    
+    // Remove numeric suffixes like _2, _4
+    let cleaned = status.split('_')[0];
+    
+    // Convert to proper case
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+    
+    return cleaned;
+}
+
+function getReadinessMessage(score) {
+    score = Number(score);
+    if (!score) return 'Calculating readiness...';
+    if (score >= 80) return 'Excellent! You\'re primed for a quality training session.';
+    if (score >= 60) return 'Good. Moderate intensity work is appropriate today.';
+    if (score >= 40) return 'Below optimal. Consider an easy day or active recovery.';
+    return 'Low readiness. Prioritize rest and recovery today.';
+}
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // SEQUENTIAL LOADING: Load Garmin first, then summary
+        // This ensures weekly summary uses fresh Garmin data
+        loadDashboardSequentially();
+
+        const refreshButton = document.getElementById('refresh-summary-button');
+        refreshButton.addEventListener('click', function() {
+            console.log('🔄 Force refreshing weekly summary...');
+            
+            // Disable button during refresh
+            refreshButton.disabled = true;
+            const originalHTML = refreshButton.innerHTML;
+            refreshButton.innerHTML = '<div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #00A9FF; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>';
+            
+            fetch('/api/refresh-weekly-summary', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' || data.status === 'no_op') {
+                        // Force fresh summary (bypass cache)
+                        return fetchWeeklySummary(true);
+                    }
+                })
+                .catch(error => console.error('Error clearing cache:', error))
+                .finally(() => {
+                    // Re-enable button
+                    refreshButton.disabled = false;
+                    refreshButton.innerHTML = originalHTML;
+                });
+        });
+    });
+
+    // Sequential loading function to ensure Garmin loads before summary
+    async function loadDashboardSequentially() {
+        try {
+            console.log('📊 Step 1: Fetching Garmin data from API...');
+            
+            // FAST: Just fetch the data (updates cache)
+            const garminData = await fetchGarminData();
+            console.log('✓ Garmin API data fetched (cache updated)');
+            
+            // Small delay to ensure cache is written to storage
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            console.log('📊 Step 2: Rendering UI and loading summary in parallel...');
+            
+            // PARALLEL: Render Garmin UI + fetch weekly summary
+            // Summary can start immediately since cache is updated
+            // UI rendering (Chart.js) happens in background
+            await Promise.all([
+                (async () => {
+                    renderGarminUI(garminData);
+                    console.log('✓ Garmin UI rendered');
+                })(),
+                (async () => {
+                    await fetchWeeklySummary();
+                    console.log('✓ Weekly summary loaded');
+                })()
+            ]);
+            
+            console.log('✅ Dashboard fully loaded!');
+            
+        } catch (error) {
+            console.error('❌ Error loading dashboard:', error);
+            
+            // If Garmin fails, still try to load summary
+            try {
+                console.log('Attempting to load summary despite Garmin error...');
+                await fetchWeeklySummary();
+            } catch (summaryError) {
+                console.error('Summary also failed:', summaryError);
+            }
+        }
+    }
+
+    function showChatSpinner() {
+        const interactionContainer = document.getElementById('chat-interaction-container');
+        const responseContainer = document.getElementById('chat-response-container');
+        const responseContent = document.getElementById('chat-response-content');
+        if (interactionContainer && responseContainer && responseContent) {
+            responseContent.innerHTML = '<div class="flex items-center justify-center pt-4"><div class="loader"></div></div>';
+            responseContainer.style.display = 'block';
+            interactionContainer.style.display = 'block';
+        }
+    }
+
+    // Info modal functions
+    function showLoadInfo() {
+        document.getElementById('loadInfoModal').classList.remove('hidden');
+    }
+
+    function showReadinessInfo() {
+        document.getElementById('readinessInfoModal').classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal-overlay')) {
+            event.target.classList.add('hidden');
+        }
+    }
+    
+    // Plan completion modal functions
+    function closePlanCompletionModal() {
+        const modal = document.getElementById('plan-completion-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+    
+    // Show plan completion modal on page load if needed
+    {% if show_completion_prompt %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('plan-completion-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    });
+    {% endif %}
+</script>
+
+<!-- Info Modals -->
+<!-- Training Load Info Modal -->
+<div id="loadInfoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl sm:text-2xl font-bold text-brand-blue">Training Load Balance</h2>
+                <button onclick="closeModal('loadInfoModal')" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4 text-sm sm:text-base">
+                <p class="text-white font-semibold">What is Training Load Balance?</p>
+                <p>Training Load Balance (also known as ACWR - Acute:Chronic Workload Ratio) compares your recent training (last 7 days) to your baseline training load (last 28 days).</p>
+                
+                <p class="text-white font-semibold">How is it calculated?</p>
+                <p><strong>Load Ratio = Recent Load (7 days) ÷ Baseline Load (28 days)</strong></p>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">The Zones:</p>
+                    <ul class="space-y-2 ml-4">
+                        <li><span class="text-red-400">• Below 0.8:</span> Below optimal - risk of detraining</li>
+                        <li><span class="text-yellow-400">• 0.8-1.05:</span> Maintaining - consistent but not pushing for gains</li>
+                        <li><span class="text-green-400">• 1.05-1.4:</span> Productive - optimal zone for improvements</li>
+                        <li><span class="text-red-400">• Above 1.4:</span> Overreaching - increased injury risk</li>
+                    </ul>
+                </div>
+                
+                <p class="text-white font-semibold">Why does this matter?</p>
+                <p>Research shows that keeping your load ratio between 0.8-1.4 minimizes injury risk while maximizing training adaptations. Values above 1.4 are associated with 2-4x higher injury rates.</p>
+                
+                <p class="text-sm italic">Note: During planned tapers or recovery weeks, ratios below 0.8 are expected and appropriate!</p>
+                
+                <div class="mt-6 text-center">
+                    <a href="#" class="text-brand-blue hover:text-blue-400 font-semibold">
+                        📚 Read the full technical FAQ for geeks →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Readiness Info Modal -->
+<div id="readinessInfoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal-overlay p-4">
+    <div class="bg-brand-gray rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h2 class="text-xl sm:text-2xl font-bold text-brand-blue">Readiness to Perform</h2>
+                <button onclick="closeModal('readinessInfoModal')" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="text-brand-light-gray space-y-4 text-sm sm:text-base">
+                <p class="text-white font-semibold">What is Readiness to Perform?</p>
+                <p>Your readiness score indicates how prepared you are for an intense training session TODAY. It combines recovery metrics to give you a single number (0-100).</p>
+                
+                <p class="text-white font-semibold">How is it calculated?</p>
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white">Weighted combination of:</p>
+                    <ul class="space-y-1 ml-4">
+                        <li>• <strong>Sleep Quality (30%)</strong> - Sleep score from last night</li>
+                        <li>• <strong>HRV Status (30%)</strong> - Deviation from your 14-day baseline. Higher HRV = better recovery</li>
+                        <li>• <strong>Body Battery (25%)</strong> - Morning peak after overnight recovery</li>
+                        <li>• <strong>Training Status (15%)</strong> - Current training load balance</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">HRV Scoring:</p>
+                    <ul class="space-y-1 ml-4 text-sm">
+                        <li><span class="text-green-400">• +5% to +15% above baseline:</span> Elevated - Excellent readiness</li>
+                        <li><span class="text-blue-400">• -5% to +5% of baseline:</span> At baseline - Good readiness</li>
+                        <li><span class="text-yellow-400">• -5% to -15% below baseline:</span> Below baseline - Moderate readiness</li>
+                        <li><span class="text-red-400">• UNBALANCED or ±15%+ from baseline:</span> Needs recovery</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">Training Status (Readiness Perspective):</p>
+                    <ul class="space-y-1 ml-4 text-sm">
+                        <li><span class="text-green-400">• RECOVERY:</span> Well-rested, ready for intense work</li>
+                        <li><span class="text-blue-400">• MAINTAINING:</span> Steady state, moderate readiness</li>
+                        <li><span class="text-yellow-400">• PRODUCTIVE:</span> Building fitness but fatigued</li>
+                        <li><span class="text-red-400">• OVERREACHING:</span> Needs recovery</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-brand-dark rounded-lg p-4 space-y-2">
+                    <p class="text-white font-semibold">What the scores mean:</p>
+                    <ul class="space-y-2 ml-4">
+                        <li><span class="text-green-400">• 80-100:</span> Excellent - Ready for high intensity sessions</li>
+                        <li><span class="text-yellow-400">• 60-79:</span> Good - Moderate intensity appropriate</li>
+                        <li><span class="text-red-400">• Below 60:</span> Low - Focus on easy training or rest</li>
+                    </ul>
+                </div>
+                
+                <p class="text-white font-semibold">How to use this:</p>
+                <p>Adjust training intensity based on readiness. High readiness = green light for hard sessions and quality work. Low readiness = recovery day, easy training, or rest.</p>
+                
+                <div class="mt-6 text-center">
+                    <a href="#" class="text-brand-blue hover:text-blue-400 font-semibold">
+                        📚 Learn more about the readiness calculation →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

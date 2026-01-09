@@ -138,8 +138,8 @@ def test_with_your_csv():
     print("="*70)
     
     test_distances = [
-        ('5K', 1174),
-        ('5000M', 1174),
+        ('5K', 1240),
+        ('5000M', 1239),
         ('5km', 1174),
         ('HM', 5520),
         ('Half Marathon', 5520),

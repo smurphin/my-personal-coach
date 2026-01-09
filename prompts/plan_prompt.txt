@@ -78,15 +78,52 @@ Unless the athlete is coming into the plan with a recent history of high fitness
 
 - First, advise the athlete to update their Strava zones to match the Friel calculations **ONLY** if they differ by more than 3 bpm per value in each zone range. Allow for the fact zones don't always fall perfectly on round numbers and sometimes they are rounded down or up, leaving a "stray" unassigned value between zones e.g zone 2 = 136 - 142, zone 3 = 144 - 152, then it's ok to place 143 into either zone 2 or zone 3 at the athlete's discretion, don't ask to update zones in this instance, it's close enough, if the discrepancy is in zone 3 pay it no attention, the most important thing is that zone 2 and zone 4 & zone 5 are accurate. If there is a difference in configured zones and calculated zones, show the 2 values so the athlete can understand the misalignment. Show a clear comparison table.
 
-- Check `vdot_data.status`. If "HR Training Recommended", recommend a 5k time trial in 3 - 4 weeks to establish a VDOT baseline.
+**VDOT Training Paces:**
 
-If friel_hr_zones.estimated is true in the data, then take note of friel_hr_zones.estimation_note for further context and explain to the athlete how the values were calculated, plan a threshold session appropriately early in the plan to better understand what their actual threshold is, this can be calculated by taking the average HR in the last 80% of a 5k race / parkrun / all out effort or the last 20 mins average heart rate of an all out 10km race / effort. It must be all out, the athlete will have hit Max HR and their average towards the end will be good enough to estimate an accurate LTHR. Plan this session as soon as their fitness and history allows. Update zones once this data is understood.
+{% if vdot_data.current_vdot %}
+- Your current VDOT is **{{ vdot_data.current_vdot|int }}**{% if vdot_data.source_activity %}, calculated from your {{ vdot_data.source_activity.distance }} race on {{ vdot_data.source_activity.date }} ({{ vdot_data.source_activity.time }}){% endif %}.
+- Your VDOT is calculated using Jack Daniels' authoritative tables and will automatically update when you complete qualifying races or time trials.
+- Training paces below are based on your **current VDOT** to ensure proper training intensity for adaptation.
+- **IMPORTANT**: When displaying VDOT, always refer to it as a whole number. A VDOT of 49.9 is VDOT 49. You only achieve a VDOT level when you meet or exceed that pace threshold.
 
-If friel_power_zones estimate is true, and cycling forms part of the structured plan, i.e if the goal is a triathlon or cycling event, then plan an FTP test early in the plan to enable a true baseline, update zones when actual FTP is known. Plan regular FTP sessions through a cycling focused plan, a good guide is once per 6 weeks to track progress, depending on other commitments.
+**Your Training Paces (VDOT {{ vdot_data.current_vdot|int }}):**
+- **Easy/Recovery:** {{ vdot_data.easy_pace }}
+- **Marathon Pace:** {{ vdot_data.marathon_pace }}
+- **Threshold (T):** {{ vdot_data.threshold_pace }}
+- **Interval (I):** {{ vdot_data.interval_pace }}
+- **Repetition (R):** {{ vdot_data.repetition_pace }}
 
-**IMPORTANT**: When discussing VDOT values, if the value is a float, **ALWAYS** round DOWN to an integer. VDOT values are only relevant when you meet the minimum race pace for that level. A VDOT of 49.9 is still a VDOT of 49. VDOT training paces MUST be based on the athlete's current VDOT not on their intended goal, this is VERY IMPORTANT otherwise they will be training at intensities too high for proper adaptation. Refer to this when advising the athlete as a whole number, don't use the term integer in conversations, plans etc.
+These paces are directly from Jack Daniels' tables and will serve as your guide for pace-based training sessions.
 
-Ensure VDOT paces are accurate, double check them, one example of accurate VDOT tables can be found here https://tritrainingharder.com/blog/2013/10/run-testing-calculating-your-vdot-pace.html once you've double checked, check again **CRITICALLY IMPORTANT it's imperative VDOT calculations and training paces are accurate to ensure the athlete doesn't lose trust in the coach! THIS IS THE NUMBER ONE MOST IMPORTANT THING; BE ACCURATE!** you have a history of getting this wrong!
+{% else %}
+- **VDOT Not Yet Established**: You haven't completed a qualifying race or time trial since starting your plan.
+- Your VDOT will be automatically detected when you complete:
+  - A race (5K, 10K, 15K, Half Marathon, Marathon) marked as "Race" in Strava
+  - Or an all-out time trial with continuous effort (no recovery intervals)
+- Until then, use heart rate zones for intensity prescription.
+- **Recommendation**: Complete a 5K time trial or Parkrun in 3-4 weeks to establish a VDOT baseline for pace-based training.
+- Once completed, your VDOT and training paces will be automatically calculated and you can regenerate this plan with pace guidance.
+- **Note**: Tempo runs, interval sessions, and easy runs will NOT trigger VDOT calculation - only races and genuine all-out continuous efforts qualify.
+{% endif %}
+
+**Threshold Testing for LTHR/FTP:**
+
+{% if friel_hr_zones.estimated %}
+- **LTHR is currently estimated** (not measured from actual testing). {% if friel_hr_zones.estimation_note %}Note: {{ friel_hr_zones.estimation_note }}{% endif %}
+- **Plan a threshold test session within 2-3 weeks** to establish your actual LTHR.
+- LTHR can be calculated from:
+  - Average HR in the last 80% of a 5K race/parkrun/all-out effort
+  - Average HR in the last 20 minutes of an all-out 10K race/effort
+  - Must be an all-out effort where you hit max HR
+- Once actual LTHR is established, your heart rate zones will be updated accordingly.
+{% endif %}
+
+{% if friel_power_zones.estimated and goal_includes_cycling %}
+- **FTP is currently estimated** (not measured from actual testing).
+- **Plan an FTP test early in the cycling-focused portion** of the plan to establish baseline power zones.
+- For cycling-focused plans, include FTP tests approximately **every 6 weeks** to track progress and adjust zones.
+- Update power zones once actual FTP is measured.
+{% endif %}
 
 ### {{ athlete_goal }} Training Plan:
 
@@ -94,9 +131,23 @@ Ensure VDOT paces are accurate, double check them, one example of accurate VDOT 
 
 **Clearly mark each session as [KEY], [IMPORTANT], or [STRETCH].** If and when the athlete's fitness can support it encourage the adoption of double threshold days like the Norwegian method uses, this is especially effective for 10km plus running events.
 
-**S&C Plan:**
+**S&C Sessions:**
 
-You must provide four distinct, full-body S&C routines, ideally a library of individual exercises that can act like a pick and mix. For each routine, list 4-5 specific exercises with sets and reps (e.g., "Bodyweight Squats: 3 sets of 15 reps"). The exercises must require minimal or no equipment, but you should also provide a gym-based alternative ideally using a standard resistance based machine that you'd find in a UK gym for each (e.g., "or Leg Press Machine"). The goal is functional strength and injury resilience. Mix it up a bit, try and keep it interesting, if there are a number of routines to choose from, highlight which one should be priority each week.
+When prescribing S&C sessions, specify ONLY the focus area and duration. Do NOT generate exercise lists - the athlete has access to a curated library of S&C routines.
+
+**Available S&C Focus Areas:**
+- **Core Focus** - Core stability and strength for running efficiency
+- **Lower Body Focus** - Leg strength, power, and muscular endurance
+- **Upper Body & Back Focus** - Posture, arm drive, and running economy
+- **Full Body Circuit** - Comprehensive conditioning and mobility
+
+**Format:** Simply state: "S&C: [Focus Area], [Duration] mins"
+**Examples:**
+- "S&C: Core Focus, 30 mins"
+- "S&C: Lower Body Focus, 35 mins"
+- "S&C: Full Body Circuit, 30 mins"
+
+The application will automatically link these to the detailed exercise routines in the athlete's S&C library.
 
 **Plan Structure Rules:**
 

@@ -6,9 +6,12 @@ import json
 from data_manager import data_manager
 from services.training_service import training_service
 from services.ai_service import ai_service
+from services.strava_service import strava_service
 from services.garmin_service import garmin_service
+from models.training_plan import TrainingMetrics, TrainingPlan
 from markdown_manager import render_markdown_with_toc
 from utils.decorators import login_required
+from utils.s_and_c_utils import get_routine_link
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -58,7 +61,8 @@ def dashboard():
             garmin_connected='garmin_credentials' in user_data,
             show_completion_prompt=False,
             plan_finished=False,
-            no_active_plan=True
+            no_active_plan=True,
+            get_routine_link=get_routine_link
         )
     
     if not user_data or 'plan' not in user_data:
@@ -67,40 +71,203 @@ def dashboard():
     # Check if plan has finished
     plan_finished = False
     show_completion_prompt = False
+    current_week_sessions = []
+    current_week_html = None
+    current_week_number = None
+    current_week_start = None
+    current_week_end = None
     
-    if 'plan' in user_data and user_data.get('plan'):
+    # Load plan_v2 if available, otherwise fall back to markdown
+    if 'plan_v2' in user_data:
+        try:
+            plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            
+            # Mark sessions complete based on feedback_log
+            # This works even without Strava access_token
+            if 'feedback_log' in user_data and user_data['feedback_log']:
+                try:
+                    feedback_log = user_data['feedback_log']
+                    
+                    # Build map of activity_id → activity_date from feedback
+                    activity_dates = {}
+                    for feedback in feedback_log:
+                        for activity_id in feedback.get('logged_activity_ids', []):
+                            # Parse activity date from feedback
+                            # Format: "04-01-2026 09:44:30"
+                            try:
+                                date_str = feedback.get('activity_date', '')
+                                if date_str:
+                                    fb_date = datetime.strptime(date_str, '%d-%m-%Y %H:%M:%S')
+                                    activity_dates[activity_id] = fb_date.date().strftime('%Y-%m-%d')
+                            except ValueError:
+                                pass
+                    
+                    print(f"Found {len(activity_dates)} activities in feedback_log")
+                    
+                    # If we have Strava access, get activity types for accurate matching
+                    activity_types = {}
+                    access_token = user_data.get('access_token')
+                    if access_token and strava_service:
+                        try:
+                            activities = strava_service.get_recent_activities(access_token, limit=100)
+                            for activity in activities:
+                                activity_types[activity['id']] = activity['type'].upper()
+                            print(f"Fetched types for {len(activity_types)} activities from Strava")
+                        except Exception as e:
+                            print(f"Could not fetch from Strava: {e}")
+                    
+                    # Match activities to sessions
+                    matched_count = 0
+                    for activity_id, activity_date in activity_dates.items():
+                        activity_type = activity_types.get(activity_id)
+                        
+                        # Find matching session
+                        for week in plan_v2.weeks:
+                            for plan_session in week.sessions:
+                                if plan_session.completed:
+                                    continue
+                                
+                                # Match by date
+                                if plan_session.date == activity_date:
+                                    # If we have type, verify it matches
+                                    if activity_type:
+                                        type_match = False
+                                        if plan_session.type == 'RUN' and activity_type in ['RUN', 'TRAIL_RUN', 'VIRTUAL_RUN']:
+                                            type_match = True
+                                        elif plan_session.type == 'BIKE' and activity_type in ['RIDE', 'VIRTUAL_RIDE', 'EBIKERIDE']:
+                                            type_match = True
+                                        elif plan_session.type == 'SWIM' and activity_type == 'SWIM':
+                                            type_match = True
+                                        
+                                        if not type_match:
+                                            continue
+                                    
+                                    # Mark complete
+                                    plan_session.mark_complete(activity_id, activity_date)
+                                    matched_count += 1
+                                    print(f"  ✓ Marked {plan_session.type} on {plan_session.date} complete")
+                                    break  # Move to next activity
+                    
+                    # Save updated plan_v2 if any sessions marked
+                    if matched_count > 0:
+                        user_data['plan_v2'] = plan_v2.to_dict()
+                        data_manager.save_user_data(athlete_id, user_data)
+                        print(f"✓ Marked {matched_count} sessions complete from feedback")
+                        
+                except Exception as e:
+                    print(f"⚠️  Error marking sessions from feedback: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Get current week's sessions
+            today = date.today()
+            for week in plan_v2.weeks:
+                week_start = datetime.strptime(week.start_date, '%Y-%m-%d').date()
+                week_end = datetime.strptime(week.end_date, '%Y-%m-%d').date()
+                
+                if week_start <= today <= week_end:
+                    current_week_sessions = [s.to_dict() for s in week.sessions]
+                    current_week_number = week.week_number
+                    current_week_start = week_start.strftime('%d %b')
+                    current_week_end = week_end.strftime('%d %b')
+                    break
+            
+            # Check if plan is finished
+            if plan_v2.weeks:
+                last_week = plan_v2.weeks[-1]
+                last_end = datetime.strptime(last_week.end_date, '%Y-%m-%d').date()
+                plan_finished = today > last_end
+            
+        except Exception as e:
+            print(f"Error loading plan_v2: {e}")
+            # Fall back to markdown
+            current_week_sessions = []
+    
+    # Fallback to markdown if no plan_v2 or error
+    if not current_week_sessions and 'plan' in user_data and user_data.get('plan'):
         is_finished, last_end_date = training_service.is_plan_finished(
             user_data['plan'],
             user_data.get('plan_structure')
         )
         plan_finished = is_finished
         
-        # Debug check
-        plan_completion_prompted = user_data.get('plan_completion_prompted', False)
-        print(f"DEBUG: plan_finished={plan_finished}, last_end_date={last_end_date}, plan_completion_prompted={plan_completion_prompted}, show_prompt={plan_finished and not plan_completion_prompted}")
-        
-        # Show prompt if plan is finished and user hasn't been prompted yet
-        if plan_finished and not plan_completion_prompted:
-            show_completion_prompt = True
-            print(f"DEBUG: Setting show_completion_prompt to True")
-
-    current_week_text = training_service.get_current_week_plan(
-        user_data['plan'],
-        user_data.get('plan_structure')
-    )
-    current_week_html = render_markdown_with_toc(current_week_text)['content']
+        current_week_text = training_service.get_current_week_plan(
+            user_data['plan'],
+            user_data.get('plan_structure')
+        )
+        current_week_html = render_markdown_with_toc(current_week_text)['content']
+    
+    # Debug check
+    plan_completion_prompted = user_data.get('plan_completion_prompted', False)
+    
+    # Show prompt if plan is finished and user hasn't been prompted yet
+    if plan_finished and not plan_completion_prompted:
+        show_completion_prompt = True
 
     # Check if Garmin is connected
     garmin_connected = 'garmin_credentials' in user_data
+
+    # Extract training metrics for display - work directly with dict (THIS WORKS)
+    vdot = None
+    vdot_paces = None
+    lthr = None
+    ftp = None
+    
+    if 'training_metrics' in user_data:
+        try:
+            metrics_dict = user_data['training_metrics']
+            
+            # VDOT (as integer, rounded down) and paces
+            if 'vdot' in metrics_dict and metrics_dict['vdot']:
+                vdot_data = metrics_dict['vdot']
+                if isinstance(vdot_data, dict) and 'value' in vdot_data:
+                    vdot = int(vdot_data['value'])
+                    vdot_paces = vdot_data.get('paces')
+                    
+                    # Calculate paces if not stored
+                    if not vdot_paces and vdot:
+                        try:
+                            from utils.vdot_calculator import VDOTCalculator
+                            calc = VDOTCalculator()
+                            vdot_paces = calc.get_training_paces(vdot)
+                        except Exception as e:
+                            print(f"Could not calculate VDOT paces: {e}")
+            
+            # LTHR
+            if 'lthr' in metrics_dict and metrics_dict['lthr']:
+                lthr_data = metrics_dict['lthr']
+                if isinstance(lthr_data, dict) and 'value' in lthr_data:
+                    lthr = int(lthr_data['value'])
+            
+            # FTP
+            if 'ftp' in metrics_dict and metrics_dict['ftp']:
+                ftp_data = metrics_dict['ftp']
+                if isinstance(ftp_data, dict) and 'value' in ftp_data:
+                    ftp = int(ftp_data['value'])
+                    
+            print(f"Dashboard metrics loaded: VDOT={vdot}, LTHR={lthr}, FTP={ftp}")
+        except Exception as e:
+            print(f"Error loading training metrics: {e}")
+            import traceback
+            traceback.print_exc()
 
     # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
         current_week_plan=current_week_html,
+        current_week_sessions=current_week_sessions,
+        current_week_number=current_week_number,
+        current_week_start=current_week_start,
+        current_week_end=current_week_end,
         garmin_connected=garmin_connected,
         show_completion_prompt=show_completion_prompt,
         plan_finished=plan_finished,
-        no_active_plan=False
+        no_active_plan=False,
+        vdot=vdot,
+        vdot_paces=vdot_paces,
+        lthr=lthr,
+        ftp=ftp,
+        get_routine_link=get_routine_link
     )
 
 @dashboard_bp.route("/chat", methods=['POST'])
@@ -125,13 +292,28 @@ def chat():
     })
 
     # Generate AI response
-    training_plan = user_data.get('plan', 'No plan available.')
+    # Prefer plan_v2 for structured data, fallback to markdown
+    if 'plan_v2' in user_data:
+        try:
+            plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            training_plan = plan_v2  # Pass structured plan
+        except Exception as e:
+            print(f"Error loading plan_v2 for chat: {e}")
+            training_plan = user_data.get('plan', 'No plan available.')
+    else:
+        training_plan = user_data.get('plan', 'No plan available.')
+    
     feedback_log = user_data.get('feedback_log', [])
+    
+    # Prepare VDOT context using vdot_context.py helper
+    from utils.vdot_context import prepare_vdot_context
+    vdot_data = prepare_vdot_context(user_data)
 
     ai_response_markdown = ai_service.generate_chat_response(
         training_plan,
         feedback_log,
-        chat_history
+        chat_history,
+        vdot_data=vdot_data
     )
 
     # Add AI response
@@ -148,6 +330,50 @@ def chat():
         new_plan_markdown = match.group(1).strip()
         user_data['plan'] = new_plan_markdown
         print(f"--- Plan updated via chat! ---")
+        print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
+        
+        # Try to update plan_v2 with changes
+        try:
+            # Get current plan_v2 as backup
+            current_plan_v2 = user_data.get('plan_v2')
+            
+            # Try parsing the updated markdown
+            from utils.migration import parse_ai_response_to_v2
+            
+            user_inputs = {
+                'goal': user_data.get('goal', ''),
+                'goal_date': user_data.get('goal_date'),
+                'plan_start_date': user_data.get('plan_start_date'),
+                'goal_distance': user_data.get('goal_distance')
+            }
+            
+            # Don't attach old plan_structure - let it parse fresh from markdown
+            plan_v2, _ = parse_ai_response_to_v2(
+                new_plan_markdown,
+                athlete_id,
+                user_inputs
+            )
+            
+            # Check if parsing was successful
+            if plan_v2 and plan_v2.weeks:
+                total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
+                
+                if total_sessions > 0:
+                    # Parsing worked! Update plan_v2
+                    user_data['plan_v2'] = plan_v2.to_dict()
+                    print(f"✅ plan_v2 updated with {total_sessions} sessions")
+                else:
+                    # Parsing failed - keep existing plan_v2
+                    print(f"⚠️  Parser extracted 0 sessions from updated markdown")
+                    print(f"   Keeping existing plan_v2 (likely AI update doesn't match session format)")
+                    print(f"   Markdown updated, plan_v2 preserved")
+            else:
+                print(f"⚠️  Failed to parse updated plan - keeping existing plan_v2")
+                
+        except Exception as e:
+            print(f"⚠️  Error parsing plan update: {e}")
+            print(f"   Keeping existing plan_v2")
+            # Keep existing plan_v2 - don't break session tracking
 
         # Invalidate weekly summary cache
         today = datetime.now()
@@ -405,3 +631,208 @@ def refresh_weekly_summary():
         return jsonify({'status': 'success', 'message': 'Cache cleared.'})
         
     return jsonify({'status': 'no_op', 'message': 'No cache to clear.'})
+
+@dashboard_bp.route("/settings", methods=['GET'])
+@login_required
+def settings():
+    """Display user settings page"""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    # Extract training metrics - work directly with dict (THIS WORKS)
+    vdot = lthr = ftp = None
+    vdot_source = lthr_source = ftp_source = None
+    vdot_date = lthr_date = ftp_date = None
+    vdot_paces = None
+    
+    if 'training_metrics' in user_data:
+        metrics_dict = user_data['training_metrics']
+        
+        # Extract VDOT (as integer) and paces
+        if 'vdot' in metrics_dict and metrics_dict['vdot']:
+            vdot_data = metrics_dict['vdot']
+            if isinstance(vdot_data, dict) and 'value' in vdot_data:
+                vdot = int(vdot_data['value'])  # Always integer, rounded down
+                vdot_source = vdot_data.get('source')
+                vdot_date = vdot_data.get('date_set')
+                vdot_paces = vdot_data.get('paces')  # May be None if not calculated yet
+                
+                # Calculate paces if not stored
+                if not vdot_paces and vdot:
+                    try:
+                        from utils.vdot_calculator import VDOTCalculator
+                        calc = VDOTCalculator()
+                        vdot_paces = calc.get_training_paces(vdot)
+                    except Exception as e:
+                        print(f"Could not calculate VDOT paces: {e}")
+        
+        # Extract LTHR
+        if 'lthr' in metrics_dict and metrics_dict['lthr']:
+            lthr_data = metrics_dict['lthr']
+            if isinstance(lthr_data, dict) and 'value' in lthr_data:
+                lthr = lthr_data.get('value')
+                lthr_source = lthr_data.get('source')
+                lthr_date = lthr_data.get('date_set')
+        
+        # Extract FTP
+        if 'ftp' in metrics_dict and metrics_dict['ftp']:
+            ftp_data = metrics_dict['ftp']
+            if isinstance(ftp_data, dict) and 'value' in ftp_data:
+                ftp = ftp_data.get('value')
+                ftp_source = ftp_data.get('source')
+                ftp_date = ftp_data.get('date_set')
+    
+    # Extract lifestyle context
+    lifestyle = user_data.get('lifestyle', {})
+    
+    return render_template(
+        'settings.html',
+        lifestyle=lifestyle,
+        vdot=vdot,
+        vdot_source=vdot_source,
+        vdot_date=vdot_date,
+        vdot_paces=vdot_paces,
+        lthr=lthr,
+        lthr_source=lthr_source,
+        lthr_date=lthr_date,
+        ftp=ftp,
+        ftp_source=ftp_source,
+        ftp_date=ftp_date
+    )
+
+@dashboard_bp.route("/settings/update", methods=['POST'])
+@login_required
+def update_settings():
+    """Update user settings"""
+    from flask import flash
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    # Get existing lifestyle or create new
+    existing_lifestyle = user_data.get('lifestyle', {})
+    
+    # Update lifestyle context - preserve athlete_type if not provided in form
+    lifestyle = {
+        'work_pattern': request.form.get('work_pattern', ''),
+        'family_commitments': request.form.get('family_commitments', ''),
+        'training_constraints': request.form.get('training_constraints', ''),
+        'athlete_type': request.form.get('athlete_type', existing_lifestyle.get('athlete_type', 'DISCIPLINARIAN'))
+    }
+    user_data['lifestyle'] = lifestyle
+    
+    # Update training metrics - work directly with dict (THIS WORKS)
+    try:
+        # Get existing metrics or create new dict
+        if 'training_metrics' not in user_data:
+            user_data['training_metrics'] = {'version': 1}
+        
+        metrics_dict = user_data['training_metrics']
+        
+        # Update VDOT if provided (as integer, rounded DOWN)
+        vdot_value = request.form.get('vdot')
+        if vdot_value and vdot_value.strip():
+            try:
+                vdot_float = float(vdot_value)
+                vdot_int = int(vdot_float)  # Always round DOWN
+                
+                # Calculate training paces using VDOTCalculator
+                try:
+                    from utils.vdot_calculator import VDOTCalculator
+                    calc = VDOTCalculator()
+                    paces = calc.get_training_paces(vdot_int)
+                except Exception as e:
+                    print(f"Warning: Could not calculate VDOT paces: {e}")
+                    paces = None
+                
+                metrics_dict['vdot'] = {
+                    'value': vdot_int,
+                    'source': 'USER_OVERRIDE',
+                    'date_set': datetime.now().isoformat(),
+                    'user_confirmed': True,
+                    'pending_confirmation': False,
+                    'paces': paces  # Store ALL paces from Jack Daniels' tables
+                }
+                print(f"Updated VDOT: {vdot_float} → {vdot_int} (rounded down)")
+                if paces:
+                    print(f"  Stored {len(paces)} paces from Jack Daniels' tables")
+                flash(f'VDOT updated to {vdot_int}', 'success')
+            except ValueError:
+                flash('Invalid VDOT value', 'error')
+        
+        # Update LTHR if provided
+        lthr_value = request.form.get('lthr')
+        if lthr_value and lthr_value.strip():
+            try:
+                lthr_int = int(lthr_value)
+                metrics_dict['lthr'] = {
+                    'value': lthr_int,
+                    'source': 'USER_OVERRIDE',
+                    'date_set': datetime.now().isoformat(),
+                    'user_confirmed': True
+                }
+                print(f"Updated LTHR: {lthr_int}")
+            except ValueError:
+                flash('Invalid LTHR value', 'error')
+        
+        # Update FTP if provided
+        ftp_value = request.form.get('ftp')
+        if ftp_value and ftp_value.strip():
+            try:
+                ftp_int = int(ftp_value)
+                metrics_dict['ftp'] = {
+                    'value': ftp_int,
+                    'source': 'USER_OVERRIDE',
+                    'date_set': datetime.now().isoformat(),
+                    'user_confirmed': True
+                }
+                print(f"Updated FTP: {ftp_int}")
+            except ValueError:
+                flash('Invalid FTP value', 'error')
+        
+        user_data['training_metrics'] = metrics_dict
+        
+    except Exception as e:
+        print(f"Error updating metrics: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Error updating training metrics', 'error')
+    
+    data_manager.save_user_data(athlete_id, user_data)
+    flash('Settings updated successfully!', 'success')
+    
+    return redirect('/settings')
+
+@dashboard_bp.route("/confirm_vdot", methods=['POST'])
+@login_required
+def confirm_vdot():
+    """Confirm or deny pending VDOT update"""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    action = request.form.get('action')  # 'accept' or 'deny'
+    
+    if 'training_metrics' in user_data and 'vdot' in user_data['training_metrics']:
+        vdot_data = user_data['training_metrics']['vdot']
+        
+        if action == 'accept':
+            vdot_data['user_confirmed'] = True
+            vdot_data['pending_confirmation'] = False
+            flash(f"VDOT {vdot_data['value']} confirmed!", 'success')
+            print(f"✅ User confirmed VDOT {vdot_data['value']}")
+        
+        elif action == 'deny':
+            # Remove the pending VDOT, restore previous if it exists
+            old_vdot = vdot_data.get('previous_value')
+            if old_vdot:
+                # Restore previous VDOT
+                user_data['training_metrics']['vdot'] = old_vdot
+                flash('VDOT update rejected, previous value restored', 'info')
+            else:
+                # No previous, just delete
+                del user_data['training_metrics']['vdot']
+                flash('VDOT update rejected', 'info')
+            print(f"❌ User rejected VDOT update")
+        
+        data_manager.save_user_data(athlete_id, user_data)
+    
+    return redirect('/dashboard')
