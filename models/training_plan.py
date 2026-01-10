@@ -384,8 +384,18 @@ class MetricValue:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MetricValue':
-        """Create from dictionary"""
-        return cls(**data)
+        """Create from dictionary - handles both old (date_set) and new (detected_at) formats"""
+        # Make a copy to avoid mutating the input
+        data_copy = dict(data)
+        
+        # Handle migration from old 'date_set' format to new 'detected_at' format
+        if 'date_set' in data_copy and 'detected_at' not in data_copy:
+            data_copy['detected_at'] = data_copy.pop('date_set')
+        elif 'date_set' in data_copy:
+            # If both exist, remove the old one
+            data_copy.pop('date_set')
+        
+        return cls(**data_copy)
 
 
 @dataclass
