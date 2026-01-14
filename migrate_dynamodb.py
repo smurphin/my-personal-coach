@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-DynamoDB Migration Script with Session Pattern Debugging
+DynamoDB Migration Script
 
 Migrates markdown plans to structured plan_v2 format.
-Includes extensive debugging to identify session parsing issues.
 
 Usage:
     # Dry run (see what would be migrated)
@@ -109,10 +108,86 @@ def parse_week_header(line: str) -> Optional[Dict[str, Any]]:
 # Session Parsing with Debug
 # ============================================================================
 
+def extract_workout_details(lines: List[str], session_line_idx: int) -> str:
+    """
+    Extract workout details from follow-up lines after a session header.
+    Looks for lines like:
+    *   **Workout:** ...
+    *   **Purpose:** ...
+    *   **Duration:** ...
+    *   **Instruction:** ...
+    
+    Returns a consolidated string with all workout details.
+    """
+    details = []
+    idx = session_line_idx + 1
+    
+    # Look ahead up to 10 lines for workout details
+    while idx < len(lines) and idx < session_line_idx + 10:
+        line = lines[idx]
+        line_stripped = line.strip()
+        
+        # Stop if we hit another session header (starts with ** and contains [PRIORITY] or is a session type)
+        if re.match(r'^\s*[\*\-]\s+\*\*.*\[(KEY|IMPORTANT|STRETCH)\]:', line_stripped, re.IGNORECASE):
+            break
+        if re.match(r'^\s*[\*\-]\s+\*\*(Run|Ride|S&C|Swim|Bike|Cycle|Strength)\s+\d+', line_stripped, re.IGNORECASE):
+            break
+        if re.match(r'^\s*[\*\-]\s+\*\*S&C', line_stripped, re.IGNORECASE):
+            break
+        
+        # Stop if we hit a week header
+        if re.match(r'^###\s+Week\s+\d+', line_stripped, re.IGNORECASE):
+            break
+        
+        # Stop if we hit an empty line followed by a non-indented line (end of session block)
+        if not line_stripped:
+            # Check if next non-empty line is not indented (new session or week)
+            next_idx = idx + 1
+            while next_idx < len(lines) and not lines[next_idx].strip():
+                next_idx += 1
+            if next_idx < len(lines):
+                next_line = lines[next_idx].strip()
+                if not next_line.startswith('*') and not next_line.startswith('#'):
+                    break
+                if re.match(r'^\s*[\*\-]\s+\*\*', next_line):
+                    break
+        
+        # Extract content from detail lines (indented with *)
+        if line_stripped.startswith('*') and '**' in line_stripped:
+            # Remove the leading bullet and extract the content
+            # Format: *   **Workout:** content here
+            # Format: *   **Purpose:** content here
+            # Format: *   **Duration:** content here
+            # Format: *   **Instruction:** content here
+            match = re.match(r'^\*\s+\*\*([^:]+):\*\*\s*(.+)', line_stripped)
+            if match:
+                detail_content = match.group(2).strip()
+                # Clean up the content (remove extra bold markers, etc.)
+                detail_content = re.sub(r'\*\*([^*]+)\*\*', r'\1', detail_content)  # Remove nested **
+                # Just add the content, not the label (e.g., "Workout:", "Purpose:")
+                details.append(detail_content)
+            else:
+                # Just a continuation line with content (might be part of previous detail)
+                content = re.sub(r'^\*\s+', '', line_stripped).strip()
+                if content and not content.startswith('**'):
+                    # Remove bold markers
+                    content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
+                    if details:
+                        # Append to last detail if it exists
+                        details[-1] = f"{details[-1]} {content}"
+                    else:
+                        details.append(content)
+        
+        idx += 1
+    
+    # Join all details with spaces
+    return ' '.join(details).strip()
+
+
 def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[str, Any]]:
     """
     Parse sessions from a week's markdown text.
-    Tries multiple patterns with debugging.
+    Tries multiple patterns and extracts workout details from follow-up lines.
     """
     sessions = []
     lines = week_text.split('\n')
@@ -136,6 +211,14 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
     # Pattern 6: Type at start with colon - **Run:** or **S&C:**
     pattern6 = r'^\s*[\*\-]?\s*\*\*(Run|Ride|S&C|Swim|Bike|Cycle|Strength):\s*([^\*]+)\*\*\s*\[([^\]]+)\]'
     
+    # Pattern 7: Type Number [PRIORITY]: Description - **Run 1 [IMPORTANT]: Description**
+    pattern7 = r'^\s*[\*\-]?\s*\*\*([A-Za-z&\s]+)\s+(\d+)\s*\[([^\]]+)\]:\s*([^\*]+)\*\*'
+    
+    # Pattern 8: S&C without priority - **S&C:** Description (no closing **, no priority)
+    # Matches: *   **S&C:** Routine 2 (Lower Body).
+    # Simple pattern: bullet, spaces, **, S&C (or variations), :, space, description to end of line
+    pattern8 = r'^\s*[\*\-]\s+\*\*(S\s*&\s*C|S&C|Strength)\s*:\s*(.+)$'
+    
     patterns = [
         ("Current AI format", pattern1),
         ("Bullet variant", pattern2),
@@ -143,9 +226,17 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
         ("Session numbered", pattern4),
         ("Lenient fallback", pattern5),
         ("Type at start", pattern6),
+        ("Type Number Priority", pattern7),
+        ("S&C without priority", pattern8),
     ]
     
-    # Try each pattern
+    # Track workout details extraction
+    sessions_with_details = 0
+    sessions_without_details = 0
+    
+    # Try each pattern and collect all matches
+    # We need to try multiple patterns because a week can have both numbered sessions (Pattern 7)
+    # and S&C sessions (Pattern 8)
     for pattern_name, pattern in patterns:
         matches = list(re.finditer(pattern, week_text, re.MULTILINE | re.IGNORECASE))
         
@@ -153,12 +244,25 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
             print(f"    ✓ Pattern '{pattern_name}' matched {len(matches)} sessions")
             
             for idx, match in enumerate(matches):
+                # Find which line this match is on
+                match_start = match.start()
+                match_line_idx = week_text[:match_start].count('\n')
+                
                 # Extract groups based on pattern type
                 if pattern_name == "Session numbered":
                     session_num = int(match.group(1))
                     priority = match.group(2).strip().upper()
                     description = match.group(3).strip()
                     activity_type = "OTHER"
+                elif pattern_name == "Type Number Priority":
+                    activity_type_raw = match.group(1).strip()
+                    session_num = int(match.group(2))
+                    priority = match.group(3).strip().upper()
+                    description = match.group(4).strip()
+                elif pattern_name == "S&C without priority":
+                    activity_type_raw = match.group(1).strip()
+                    description = match.group(2).strip()
+                    priority = "STRETCH"  # Default priority for S&C
                 elif pattern_name == "Priority first":
                     priority = match.group(1).strip().upper()
                     activity_type_raw = match.group(2).strip()
@@ -199,21 +303,60 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
                     else:
                         zones['hr'] = zone_match.group(1)
                 
+                # Extract workout details from follow-up lines
+                workout_details = extract_workout_details(lines, match_line_idx)
+                
+                # Consolidate description: combine session title with workout details
+                if workout_details:
+                    # Format: "Session Title. Workout details here"
+                    # Remove any trailing period from description first
+                    desc_clean = description.rstrip('.')
+                    full_description = f"{desc_clean}. {workout_details}".strip()
+                    sessions_with_details += 1
+                    print(f"      📝 Session {idx+1}: Extracted workout details")
+                    print(f"         Original: {description[:60]}{'...' if len(description) > 60 else ''}")
+                    print(f"         Details: {workout_details[:80]}{'...' if len(workout_details) > 80 else ''}")
+                    print(f"         Final: {full_description[:100]}{'...' if len(full_description) > 100 else ''}")
+                else:
+                    full_description = description
+                    sessions_without_details += 1
+                    print(f"      📝 Session {idx+1}: No workout details found")
+                    print(f"         Description: {description[:80]}{'...' if len(description) > 80 else ''}")
+                
                 # Extract S&C routine name
                 s_and_c_routine = None
                 if session_type == 'STRENGTH':
-                    routine_match = re.search(r'S&C:\s*([^,]+)', description, re.IGNORECASE)
+                    # Try to extract routine name from description
+                    routine_match = re.search(r'[Rr]outine\s+(\d+)', full_description, re.IGNORECASE)
                     if routine_match:
-                        s_and_c_routine = routine_match.group(1).strip()
+                        s_and_c_routine = f"Routine {routine_match.group(1)}"
+                    else:
+                        # Fallback: use the description itself if it mentions a routine
+                        if 'routine' in full_description.lower():
+                            s_and_c_routine = full_description.strip()
+                
+                # Re-extract duration from the full description (might be in workout details)
+                if not duration_minutes:
+                    duration_match = re.search(r'(\d+)\s*(?:min|mins|minutes)', full_description, re.IGNORECASE)
+                    duration_minutes = int(duration_match.group(1)) if duration_match else None
+                
+                # Re-extract zones from the full description (might be in workout details)
+                if not zones:
+                    zone_match = re.search(r'[Zz]one\s*(\d+)(?:\s*-\s*(\d+))?', full_description)
+                    if zone_match:
+                        if zone_match.group(2):
+                            zones['hr'] = f"{zone_match.group(1)}-{zone_match.group(2)}"
+                        else:
+                            zones['hr'] = zone_match.group(1)
                 
                 session = {
-                    'id': f"w{week_num}-s{idx+1}",
+                    'id': f"w{week_num}-s{len(sessions)+1}",
                     'day': "Anytime",
                     'type': session_type,
                     'date': None,
                     'priority': priority,
                     'duration_minutes': duration_minutes,
-                    'description': description,
+                    'description': full_description,
                     'zones': zones,
                     'scheduled': True,
                     'completed': False,
@@ -222,9 +365,6 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
                     's_and_c_routine': s_and_c_routine
                 }
                 sessions.append(session)
-            
-            # Found sessions with this pattern, stop trying others
-            break
     
     if not sessions:
         print(f"    ⚠️  No sessions matched any pattern")
@@ -235,6 +375,11 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
             print(f"    Sample lines with asterisks:")
             for line in asterisk_lines:
                 print(f"      → {line[:80]}{'...' if len(line) > 80 else ''}")
+    else:
+        # Summary of workout details extraction
+        total = sessions_with_details + sessions_without_details
+        if total > 0:
+            print(f"    📊 Workout details: {sessions_with_details}/{total} sessions had details extracted")
     
     return sessions
 
@@ -391,10 +536,14 @@ def migrate_dynamodb(table_name: str, athlete_id: str, dry_run: bool = True):
     
     # Apply migration
     user_data['plan_v2'] = plan_v2
-    user_data = convert_to_decimals(user_data)
+    
+    # Use the same conversion function as the app (json_to_dynamodb) to ensure consistency
+    # This preserves booleans correctly, unlike convert_to_decimals which is only for numbers
+    from data_manager import json_to_dynamodb
+    item_to_save = json_to_dynamodb(user_data)
     
     print(f"\n💾 Saving to DynamoDB table: {table_name}...")
-    table.put_item(Item=user_data)
+    table.put_item(Item=item_to_save)
     
     print(f"\n{'='*60}")
     print(f"✅ MIGRATION COMPLETE!")

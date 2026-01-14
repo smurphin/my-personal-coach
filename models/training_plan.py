@@ -70,6 +70,15 @@ class Session:
         Only passes known fields to constructor to avoid errors from obsolete fields.
         """
         # Only pass fields that are part of the dataclass definition
+        # Convert completed and scheduled to booleans (handle cases where DynamoDB stores them as 0/1)
+        completed_value = data.get('completed', False)
+        if isinstance(completed_value, (int, float)):
+            completed_value = bool(completed_value)
+        
+        scheduled_value = data.get('scheduled', True)
+        if isinstance(scheduled_value, (int, float)):
+            scheduled_value = bool(scheduled_value)
+        
         known_fields = {
             'id': data.get('id'),
             'day': data.get('day'),
@@ -79,8 +88,8 @@ class Session:
             'duration_minutes': data.get('duration_minutes'),
             'description': data.get('description', ''),
             'zones': data.get('zones', {}),
-            'scheduled': data.get('scheduled', True),
-            'completed': data.get('completed', False),
+            'scheduled': scheduled_value,
+            'completed': completed_value,
             'strava_activity_id': data.get('strava_activity_id'),
             'completed_at': data.get('completed_at'),
             's_and_c_routine': data.get('s_and_c_routine')
