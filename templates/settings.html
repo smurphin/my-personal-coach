@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8" style="max-width: 1000px;">
+    
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Settings</h1>
+        <p class="text-brand-light-gray">Manage your profile, training metrics, and preferences</p>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-lg {% if category == 'success' %}bg-green-900/30 border border-green-600 text-green-200{% else %}bg-red-900/30 border border-red-600 text-red-200{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('dashboard.update_settings') }}" method="POST">
+        
+        <!-- Training Metrics Section -->
+        <div class="bg-brand-dark rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Training Metrics</h2>
+            <p class="text-sm text-brand-light-gray mb-6">
+                These metrics are automatically detected from your Strava races, but you can override them with lab-tested values.
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- VDOT -->
+                <div>
+                    <label for="vdot" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        VDOT (Running Fitness)
+                    </label>
+                    <input 
+                        type="number" 
+                        step="1"
+                        id="vdot" 
+                        name="vdot" 
+                        value="{{ vdot if vdot else '' }}"
+                        placeholder="e.g., 49"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                    {% if vdot_source %}
+                        <p class="text-xs text-gray-400 mt-2">
+                            Current: {{ vdot }} 
+                            {% if vdot_source == 'RACE_DETECTION' %}(Auto-detected)
+                            {% elif vdot_source == 'USER_OVERRIDE' %}(Manual)
+                            {% elif vdot_source == 'Extracted from plan_data' %}(Migrated)
+                            {% else %}({{ vdot_source }}){% endif %}
+                            {% if vdot_date %}<br>Set: {{ vdot_date[:10] }}{% endif %}
+                        </p>
+                    {% endif %}
+                    
+                    <p class="text-xs text-gray-500 mt-1">
+                        VDOT is always a whole number. Decimals will be rounded down.
+                    </p>
+                </div>
+                
+                <!-- LTHR -->
+                <div>
+                    <label for="lthr" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        LTHR (bpm)
+                    </label>
+                    <input 
+                        type="number" 
+                        id="lthr" 
+                        name="lthr" 
+                        value="{{ lthr if lthr else '' }}"
+                        placeholder="e.g., 168"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                    {% if lthr_source %}
+                        <p class="text-xs text-gray-400 mt-2">
+                            Current: {{ lthr }} bpm
+                            {% if lthr_source == 'LAB_TEST' %}(Lab tested)
+                            {% elif lthr_source == 'USER_OVERRIDE' %}(Manual)
+                            {% else %}({{ lthr_source }}){% endif %}
+                            {% if lthr_date %}<br>Set: {{ lthr_date[:10] }}{% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+                
+                <!-- FTP -->
+                <div>
+                    <label for="ftp" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        FTP (watts)
+                    </label>
+                    <input 
+                        type="number" 
+                        id="ftp" 
+                        name="ftp" 
+                        value="{{ ftp if ftp else '' }}"
+                        placeholder="e.g., 285"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                    {% if ftp_source %}
+                        <p class="text-xs text-gray-400 mt-2">
+                            Current: {{ ftp }}w
+                            {% if ftp_source == 'LAB_TEST' %}(Lab tested)
+                            {% elif ftp_source == 'USER_OVERRIDE' %}(Manual)
+                            {% else %}({{ ftp_source }}){% endif %}
+                            {% if ftp_date %}<br>Set: {{ ftp_date[:10] }}{% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+                
+            </div>
+            
+            <div class="mt-4 p-3 bg-brand-gray rounded border border-brand-medium-gray">
+                <p class="text-xs text-brand-light-gray">
+                    <strong>Note:</strong> VDOT is used for running pace calculations. LTHR defines your heart rate training zones. FTP is used for cycling power zones. Leave blank if you don't have these values yet.
+                </p>
+            </div>
+        </div>
+
+        <!-- Lifestyle Context Section -->
+        <div class="bg-brand-dark rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Lifestyle & Context</h2>
+            <p class="text-sm text-brand-light-gray mb-6">
+                Help your AI coach understand your life constraints and training approach.
+            </p>
+            
+            <!-- Athlete Type -->
+            <div class="mb-6">
+                <label for="athlete_type" class="block text-sm font-medium text-brand-light-gray mb-2">
+                    Training Style
+                </label>
+                <select 
+                    id="athlete_type" 
+                    name="athlete_type"
+                    class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                >
+                    <option value="DISCIPLINARIAN" {% if lifestyle.athlete_type in ['DISCIPLINARIAN', 'The Disciplinarian'] %}selected{% endif %}>
+                        Disciplinarian (I follow fixed weekly schedules)
+                    </option>
+                    <option value="IMPROVISER" {% if lifestyle.athlete_type in ['IMPROVISER', 'The Improviser'] %}selected{% endif %}>
+                        Improviser (I prefer flexible day-to-day planning)
+                    </option>
+                    <option value="MINIMALIST" {% if lifestyle.athlete_type in ['MINIMALIST', 'The Minimalist'] %}selected{% endif %}>
+                        Minimalist (I do essential sessions only)
+                    </option>
+                </select>
+                <p class="text-xs text-gray-400 mt-2">
+                    This helps your coach adapt the training plan structure to match your approach.
+                </p>
+            </div>
+            
+            <!-- Work Pattern -->
+            <div class="mb-6">
+                <label for="work_pattern" class="block text-sm font-medium text-brand-light-gray mb-2">
+                    Work Pattern
+                </label>
+                <textarea 
+                    id="work_pattern" 
+                    name="work_pattern" 
+                    rows="2"
+                    placeholder="e.g., Office job Mon-Fri, flexible hours. Work from home on Wednesdays."
+                    class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue resize-none overflow-hidden"
+                    oninput="autoResize(this)"
+                >{{ lifestyle.work_pattern if lifestyle.work_pattern else '' }}</textarea>
+            </div>
+            
+            <!-- Family Commitments -->
+            <div class="mb-6">
+                <label for="family_commitments" class="block text-sm font-medium text-brand-light-gray mb-2">
+                    Family & Social Commitments
+                </label>
+                <textarea 
+                    id="family_commitments" 
+                    name="family_commitments" 
+                    rows="2"
+                    placeholder="e.g., Kids football on Saturday mornings, Sunday family lunch."
+                    class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue resize-none overflow-hidden"
+                    oninput="autoResize(this)"
+                >{{ lifestyle.family_commitments if lifestyle.family_commitments else '' }}</textarea>
+            </div>
+            
+            <!-- Training Constraints -->
+            <div class="mb-6">
+                <label for="training_constraints" class="block text-sm font-medium text-brand-light-gray mb-2">
+                    Training Constraints
+                </label>
+                <textarea 
+                    id="training_constraints" 
+                    name="training_constraints" 
+                    rows="2"
+                    placeholder="e.g., Gym access on Mon/Wed/Fri only. No early morning starts."
+                    class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue resize-none overflow-hidden"
+                    oninput="autoResize(this)"
+                >{{ lifestyle.training_constraints if lifestyle.training_constraints else '' }}</textarea>
+            </div>
+            
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-between items-center">
+            <a href="{{ url_for('dashboard.dashboard') }}" class="text-brand-light-gray hover:text-white">
+                ← Back to Dashboard
+            </a>
+            <button 
+                type="submit"
+                class="px-6 py-3 bg-brand-blue hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+            >
+                Save Changes
+            </button>
+        </div>
+        
+    </form>
+
+</div>
+
+<script>
+// Auto-resize textarea to fit content
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+// Auto-resize all textareas on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const textareas = document.querySelectorAll('textarea[oninput*="autoResize"]');
+    textareas.forEach(textarea => {
+        autoResize(textarea);
+    });
+});
+</script>
+
+{% endblock %}

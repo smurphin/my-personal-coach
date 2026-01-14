@@ -4,6 +4,9 @@ from google.oauth2 import service_account
 import jinja2
 import json
 from config import Config
+from models.training_plan import TrainingPlan
+from utils.migration import parse_ai_response_to_v2
+
 
 class AIService:
     """Service for AI/LLM interactions using Google's Gemini"""
@@ -32,13 +35,95 @@ class AIService:
             print(f"📍 Project: {Config.GCP_PROJECT_ID}, Location: {Config.GCP_LOCATION}")
         else:
             # Fall back to Application Default Credentials (ADC)
-            # This works when running locally with `gcloud auth application-default login`
             vertexai.init(
                 project=Config.GCP_PROJECT_ID,
                 location=Config.GCP_LOCATION
             )
             print(f"🔓 Vertex AI initialized with ADC for environment: {Config.ENVIRONMENT}")
             print(f"📍 Project: {Config.GCP_PROJECT_ID}, Location: {Config.GCP_LOCATION}")
+    
+    def _build_metrics_context(self, training_metrics):
+        """
+        Build a formatted metrics context string for AI prompts.
+        
+        Args:
+            training_metrics: Dict containing vdot, lthr, ftp with nested value/source/date_set
+        
+        Returns:
+            Formatted string with metrics and zones, or None if no metrics
+        """
+        if not training_metrics:
+            return None
+        
+        lines = []
+        lines.append("\n## ATHLETE'S CURRENT METRICS\n")
+        lines.append("**CRITICAL: Use these ACTUAL values, never estimate or make up metrics!**\n")
+        
+        # VDOT with training paces
+        if 'vdot' in training_metrics and training_metrics['vdot']:
+            vdot_data = training_metrics['vdot']
+            if isinstance(vdot_data, dict) and 'value' in vdot_data:
+                vdot = int(vdot_data['value'])  # Always integer, rounded down
+                
+                lines.append(f"\n### VDOT: {vdot}")
+                lines.append(f"Source: {vdot_data.get('source', 'Unknown')}")
+                
+                # Use stored paces if available, otherwise calculate
+                paces = vdot_data.get('paces')
+                if not paces:
+                    try:
+                        from vdot_calculator import get_training_paces
+                        paces = get_training_paces(vdot)
+                        print(f"Warning: VDOT paces not stored, calculated on-the-fly")
+                    except Exception as e:
+                        print(f"Warning: Could not load VDOT paces: {e}")
+                
+                if paces:
+                    lines.append(f"\n**Training Paces for VDOT {vdot} (from Jack Daniels' tables):**")
+                    lines.append(f"- Easy: {paces['easy_min']} - {paces['easy_max']} per km")
+                    lines.append(f"- Marathon: {paces['marathon']} per km")
+                    lines.append(f"- Threshold: {paces['threshold']} per km")
+                    lines.append(f"- Interval (VO2max): {paces['interval']} per km")
+                    lines.append(f"- Repetition: {paces['repetition']} per km")
+                else:
+                    lines.append(f"Note: Use VDOT {vdot} for pace calculations")
+        
+        # LTHR with heart rate zones
+        if 'lthr' in training_metrics and training_metrics['lthr']:
+            lthr_data = training_metrics['lthr']
+            if isinstance(lthr_data, dict) and 'value' in lthr_data:
+                lthr = lthr_data['value']
+                
+                lines.append(f"\n### LTHR (Lactate Threshold Heart Rate): {lthr} bpm")
+                lines.append(f"Source: {lthr_data.get('source', 'Unknown')}")
+                lines.append(f"\n**Heart Rate Zones (Joe Friel Method):**")
+                lines.append(f"- Zone 1 (Recovery): <{int(lthr * 0.85)} bpm")
+                lines.append(f"- Zone 2 (Aerobic): {int(lthr * 0.85)}-{int(lthr * 0.89)} bpm")
+                lines.append(f"- Zone 3 (Tempo): {int(lthr * 0.90)}-{int(lthr * 0.94)} bpm")
+                lines.append(f"- Zone 4 (Threshold): {int(lthr * 0.95)}-{lthr} bpm")
+                lines.append(f"- Zone 5 (VO2max+): >{lthr} bpm")
+        
+        # FTP with power zones
+        if 'ftp' in training_metrics and training_metrics['ftp']:
+            ftp_data = training_metrics['ftp']
+            if isinstance(ftp_data, dict) and 'value' in ftp_data:
+                ftp = ftp_data['value']
+                
+                lines.append(f"\n### FTP (Functional Threshold Power): {ftp} W")
+                lines.append(f"Source: {ftp_data.get('source', 'Unknown')}")
+                lines.append(f"\n**Power Zones (Joe Friel Method):**")
+                lines.append(f"- Zone 1 (Active Recovery): <{int(ftp * 0.55)} W")
+                lines.append(f"- Zone 2 (Endurance): {int(ftp * 0.55)}-{int(ftp * 0.75)} W")
+                lines.append(f"- Zone 3 (Tempo): {int(ftp * 0.76)}-{int(ftp * 0.90)} W")
+                lines.append(f"- Zone 4 (Threshold): {int(ftp * 0.91)}-{int(ftp * 1.05)} W")
+                lines.append(f"- Zone 5 (VO2max): {int(ftp * 1.06)}-{int(ftp * 1.20)} W")
+                lines.append(f"- Zone 6 (Anaerobic): {int(ftp * 1.21)}-{int(ftp * 1.50)} W")
+                lines.append(f"- Zone 7 (Neuromuscular): >{int(ftp * 1.50)} W")
+        
+        if len(lines) > 2:  # Has content beyond header
+            return "\n".join(lines)
+        
+        return None
     
     def generate_content(self, prompt_text, **kwargs):
         """Generate content from a prompt"""
@@ -49,94 +134,113 @@ class AIService:
             print(f"Error generating content from prompt: {e}")
             return ""
     
-    def generate_training_plan(self, user_inputs, athlete_data):
-        """Generate a training plan based on user inputs and athlete data"""
+    def generate_training_plan(self, user_inputs, athlete_data, vdot_data=None):
+        """
+        Generate a training plan and return both structured and markdown formats.
+        
+        Returns:
+            Tuple of (TrainingPlan, markdown_text)
+        """
         with open('prompts/plan_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
+        
+        # FIX: Extract duration parameters from final_data, NOT from user_inputs
+        final_data = athlete_data.get('final_data_for_ai', {})
+        weeks_until_goal = final_data.get('weeks_until_goal')
+        goal_date = final_data.get('goal_date')
+        plan_start_date = final_data.get('plan_start_date')
+        has_partial_week = final_data.get('has_partial_week', False)
+        days_in_partial_week = final_data.get('days_in_partial_week', 0)
+        
+        # DEBUG: Log template variables
+        print(f"--- DEBUG Template Variables ---")
+        print(f"  weeks_until_goal: {weeks_until_goal} (type: {type(weeks_until_goal)})")
+        print(f"  goal_date: {goal_date} (type: {type(goal_date)})")
+        print(f"  plan_start_date: {plan_start_date} (type: {type(plan_start_date)})")
+        print(f"  has_partial_week: {has_partial_week}")
+        print(f"  days_in_partial_week: {days_in_partial_week}")
+        print(f"  athlete_type: {user_inputs['athlete_type']}")
+        print(f"--- END DEBUG ---")
         
         prompt = template.render(
             athlete_goal=user_inputs['goal'],
             sessions_per_week=user_inputs['sessions_per_week'],
+            hours_per_week=user_inputs.get('hours_per_week'),
             athlete_type=user_inputs['athlete_type'],
             lifestyle_context=user_inputs['lifestyle_context'],
             training_history=athlete_data.get('training_history'),
-            json_data=json.dumps(athlete_data['final_data_for_ai'], indent=4)
+            json_data=json.dumps(final_data, indent=4),
+            weeks_until_goal=weeks_until_goal,
+            goal_date=goal_date,
+            plan_start_date=plan_start_date,
+            has_partial_week=has_partial_week,
+            days_in_partial_week=days_in_partial_week,
+            vdot_data=vdot_data,
+            friel_hr_zones=final_data.get('friel_hr_zones'),
+            friel_power_zones=final_data.get('friel_power_zones')
         )
         
-        return self.generate_content(prompt)
-    
-    def generate_maintenance_plan(self, user_inputs, athlete_data):
-        """Generate a maintenance training plan for a specified period"""
-        # Use the same prompt template but with maintenance-specific context
-        with open('prompts/plan_prompt.txt', 'r') as f:
-            template = jinja2.Template(f.read())
+        # Generate AI response
+        ai_response = self.generate_content(prompt)
         
-        # Modify the goal to emphasize maintenance
-        maintenance_weeks = user_inputs.get('maintenance_weeks', 4)
-        from datetime import datetime
-        today = datetime.now()
-        
-        maintenance_goal = f"Maintenance training plan for {maintenance_weeks} week{'s' if maintenance_weeks != 1 else ''} starting from {today.strftime('%B %d, %Y')}. Focus on maintaining current fitness level with consistent, moderate-intensity training. No specific race or performance goal - just maintaining fitness and health. Keep sessions simple, varied, and sustainable. Use current date ({today.strftime('%B %d, %Y')}) as the starting point for Week 1."
-        
-        # Pass training_history - it's a summary of the last plan and is relevant
-        training_history = athlete_data.get('training_history')
-        
-        # Log what's being passed
-        final_data = athlete_data['final_data_for_ai']
-        print(f"--- Maintenance plan data summary ---")
-        print(f"  - Goal: {maintenance_goal}")
-        print(f"  - Sessions per week: {user_inputs['sessions_per_week']} (from form)")
-        print(f"  - Hours per week: {user_inputs.get('hours_per_week', 'N/A')} (from form)")
-        print(f"  - Athlete type: {user_inputs.get('athlete_type', 'General')} (from onboarding)")
-        print(f"  - Lifestyle context: NOT included (bare bones plan)")
-        print(f"  - Weeks: {maintenance_weeks}")
-        print(f"  - Training history: {'Included (last plan summary)' if training_history else 'None'}")
-        print(f"  - Has athlete_stats: {bool(final_data.get('athlete_stats'))}")
-        print(f"  - Has strava_zones: {bool(final_data.get('strava_zones'))}")
-        print(f"  - Has friel_hr_zones: {bool(final_data.get('friel_hr_zones'))}")
-        print(f"  - Has analyzed_activities: {'analyzed_activities' in final_data} (should be False)")
-        print(f"  - Has vdot_data: {'vdot_data' in final_data} (should be False)")
-        print(f"  - Has lifestyle_context: {'lifestyle_context' in final_data} (should be False)")
-        print(f"  - Starting date: {today.strftime('%Y-%m-%d')}")
-        
-        prompt = template.render(
-            athlete_goal=maintenance_goal,
-            sessions_per_week=user_inputs['sessions_per_week'],
-            athlete_type=user_inputs.get('athlete_type', 'General'),  # From onboarding
-            lifestyle_context='',  # Empty for maintenance plans - keep it bare bones
-            training_history=training_history,  # Summary of last plan
-            json_data=json.dumps(final_data, indent=4)
-        )
-        
-        print(f"--- Maintenance plan prompt generated (with training_history summary and athlete_type from onboarding, no lifestyle_context) ---")
-        
-        return self.generate_content(prompt)
+        # Parse into structured format
+        try:
+            plan_v2, markdown_text = parse_ai_response_to_v2(
+                ai_response,
+                athlete_id=str(athlete_data.get('athlete_id')),
+                user_inputs=user_inputs
+            )
+            print(f"✅ Generated structured plan with {len(plan_v2.weeks)} weeks")
+            return plan_v2, markdown_text
+        except Exception as e:
+            print(f"⚠️  Failed to parse structured plan: {e}")
+            print(f"Falling back to markdown-only")
+            # Fallback: return markdown only, plan_v2 will be None
+            return None, ai_response
     
     def generate_feedback(self, training_plan, feedback_log, completed_sessions, 
-                          training_history=None, garmin_health_stats=None):
+                          training_history=None, garmin_health_stats=None, incomplete_sessions=None,
+                          vdot_data=None, athlete_profile=None):
         """Generate feedback for completed training sessions"""
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
+        # If training_plan is a TrainingPlan object, convert to markdown
+        if isinstance(training_plan, TrainingPlan):
+            training_plan_text = training_plan.to_markdown()
+        else:
+            training_plan_text = training_plan
+        
         prompt = template.render(
-            training_plan=training_plan,
+            training_plan=training_plan_text,
             feedback_log_json=json.dumps(feedback_log, indent=2),
             completed_sessions=json.dumps(completed_sessions, indent=2),
             training_history=training_history,
-            garmin_health_stats=garmin_health_stats
+            garmin_health_stats=garmin_health_stats,
+            incomplete_sessions=incomplete_sessions,
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile
         )
         
         return self.generate_content(prompt)
     
-    def generate_chat_response(self, training_plan, feedback_log, chat_history):
+    def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None, athlete_profile=None):
         """Generate a chat response from the coach"""
         with open('prompts/chat_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
+        # If training_plan is a TrainingPlan object, convert to markdown
+        if isinstance(training_plan, TrainingPlan):
+            training_plan_text = training_plan.to_markdown()
+        else:
+            training_plan_text = training_plan
+        
         prompt = template.render(
-            training_plan=training_plan,
+            training_plan=training_plan_text,
             feedback_log_json=json.dumps(feedback_log, indent=2),
-            chat_history_json=json.dumps(chat_history, indent=2)
+            chat_history_json=json.dumps(chat_history, indent=2),
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile
         )
         
         return self.generate_content(prompt)
@@ -184,8 +288,14 @@ class AIService:
         with open('prompts/summarize_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
+        # If completed_plan is a TrainingPlan object, convert to markdown
+        if isinstance(completed_plan, TrainingPlan):
+            completed_plan_text = completed_plan.to_markdown()
+        else:
+            completed_plan_text = completed_plan
+        
         prompt = template.render(
-            completed_plan=completed_plan,
+            completed_plan=completed_plan_text,
             feedback_log_json=json.dumps(feedback_log, indent=2)
         )
         
@@ -198,6 +308,7 @@ class AIService:
         
         prompt = template.render(activity_names=activity_names)
         return self.generate_content(prompt).strip()
+
 
 # Create singleton instance
 ai_service = AIService()

@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Your Training Plan{% endblock %}
+{% block title %}S&C Exercise Library{% endblock %}
 
 {% block content %}
 <div class="mb-6 sm:mb-8">
-    <h1 class="text-2xl sm:text-3xl font-bold text-white">Your Training Plan</h1>
-    <p class="text-sm text-brand-light-gray mt-1">
-        <a href="/s-and-c-library" class="text-brand-blue hover:text-brand-light-blue">View S&C Library</a>
-    </p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white">S&C Exercise Library</h1>
+    <p class="text-brand-light-gray mt-2">Strength & Conditioning routines referenced in your training plan</p>
+    <a href="/plan" class="text-sm text-brand-blue hover:text-brand-light-blue mt-2 inline-block">← Back to Plan</a>
 </div>
 
+{% if library_content %}
 <!-- Mobile: Collapsible TOC -->
 <div class="lg:hidden mb-6">
     <button onclick="toggleMobileTOC()" class="w-full bg-brand-gray rounded-xl shadow-lg p-4 flex justify-between items-center">
-        <span class="text-lg font-bold text-brand-blue">Plan Sections</span>
+        <span class="text-lg font-bold text-brand-blue">Routines</span>
         <svg id="toc-chevron" class="w-5 h-5 text-brand-blue transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
     </button>
     <div id="mobile-toc" class="hidden mt-2 bg-brand-gray rounded-xl shadow-lg p-4">
         <div class="prose prose-invert prose-sm max-w-none toc">
-            {{ plan_toc | safe }}
+            {{ library_toc | safe }}
         </div>
     </div>
 </div>
@@ -31,9 +31,9 @@
     <!-- Desktop sidebar - hidden on mobile -->
     <div class="hidden lg:block lg:w-1/4 mb-8 lg:mb-0">
         <div class="sticky top-8 bg-brand-gray rounded-xl shadow-lg p-6">
-            <h2 class="text-xl font-bold text-brand-blue mb-4">Plan Sections</h2>
+            <h2 class="text-xl font-bold text-brand-blue mb-4">Routines</h2>
             <div class="prose prose-invert prose-sm max-w-none toc">
-                {{ plan_toc | safe }}
+                {{ library_toc | safe }}
             </div>
         </div>
     </div>
@@ -42,11 +42,21 @@
     <div class="lg:w-3/4">
         <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8">
             <div class="prose prose-invert max-w-none prose-sm sm:prose-base">
-                {{ plan_content | safe }}
+                {{ library_content | safe }}
             </div>
         </div>
     </div>
 </div>
+
+{% else %}
+<!-- No library content -->
+<div class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 text-center">
+    <p class="text-brand-light-gray text-lg">{{ error_message }}</p>
+    <a href="/plan" class="mt-4 inline-block px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-light-blue transition-colors">
+        View Your Plan
+    </a>
+</div>
+{% endif %}
 
 <script>
 function toggleMobileTOC() {

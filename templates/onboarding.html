@@ -226,6 +226,13 @@
                     <textarea id="user_goal" name="user_goal" rows="2" required class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., Run the London Marathon in under 3:30 or, survive my first trail 10k">{{ request.form.get('user_goal', '') }}</textarea>
                 </div>
 
+                <!-- Goal Date Picker -->
+                <div>
+                    <label for="goal_date" class="block text-sm font-medium text-brand-light-gray mb-1">Goal Date (Optional, but recommended)</label>
+                    <input type="date" id="goal_date" name="goal_date" value="{{ request.form.get('goal_date', '') }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-brand-blue focus:border-brand-blue transition cursor-pointer" style="color-scheme: dark;">
+                    <p class="mt-1 text-xs text-gray-400">If your goal has a specific date (race day, event, deadline), select it here. Your plan will be built to exactly reach this date. Leave blank for a 6-week default plan.</p>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <label for="sessions_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">Sessions per week</label>
@@ -244,18 +251,28 @@
 
                 <div>
                     <label for="lifestyle_context" class="block text-sm font-medium text-brand-light-gray mb-1">Lifestyle & schedule context</label>
-                    <textarea id="lifestyle_context" name="lifestyle_context" rows="3" class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="Mention shift work, recurring travel, or other regular commitments, be as specific as possible, the more context you can add, the better the plan will fit into your life.  Mention any upcoming plans that may disrupt training, more context can be always added later via the chat if things come up.&#10;&#10; e.g., I have child care every Saturday, I work late on Thursdays, I try and do a social run with my running club every Tuesday evening and I have a big party planned on Friday the 13th November">{{ request.form.get('lifestyle_context', '') }}</textarea>
+                    <textarea id="lifestyle_context" name="lifestyle_context" rows="3" class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="Mention recurring commitments like shift work, regular travel, childcare duties, or weekly social runs. Be as specific as possible.&#10;&#10;e.g., I have childcare every Saturday, I work late on Thursdays, I do a social club run every Tuesday evening">{{ request.form.get('lifestyle_context', athlete_profile.lifestyle_context if athlete_profile else '') }}</textarea>
+                    <p class="mt-1 text-xs text-gray-400">{% if athlete_profile %}Your saved profile is shown above - update if anything has changed.{% else %}This will be saved to your profile for future plans.{% endif %}</p>
+                </div>
+
+                <!-- Upcoming Commitments -->
+                <div>
+                    <label for="upcoming_commitments" class="block text-sm font-medium text-brand-light-gray mb-1">Upcoming commitments (For this plan)</label>
+                    <textarea id="upcoming_commitments" name="upcoming_commitments" rows="3" class="auto-expand w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="List any specific upcoming events, holidays, work trips, races, or commitments that might affect THIS training plan.&#10;&#10;e.g., Family holiday in Spain Aug 10-20, work conference in London Feb 5-7, friend's wedding March 15, parkrun every Saturday">{{ request.form.get('upcoming_commitments', '') }}</textarea>
+                    <p class="mt-1 text-xs text-gray-400">Specific to this plan only. Can be updated later via chat if things come up.</p>
                 </div>
 
                 <div>
                     <label for="athlete_type" class="block text-sm font-medium text-brand-light-gray mb-1">Which athlete type best describes you?</label>
                     <select id="athlete_type" name="athlete_type" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-brand-blue focus:border-brand-blue transition">
-                        <option value="The Disciplinarian" {% if request.form.get('athlete_type') == 'The Disciplinarian' %}selected{% endif %}>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
+                        {% set current_type = request.form.get('athlete_type', athlete_profile.athlete_type if athlete_profile else 'The Improviser') %}
+                        <option value="The Disciplinarian" {% if current_type == 'The Disciplinarian' %}selected{% endif %}>The Disciplinarian: Give me a structured plan and I will follow it precisely.</option>
 
-                        <option value="The Improviser" {% if request.form.get('athlete_type') == 'The Improviser' or not request.form.get('athlete_type') %}selected{% endif %}>The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
+                        <option value="The Improviser" {% if current_type == 'The Improviser' %}selected{% endif %}>The Improviser: I need a plan, but I also need the flexibility to move sessions around.</option>
                         
-                        <option value="The Minimalist" {% if request.form.get('athlete_type') == 'The Minimalist' %}selected{% endif %}>The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
+                        <option value="The Minimalist" {% if current_type == 'The Minimalist' %}selected{% endif %}>The Minimalist: Just tell me the one or two key sessions I absolutely must do this week.</option>
                     </select>
+                    <p class="mt-1 text-xs text-gray-400">{% if athlete_profile %}Saved to your profile{% else %}This will be saved to your profile{% endif %}</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -426,6 +443,52 @@ document.addEventListener('DOMContentLoaded', function() {
     if (form) {
         form.addEventListener('submit', function(e) {
             showSpinnerWithCarousel();
+        });
+    }
+    
+    // Date picker: Set minimum date to tomorrow and enhance UX
+    const goalDateInput = document.getElementById('goal_date');
+    if (goalDateInput) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const minDate = tomorrow.toISOString().split('T')[0];
+        goalDateInput.setAttribute('min', minDate);
+        
+        // Make entire field clickable to open calendar
+        goalDateInput.addEventListener('click', function(e) {
+            // Modern browsers support showPicker()
+            if (this.showPicker) {
+                try {
+                    this.showPicker();
+                } catch (err) {
+                    // showPicker() can throw if user hasn't interacted with page yet
+                    console.log('Calendar picker not available yet');
+                }
+            } else {
+                // Fallback for older browsers - focus triggers calendar
+                this.focus();
+            }
+        });
+        
+        // Also open on focus
+        goalDateInput.addEventListener('focus', function(e) {
+            if (this.showPicker) {
+                try {
+                    this.showPicker();
+                } catch (err) {
+                    // Ignore error
+                }
+            }
+        });
+        
+        // Optional: Show weeks calculation when date selected
+        goalDateInput.addEventListener('change', function() {
+            if (this.value) {
+                const selectedDate = new Date(this.value);
+                const today = new Date();
+                const weeksUntil = Math.ceil((selectedDate - today) / (7 * 24 * 60 * 60 * 1000));
+                console.log(`Goal date selected: ${this.value} (approximately ${weeksUntil} weeks away)`);
+            }
         });
     }
     
