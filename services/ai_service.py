@@ -144,6 +144,24 @@ class AIService:
         with open('prompts/plan_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
+        # FIX: Extract duration parameters from final_data, NOT from user_inputs
+        final_data = athlete_data.get('final_data_for_ai', {})
+        weeks_until_goal = final_data.get('weeks_until_goal')
+        goal_date = final_data.get('goal_date')
+        plan_start_date = final_data.get('plan_start_date')
+        has_partial_week = final_data.get('has_partial_week', False)
+        days_in_partial_week = final_data.get('days_in_partial_week', 0)
+        
+        # DEBUG: Log template variables
+        print(f"--- DEBUG Template Variables ---")
+        print(f"  weeks_until_goal: {weeks_until_goal} (type: {type(weeks_until_goal)})")
+        print(f"  goal_date: {goal_date} (type: {type(goal_date)})")
+        print(f"  plan_start_date: {plan_start_date} (type: {type(plan_start_date)})")
+        print(f"  has_partial_week: {has_partial_week}")
+        print(f"  days_in_partial_week: {days_in_partial_week}")
+        print(f"  athlete_type: {user_inputs['athlete_type']}")
+        print(f"--- END DEBUG ---")
+        
         prompt = template.render(
             athlete_goal=user_inputs['goal'],
             sessions_per_week=user_inputs['sessions_per_week'],
@@ -151,11 +169,15 @@ class AIService:
             athlete_type=user_inputs['athlete_type'],
             lifestyle_context=user_inputs['lifestyle_context'],
             training_history=athlete_data.get('training_history'),
-            json_data=json.dumps(athlete_data['final_data_for_ai'], indent=4),
-            weeks_until_goal=user_inputs.get('weeks_until_goal'),
-            goal_date=user_inputs.get('goal_date'),
-            plan_start_date=user_inputs.get('plan_start_date'),
-            vdot_data=vdot_data
+            json_data=json.dumps(final_data, indent=4),
+            weeks_until_goal=weeks_until_goal,
+            goal_date=goal_date,
+            plan_start_date=plan_start_date,
+            has_partial_week=has_partial_week,
+            days_in_partial_week=days_in_partial_week,
+            vdot_data=vdot_data,
+            friel_hr_zones=final_data.get('friel_hr_zones'),
+            friel_power_zones=final_data.get('friel_power_zones')
         )
         
         # Generate AI response
@@ -178,7 +200,7 @@ class AIService:
     
     def generate_feedback(self, training_plan, feedback_log, completed_sessions, 
                           training_history=None, garmin_health_stats=None, incomplete_sessions=None,
-                          vdot_data=None):
+                          vdot_data=None, athlete_profile=None):
         """Generate feedback for completed training sessions"""
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
@@ -196,12 +218,13 @@ class AIService:
             training_history=training_history,
             garmin_health_stats=garmin_health_stats,
             incomplete_sessions=incomplete_sessions,
-            vdot_data=vdot_data
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile
         )
         
         return self.generate_content(prompt)
     
-    def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None):
+    def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None, athlete_profile=None):
         """Generate a chat response from the coach"""
         with open('prompts/chat_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
@@ -216,7 +239,8 @@ class AIService:
             training_plan=training_plan_text,
             feedback_log_json=json.dumps(feedback_log, indent=2),
             chat_history_json=json.dumps(chat_history, indent=2),
-            vdot_data=vdot_data
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile
         )
         
         return self.generate_content(prompt)

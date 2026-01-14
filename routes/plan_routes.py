@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session, flash
+from flask import Blueprint, render_template, request, redirect, session, flash, url_for
 from datetime import datetime, timedelta
 import json
 import re
@@ -372,6 +372,8 @@ def generate_plan():
             'ftp': ftp
         }
         
+        print(f"--- DEBUG user_inputs['goal']: {user_inputs['goal']} ---")
+        
         # Get goal date - prioritize explicit date picker over text extraction
         goal_date_str = request.form.get('goal_date', '').strip()
         
@@ -477,6 +479,39 @@ def generate_plan():
         if 'training_metrics' not in user_data:
             user_data['training_metrics'] = TrainingMetrics(version=1).to_dict()
             print(f"--- Initialized training_metrics for athlete {athlete_id} ---")
+        
+        # Save LTHR and FTP from form to training_metrics
+        metrics_dict = user_data['training_metrics']
+        
+        if lthr:
+            metrics_dict['lthr'] = {
+                'value': lthr,
+                'detected_at': datetime.now().isoformat(),
+                'detected_from': {
+                    'activity_id': 0,
+                    'activity_name': 'User provided during onboarding',
+                    'detection_method': 'user_input'
+                },
+                'user_confirmed': True,
+                'user_modified': False,
+                'history': []
+            }
+            print(f"✅ Saved LTHR: {lthr} bpm to training_metrics")
+        
+        if ftp:
+            metrics_dict['ftp'] = {
+                'value': ftp,
+                'detected_at': datetime.now().isoformat(),
+                'detected_from': {
+                    'activity_id': 0,
+                    'activity_name': 'User provided during onboarding',
+                    'detection_method': 'user_input'
+                },
+                'user_confirmed': True,
+                'user_modified': False,
+                'history': []
+            }
+            print(f"✅ Saved FTP: {ftp} W to training_metrics")
         
         # Scan for VDOT-worthy races in last 8 weeks (only if we have valid activities)
         if activities_summary and not isinstance(activities_summary, FlaskResponse):
@@ -654,7 +689,9 @@ def generate_plan():
         # Prepare VDOT context for AI
         vdot_data = prepare_vdot_context(user_data)
         
-        ai_response_text = ai_service.generate_training_plan(
+        # generate_training_plan already calls parse_ai_response_to_v2 internally
+        # and returns (TrainingPlan, markdown_text) tuple
+        plan_v2, plan_markdown = ai_service.generate_training_plan(
             user_inputs,
             {
                 'training_history': user_data.get('training_history'),
@@ -666,24 +703,16 @@ def generate_plan():
         
         print(f"--- Plan generated successfully ---")
 
-        # Parse AI response into structured format
-        plan_v2, plan_markdown = parse_ai_response_to_v2(
-            ai_response_text, athlete_id, user_inputs
-        )
+        # No need to call parse_ai_response_to_v2 again - already done above
         
         # Extract plan_structure JSON separately
+        # plan_structure is deprecated - all structure is now in plan_v2
         plan_structure = None
-        json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
-        if json_match:
-            try:
-                plan_structure = json.loads(json_match.group(1).strip())
-            except json.JSONDecodeError:
-                pass
 
         # Save both formats
         user_data['plan'] = plan_markdown  # Markdown for display
-        user_data['plan_structure'] = plan_structure  # Week dates JSON
-        user_data['plan_v2'] = plan_v2.to_dict()  # Structured sessions
+        user_data['plan_structure'] = plan_structure  # Deprecated, kept for backwards compat
+        user_data['plan_v2'] = plan_v2.to_dict() if plan_v2 else None  # Structured sessions
         user_data['plan_data'] = final_data_for_ai
         
         # Clear no_active_plan flag if it exists (user is creating a new plan)
@@ -704,13 +733,9 @@ def generate_plan():
             print(f"--- APP: FAILURE! Reloaded data does NOT contain the plan.")
             return "Error: The plan was generated but could not be saved to the database. Please check the logs.", 500
 
-        # Render and return plan
-        rendered_plan = render_markdown_with_toc(plan_markdown)
-        return render_template(
-            'plan.html',
-            plan_content=rendered_plan['content'],
-            plan_toc=rendered_plan['toc']
-        )
+        # Success! Redirect to plan page
+        flash("Your training plan has been generated successfully!", "success")
+        return redirect(url_for('plan.view_plan'))
     
     except Exception as e:
         import traceback
@@ -735,13 +760,31 @@ def view_plan():
         # Use plan_v2 if available (structured data), otherwise fall back to markdown
         if 'plan_v2' in user_data:
             from models.training_plan import TrainingPlan
+            import markdown
             plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            
+            # Extract preamble from markdown plan (everything before first ### Week)
+            plan_preamble_html = None
+            if 'plan' in user_data:
+                plan_markdown = user_data['plan']
+                # Split at first ### Week header
+                import re
+                parts = re.split(r'\n### Week \d+:', plan_markdown, maxsplit=1)
+                if len(parts) > 0:
+                    preamble_md = parts[0].strip()
+                    if preamble_md:
+                        # Convert markdown to HTML
+                        plan_preamble_html = markdown.markdown(
+                            preamble_md,
+                            extensions=['tables', 'fenced_code']
+                        )
             
             return render_template(
                 'plan_v2.html',
                 plan=plan_v2,
                 athlete_goal=plan_v2.athlete_goal,
                 goal_date=plan_v2.goal_date,
+                plan_preamble_html=plan_preamble_html,
                 get_routine_link=get_routine_link
             )
         else:

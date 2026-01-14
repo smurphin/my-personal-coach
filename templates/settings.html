@@ -137,13 +137,13 @@
                     name="athlete_type"
                     class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
                 >
-                    <option value="DISCIPLINARIAN" {% if lifestyle.athlete_type == 'DISCIPLINARIAN' %}selected{% endif %}>
+                    <option value="DISCIPLINARIAN" {% if lifestyle.athlete_type in ['DISCIPLINARIAN', 'The Disciplinarian'] %}selected{% endif %}>
                         Disciplinarian (I follow fixed weekly schedules)
                     </option>
-                    <option value="IMPROVISER" {% if lifestyle.athlete_type == 'IMPROVISER' %}selected{% endif %}>
+                    <option value="IMPROVISER" {% if lifestyle.athlete_type in ['IMPROVISER', 'The Improviser'] %}selected{% endif %}>
                         Improviser (I prefer flexible day-to-day planning)
                     </option>
-                    <option value="MINIMALIST" {% if lifestyle.athlete_type == 'MINIMALIST' %}selected{% endif %}>
+                    <option value="MINIMALIST" {% if lifestyle.athlete_type in ['MINIMALIST', 'The Minimalist'] %}selected{% endif %}>
                         Minimalist (I do essential sessions only)
                     </option>
                 </select>

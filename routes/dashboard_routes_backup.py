@@ -13,8 +13,6 @@ from markdown_manager import render_markdown_with_toc
 from utils.decorators import login_required
 from utils.s_and_c_utils import get_routine_link
 
-from utils.plan_utils import archive_and_restore_past_weeks
-
 dashboard_bp = Blueprint('dashboard', __name__)
 
 @dashboard_bp.route("/")
@@ -78,7 +76,6 @@ def dashboard():
     current_week_number = None
     current_week_start = None
     current_week_end = None
-    week_day_statuses = []
     
     # Load plan_v2 if available, otherwise fall back to markdown
     if 'plan_v2' in user_data:
@@ -164,13 +161,7 @@ def dashboard():
             
             # Get current week's sessions
             today = date.today()
-            current_week_obj = None
             for week in plan_v2.weeks:
-                # Check if dates exist before parsing
-                if not week.start_date or not week.end_date:
-                    print(f"   ⚠️  Week {week.week_number} has missing dates - skipping date-based check")
-                    continue
-                
                 week_start = datetime.strptime(week.start_date, '%Y-%m-%d').date()
                 week_end = datetime.strptime(week.end_date, '%Y-%m-%d').date()
                 
@@ -179,100 +170,18 @@ def dashboard():
                     current_week_number = week.week_number
                     current_week_start = week_start.strftime('%d %b')
                     current_week_end = week_end.strftime('%d %b')
-                    current_week_obj = week
                     break
-            
-            # Fallback: If no current week found by date, try using get_current_week() method
-            # This uses the same logic but might handle edge cases better
-            if not current_week_obj:
-                try:
-                    current_week_obj = plan_v2.get_current_week()
-                    if current_week_obj:
-                        current_week_sessions = [s.to_dict() for s in current_week_obj.sessions]
-                        current_week_number = current_week_obj.week_number
-                        if current_week_obj.start_date and current_week_obj.end_date:
-                            week_start = datetime.strptime(current_week_obj.start_date, '%Y-%m-%d').date()
-                            week_end = datetime.strptime(current_week_obj.end_date, '%Y-%m-%d').date()
-                            current_week_start = week_start.strftime('%d %b')
-                            current_week_end = week_end.strftime('%d %b')
-                        print(f"   ✓ Found current week {current_week_number} using get_current_week()")
-                except Exception as e:
-                    print(f"   ⚠️  get_current_week() also failed: {e}")
-            
-            # Final fallback: Use first week with sessions if still no current week found
-            if not current_week_obj and plan_v2.weeks:
-                for week in plan_v2.weeks:
-                    if week.sessions:  # Has at least one session
-                        current_week_obj = week
-                        current_week_sessions = [s.to_dict() for s in week.sessions]
-                        current_week_number = week.week_number
-                        if week.start_date and week.end_date:
-                            week_start = datetime.strptime(week.start_date, '%Y-%m-%d').date()
-                            week_end = datetime.strptime(week.end_date, '%Y-%m-%d').date()
-                            current_week_start = week_start.strftime('%d %b')
-                            current_week_end = week_end.strftime('%d %b')
-                        print(f"   ⚠️  Using fallback: Week {current_week_number} (first week with sessions)")
-                        break
-            
-            # Debug: Log what we found
-            if current_week_obj:
-                print(f"   ✓ Current week found: Week {current_week_number} with {len(current_week_sessions)} sessions")
-            else:
-                print(f"   ⚠️  No current week found - plan_v2 has {len(plan_v2.weeks)} weeks")
-            
-            # Calculate day statuses for weekly plan tile (not needed for new tile, but keeping for compatibility)
-            week_day_statuses = []
-            if current_week_obj and current_week_obj.start_date:
-                week_start_date = datetime.strptime(current_week_obj.start_date, '%Y-%m-%d').date()
-                for i in range(7):
-                    day_date = week_start_date + timedelta(days=i)
-                    day_date_str = day_date.isoformat()
-                    
-                    # Find session for this day
-                    day_session = None
-                    for plan_session in current_week_obj.sessions:
-                        if plan_session.date == day_date_str:
-                            day_session = plan_session
-                            break
-                    
-                    week_day_statuses.append({
-                        'date': day_date_str,
-                        'date_obj': day_date,
-                        'is_today': day_date == today,
-                        'is_past': day_date < today,
-                        'is_future': day_date > today,
-                        'session': day_session.to_dict() if day_session else None
-                    })
             
             # Check if plan is finished
             if plan_v2.weeks:
                 last_week = plan_v2.weeks[-1]
-                if last_week.end_date:  # Only check if date exists
-                    last_end = datetime.strptime(last_week.end_date, '%Y-%m-%d').date()
-                    plan_finished = today >= last_end  # Use >= so plan ending today is considered finished
-                    print(f"   DEBUG: Plan completion check - today={today}, last_end={last_end}, plan_finished={plan_finished}")
-                else:
-                    # If last week has no end date, assume plan is not finished
-                    print("   ⚠️  Last week has no end_date - cannot determine if plan is finished")
-                    plan_finished = False
-            else:
-                print("   ⚠️  plan_v2 has no weeks - cannot determine if plan is finished")
-                plan_finished = False
+                last_end = datetime.strptime(last_week.end_date, '%Y-%m-%d').date()
+                plan_finished = today > last_end
             
         except Exception as e:
             print(f"Error loading plan_v2: {e}")
-            import traceback
-            traceback.print_exc()
             # Fall back to markdown
             current_week_sessions = []
-            # Try to get current week number from plan_v2_obj if available
-            if 'plan_v2_obj' in locals() and plan_v2_obj:
-                try:
-                    current_week_obj = plan_v2_obj.get_current_week()
-                    if current_week_obj:
-                        current_week_number = current_week_obj.week_number
-                except:
-                    pass
     
     # Fallback to markdown if no plan_v2 or error
     if not current_week_sessions and 'plan' in user_data and user_data.get('plan'):
@@ -292,10 +201,8 @@ def dashboard():
     plan_completion_prompted = user_data.get('plan_completion_prompted', False)
     
     # Show prompt if plan is finished and user hasn't been prompted yet
-    print(f"   DEBUG: plan_finished={plan_finished}, plan_completion_prompted={plan_completion_prompted}, will_show_prompt={plan_finished and not plan_completion_prompted}")
     if plan_finished and not plan_completion_prompted:
         show_completion_prompt = True
-        print(f"   ✓ Setting show_completion_prompt=True")
 
     # Check if Garmin is connected
     garmin_connected = 'garmin_credentials' in user_data
@@ -344,14 +251,6 @@ def dashboard():
             import traceback
             traceback.print_exc()
 
-    # Pass plan_v2 for weekly plan tile if available
-    plan_v2_obj = None
-    if 'plan_v2' in user_data:
-        try:
-            plan_v2_obj = TrainingPlan.from_dict(user_data['plan_v2'])
-        except Exception as e:
-            print(f"Error loading plan_v2 for template: {e}")
-    
     # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
@@ -360,8 +259,6 @@ def dashboard():
         current_week_number=current_week_number,
         current_week_start=current_week_start,
         current_week_end=current_week_end,
-        plan_v2=plan_v2_obj,
-        week_day_statuses=week_day_statuses if 'week_day_statuses' in locals() else [],
         garmin_connected=garmin_connected,
         show_completion_prompt=show_completion_prompt,
         plan_finished=plan_finished,
@@ -380,16 +277,6 @@ def chat():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     user_message = request.form.get('user_message')
-
-    # Load athlete profile for lifestyle context and athlete type
-    athlete_profile = user_data.get('athlete_profile', {})
-    if not athlete_profile:
-        # Fallback to legacy plan_data if profile doesn't exist
-        plan_data = user_data.get('plan_data', {})
-        athlete_profile = {
-            'lifestyle_context': plan_data.get('lifestyle_context'),
-            'athlete_type': plan_data.get('athlete_type')
-        }
 
     if not user_message:
         return redirect('/dashboard')
@@ -426,8 +313,7 @@ def chat():
         training_plan,
         feedback_log,
         chat_history,
-        vdot_data=vdot_data,
-        athlete_profile=athlete_profile  # Pass lifestyle context and athlete type
+        vdot_data=vdot_data
     )
 
     # Add AI response
@@ -475,7 +361,7 @@ def chat():
                 'goal_distance': user_data.get('goal_distance')
             }
             
-            # Don't attach old plan_structure - let it parse fresh from markdown
+            # Parse fresh from markdown (don't attach old structure)
             plan_v2, _ = parse_ai_response_to_v2(
                 new_plan_markdown,
                 athlete_id,
@@ -487,9 +373,6 @@ def chat():
                 total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
                 
                 if total_sessions > 0:
-                    # SAFEGUARD: Archive and restore past weeks
-                    plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
-                    
                     # CRITICAL: Restore completed status for matching sessions
                     restored_count = 0
                     for week in plan_v2.weeks:
@@ -505,8 +388,7 @@ def chat():
                     
                     # Parsing worked! Update plan_v2
                     user_data['plan_v2'] = plan_v2.to_dict()
-                    final_week_count = len(plan_v2.weeks)
-                    print(f"✅ plan_v2 updated with {final_week_count} weeks ({total_sessions} sessions)")
+                    print(f"✅ plan_v2 updated with {total_sessions} sessions")
                 else:
                     # Parsing failed - keep existing plan_v2
                     print(f"⚠️  Parser extracted 0 sessions from updated markdown")

@@ -187,6 +187,16 @@ def get_feedback_api():
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         
+        # Load athlete profile for lifestyle context and athlete type
+        athlete_profile = user_data.get('athlete_profile', {})
+        if not athlete_profile:
+            # Fallback to legacy plan_data if profile doesn't exist
+            plan_data = user_data.get('plan_data', {})
+            athlete_profile = {
+                'lifestyle_context': plan_data.get('lifestyle_context'),
+                'athlete_type': plan_data.get('athlete_type')
+            }
+        
         # Ensure token is valid (refresh if needed)
         access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
 
@@ -342,40 +352,71 @@ def get_feedback_api():
         if not analyzed_sessions:
             return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
 
-        # === NEW: AI-Assisted Session Completion Tracking ===
+        # === AI-Assisted Session Completion Tracking ===
         incomplete_sessions_text = None
         
         if 'plan_v2' in user_data:
-            from models.training_plan import TrainingPlan
-            
             try:
-                plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+                activity_date = datetime.fromisoformat(
+                    analyzed_sessions[0]['start_date'].replace('Z', '')
+                ).date()
                 
-                # Get week for first completed activity
-                if analyzed_sessions:
-                    activity_date = datetime.fromisoformat(
-                        analyzed_sessions[0]['start_date'].replace('Z', '')
-                    ).date().isoformat()
+                print(f"\n=== AI-Assisted Session Matching ===")
+                print(f"Activity: {analyzed_sessions[0].get('name')}")
+                print(f"Activity date: {activity_date}")
+                print(f"Activity type: {analyzed_sessions[0].get('type')}")
+                
+                # Find week containing this activity date
+                plan = user_data['plan_v2']
+                matched_week = None
+                
+                for week in plan['weeks']:
+                    week_start = datetime.fromisoformat(week['start_date']).date()
+                    week_end = datetime.fromisoformat(week['end_date']).date()
                     
-                    week = plan_v2.get_week_by_date(activity_date)
-                    if week:
-                        # Get incomplete sessions in this week
-                        incomplete_sessions = [s for s in week.sessions if not s.completed and s.type != 'REST']
+                    if week_start <= activity_date <= week_end:
+                        matched_week = week
+                        print(f"✅ Found week {week['week_number']}: {week_start} to {week_end}")
+                        break
+                
+                if matched_week:
+                    # Get incomplete sessions of matching type in this week
+                    activity_type_map = {
+                        'Run': 'RUN',
+                        'VirtualRun': 'RUN',
+                        'Ride': 'BIKE',
+                        'VirtualRide': 'BIKE',
+                        'Swim': 'SWIM'
+                    }
+                    expected_type = activity_type_map.get(analyzed_sessions[0].get('type'))
+                    
+                    incomplete_sessions = [
+                        s for s in matched_week['sessions'] 
+                        if not s.get('completed', False) 
+                        and s.get('type') != 'REST'
+                        and (not expected_type or s.get('type') == expected_type)
+                    ]
+                    
+                    if incomplete_sessions:
+                        print(f"Found {len(incomplete_sessions)} incomplete {expected_type or 'ANY'} sessions")
                         
-                        if incomplete_sessions:
-                            print(f"\n=== AI-Assisted Session Matching ===")
-                            print(f"Activity: {analyzed_sessions[0].get('name')}")
-                            print(f"Found {len(incomplete_sessions)} incomplete sessions in week {week.week_number}")
-                            
-                            # Prepare text for AI prompt
-                            session_list = []
-                            for s in incomplete_sessions:
-                                session_list.append(f"[{s.id}] {s.type}: {s.description}")
-                            incomplete_sessions_text = "\n".join(session_list)
-                        else:
-                            print(f"ℹ️  No incomplete sessions in week {week.week_number}")
+                        # Prepare text for AI prompt
+                        session_list = []
+                        for s in incomplete_sessions:
+                            session_list.append(
+                                f"[{s['id']}] {s.get('type', 'UNKNOWN')}: {s.get('description', 'No description')}"
+                            )
+                        incomplete_sessions_text = "\n".join(session_list)
+                        print(f"Sessions to match:\n{incomplete_sessions_text}")
                     else:
-                        print(f"⚠️  Activity {activity_date} doesn't fall within any plan week")
+                        print(f"ℹ️  No incomplete {expected_type or 'ANY'} sessions in week {matched_week['week_number']}")
+                else:
+                    print(f"⚠️  Activity {activity_date} doesn't fall within any plan week")
+                    print(f"   Available weeks:")
+                    for week in plan['weeks']:
+                        print(f"     Week {week['week_number']}: {week['start_date']} to {week['end_date']}")
+                
+                print("=" * 70)
                 
             except Exception as e:
                 print(f"⚠️  Error preparing session data for AI: {e}")
@@ -477,10 +518,14 @@ def get_feedback_api():
                 print(f"\n💾 VDOT STORAGE:")
                 print(f"   Current VDOT in DB: {current_vdot}")
                 print(f"   New VDOT calculated: {new_vdot}")
-                print(f"   Will update: {not current_vdot or new_vdot >= (current_vdot + 1)}")
                 
-                # Only flag for confirmation if significant improvement (>= 1 point)
-                if not current_vdot or new_vdot >= (current_vdot + 1):
+                # Skip update if VDOT value hasn't changed (avoid unnecessary recalculations)
+                if current_vdot is not None and current_vdot == new_vdot:
+                    print(f"   ⏭️  Skipping update: VDOT value unchanged ({new_vdot})")
+                else:
+                    # Always update when a new VDOT is detected (can go up or down)
+                    will_update = True
+                    print(f"   Will update: {will_update} (always update when detected)")
                     print(f"\n🎯 UPDATING VDOT: {current_vdot} → {new_vdot}")
                     
                     # Calculate paces from Jack Daniels' tables
@@ -593,7 +638,8 @@ def get_feedback_api():
             user_data.get('training_history'),
             garmin_data_for_activity,
             incomplete_sessions_text,
-            vdot_data=vdot_data
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile  # Pass lifestyle context and athlete type
         )
         
         print("\n" + "="*70)
@@ -649,50 +695,52 @@ def get_feedback_api():
             print(f"\n🤖 AI identified completed session: {session_id}")
             
             try:
-                from models.training_plan import TrainingPlan
+                plan = user_data['plan_v2']
                 
-                # Use fixed TrainingPlan model
-                plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
-                
-                print(f"   Loaded plan: {len(plan_v2.weeks)} weeks")
-                total_sessions = sum(len(w.sessions) for w in plan_v2.weeks)
+                print(f"   Plan has {len(plan['weeks'])} weeks")
+                total_sessions = sum(len(w['sessions']) for w in plan['weeks'])
                 print(f"   Total sessions: {total_sessions}")
                 
                 # Find the session by iterating through weeks
                 matched_session = None
+                matched_week_idx = None
+                matched_session_idx = None
+                
                 print(f"   Searching for session: {session_id}")
                 
-                for week_idx, week in enumerate(plan_v2.weeks):
-                    print(f"   Week {week_idx}: {len(week.sessions)} sessions")
+                for week_idx, week in enumerate(plan['weeks']):
+                    print(f"   Week {week_idx}: {len(week['sessions'])} sessions")
                     
-                    for sess in week.sessions:
-                        if sess.id == session_id:
+                    for sess_idx, sess in enumerate(week['sessions']):
+                        if sess['id'] == session_id:
                             matched_session = sess
-                            print(f"   ✅ FOUND matching session: {sess.id}")
+                            matched_week_idx = week_idx
+                            matched_session_idx = sess_idx
+                            print(f"   ✅ FOUND matching session: {sess['id']}")
                             break
                     
                     if matched_session:
                         break
                 
-                if matched_session and not matched_session.completed:
-                    # Mark session complete
-                    matched_session.completed = True
-                    matched_session.strava_activity_id = str(analyzed_sessions[0]['id'])
-                    matched_session.completed_at = analyzed_sessions[0]['start_date']
+                if matched_session and not matched_session.get('completed', False):
+                    # Mark session complete directly in dict
+                    plan['weeks'][matched_week_idx]['sessions'][matched_session_idx]['completed'] = True
+                    plan['weeks'][matched_week_idx]['sessions'][matched_session_idx]['strava_activity_id'] = str(analyzed_sessions[0]['id'])
+                    plan['weeks'][matched_week_idx]['sessions'][matched_session_idx]['completed_at'] = analyzed_sessions[0]['start_date']
                     
-                    # Save using fixed to_dict() method
-                    user_data['plan_v2'] = plan_v2.to_dict()
+                    # Save updated plan
+                    user_data['plan_v2'] = plan
                     safe_save_user_data(athlete_id, user_data)
                     print(f"✅ Marked {session_id} complete and saved")
                 
-                elif matched_session and matched_session.completed:
+                elif matched_session and matched_session.get('completed', False):
                     print(f"ℹ️  Session {session_id} already completed")
                 else:
                     print(f"⚠️  Session {session_id} not found in plan")
                     print(f"   Available session IDs:")
-                    for week in plan_v2.weeks:
-                        for sess in week.sessions:
-                            print(f"     - {sess.id}")
+                    for week in plan['weeks']:
+                        for sess in week['sessions']:
+                            print(f"     - {sess['id']}")
                 
                 # Remove marker from feedback display
                 feedback_markdown = re.sub(r'\[COMPLETED:[^\]]+\]', '', feedback_markdown).strip()
@@ -705,7 +753,7 @@ def get_feedback_api():
             print(f"ℹ️  AI identified session but no plan_v2 available")
 
         # Create descriptive name
-        activity_names = [session['name'] for session in analyzed_sessions]
+        activity_names = [sess['name'] for sess in analyzed_sessions]
         if len(activity_names) == 1:
             descriptive_name = f"Feedback for: {activity_names[0]}"
         else:
@@ -741,6 +789,19 @@ def get_feedback_api():
                     # Get current plan_v2 as backup
                     current_plan_v2 = user_data.get('plan_v2')
                     
+                    # CRITICAL: Extract completed sessions BEFORE parsing
+                    existing_completed = {}  # session_id -> {completed, strava_activity_id, completed_at}
+                    if current_plan_v2 and 'weeks' in current_plan_v2:
+                        for week in current_plan_v2['weeks']:
+                            for sess in week.get('sessions', []):
+                                if sess.get('completed'):
+                                    existing_completed[sess['id']] = {
+                                        'completed': True,
+                                        'strava_activity_id': sess.get('strava_activity_id'),
+                                        'completed_at': sess.get('completed_at')
+                                    }
+                        print(f"   📋 Preserving {len(existing_completed)} completed sessions")
+                    
                     from utils.migration import parse_ai_response_to_v2
                     
                     user_inputs = {
@@ -750,18 +811,52 @@ def get_feedback_api():
                         'goal_distance': user_data.get('goal_distance')
                     }
                     
-                    # Parse fresh from markdown (don't attach old structure)
-                    plan_v2, _ = parse_ai_response_to_v2(
-                        new_plan_markdown,
-                        athlete_id,
-                        user_inputs
-                    )
+                    # CRITICAL: Preserve plan_structure to maintain week dates
+                    # Without this, weeks get None dates and cause strptime errors
+                    plan_structure = user_data.get('plan_structure')
+                    if plan_structure and 'weeks' in plan_structure:
+                        print(f"   Preserving plan_structure with {len(plan_structure['weeks'])} weeks")
+                        # Create AI response with JSON structure
+                        import json
+                        json_block = f"\n\n```json\n{json.dumps(plan_structure)}\n```"
+                        ai_response_with_structure = new_plan_markdown + json_block
+                        
+                        plan_v2, _ = parse_ai_response_to_v2(
+                            ai_response_with_structure,
+                            athlete_id,
+                            user_inputs
+                        )
+                    else:
+                        # No plan_structure available - parse from markdown only
+                        print(f"   ⚠️  No plan_structure found - parsing markdown only (dates may be None)")
+                        plan_v2, _ = parse_ai_response_to_v2(
+                            new_plan_markdown,
+                            athlete_id,
+                            user_inputs
+                        )
                     
                     # Check if parsing succeeded
                     if plan_v2 and plan_v2.weeks:
                         total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
                         
                         if total_sessions > 0:
+                            # SAFEGUARD: Archive and restore past weeks
+                            from utils.plan_utils import archive_and_restore_past_weeks
+                            plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
+                            
+                            # CRITICAL: Restore completed status for matching sessions
+                            restored_count = 0
+                            for week in plan_v2.weeks:
+                                for sess in week.sessions:
+                                    if sess.id in existing_completed:
+                                        sess.completed = True
+                                        sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                                        sess.completed_at = existing_completed[sess.id]['completed_at']
+                                        restored_count += 1
+                            
+                            if restored_count > 0:
+                                print(f"   ✅ Restored {restored_count} completed sessions")
+                            
                             user_data['plan_v2'] = plan_v2.to_dict()
                             print(f"   ✅ plan_v2 updated with {total_sessions} sessions")
                         else:

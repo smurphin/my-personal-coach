@@ -117,6 +117,11 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
         score = 0.0
         reasons = []
         
+        # BASE SCORE: Type and week match (fundamental requirement)
+        # This ensures we always have some score if type matches
+        score += 1.0
+        reasons.append("type + week match")
+        
         activity_name = activity_data.get('name', '').lower()
         session_desc = (session.description or '').lower()
         
@@ -211,12 +216,42 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
     # Return best match if score is reasonable
     best_session, best_score, best_reason = scored_sessions[0]
     
-    # Require at least moderate confidence (5.0 = moderate description match or strong keyword match)
-    if best_score >= 5.0:
+    # Determine confidence threshold based on context
+    # If there's only one candidate, be more lenient (unique match)
+    is_unique_match = len(candidate_sessions) == 1
+    
+    if is_unique_match:
+        # For unique matches, lower threshold significantly
+        # Type + week match + any description similarity is enough
+        threshold = 2.0  # Much lower for unique matches
+        print(f"   ℹ️  Unique match: Only 1 {session_type} session in this week")
+        
+        # Boost score for unique matches to account for high likelihood
+        if best_score < threshold:
+            # If we have type match + week match + any description similarity, boost it
+            if best_score >= 1.0:  # Has at least some description match
+                best_score = max(best_score, threshold)
+                best_reason += " (unique match boost)"
+                print(f"   📈 Boosting unique match score to {best_score:.2f}")
+    else:
+        # For multiple candidates, require higher confidence
+        threshold = 5.0  # Moderate description match or strong keyword match
+    
+    # Special handling for STRETCH sessions - be more lenient
+    if best_session.priority == 'STRETCH':
+        # STRETCH sessions are optional, so if someone did one, it's likely intentional
+        # Lower threshold further for STRETCH sessions
+        if is_unique_match:
+            threshold = 1.5  # Very lenient for unique STRETCH matches
+        else:
+            threshold = 3.0  # Lower than normal for STRETCH sessions
+        print(f"   ℹ️  STRETCH session - using lower threshold ({threshold:.1f})")
+    
+    if best_score >= threshold:
         print(f"✅ Matched: {best_session.id} (score: {best_score:.2f}, {best_reason})")
         return best_session
     else:
-        print(f"⚠️  No confident match (best score: {best_score:.2f}, need ≥5.0)")
+        print(f"⚠️  No confident match (best score: {best_score:.2f}, need ≥{threshold:.1f})")
         return None
 
 

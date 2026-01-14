@@ -30,10 +30,40 @@
     </div>
 </div>
 
+<!-- Plan Overview - Collapsible -->
+{% if plan_preamble_html %}
+<div class="mb-6 bg-brand-gray rounded-xl shadow-lg overflow-hidden">
+    <button 
+        onclick="togglePlanOverview()" 
+        class="w-full px-4 sm:px-6 py-4 flex items-center justify-between hover:bg-brand-dark transition-colors"
+    >
+        <div class="flex items-center gap-4">
+            <h2 class="text-lg sm:text-xl font-bold text-brand-blue">Plan Overview</h2>
+        </div>
+        
+        <svg 
+            id="chevron-overview" 
+            class="w-5 h-5 text-brand-blue transform transition-transform"
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+        >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+    
+    <div id="plan-overview" class="hidden px-4 sm:px-6 py-4 border-t border-gray-700">
+        <div class="prose prose-invert prose-sm sm:prose-base max-w-none">
+            {{ plan_preamble_html | safe }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Weeks -->
 <div class="space-y-4">
     {% for week in plan.weeks %}
-    <div class="bg-brand-gray rounded-xl shadow-lg overflow-hidden">
+    <div id="week-{{ week.week_number }}-container" class="bg-brand-gray rounded-xl shadow-lg overflow-hidden">
         <!-- Week Header - Clickable to expand/collapse -->
         <button 
             onclick="toggleWeek({{ week.week_number }})" 
@@ -211,6 +241,20 @@
 </div>
 
 <script>
+// Toggle plan overview
+function togglePlanOverview() {
+    const content = document.getElementById('plan-overview');
+    const chevron = document.getElementById('chevron-overview');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        chevron.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        chevron.classList.remove('rotate-180');
+    }
+}
+
 // Expand/collapse weeks
 function toggleWeek(weekNumber) {
     const content = document.getElementById(`week-${weekNumber}`);
@@ -225,8 +269,24 @@ function toggleWeek(weekNumber) {
     }
 }
 
-// Auto-expand current week on load
+// Auto-expand current week on load, or week from anchor
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for anchor hash (e.g., #week-13)
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#week-')) {
+        const weekNumber = parseInt(hash.replace('#week-', ''));
+        if (weekNumber) {
+            // Scroll to week container and expand it
+            const weekContainer = document.getElementById(`week-${weekNumber}-container`);
+            if (weekContainer) {
+                weekContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                toggleWeek(weekNumber);
+            }
+            return;
+        }
+    }
+    
+    // Otherwise, auto-expand current week
     const today = new Date().toISOString().split('T')[0];
     
     // Find the week containing today

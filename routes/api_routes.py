@@ -4,6 +4,8 @@ import json
 import os
 import jinja2
 import re
+import threading
+from collections import defaultdict
 from config import Config
 from data_manager import data_manager
 from services.strava_service import strava_service
@@ -25,6 +27,413 @@ except ImportError:
 USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 
 api_bp = Blueprint('api', __name__)
+
+# Webhook processing queue with delay
+# Structure: {athlete_id: {'activity_ids': set(), 'activity_updates': {activity_id: count}, 'timer': Timer, 'last_update': timestamp}}
+webhook_queue = {}
+webhook_queue_lock = threading.Lock()
+
+# ============================================================================
+# WEBHOOK DELAY CONFIGURATION
+# ============================================================================
+# Change this value to adjust the delay before processing webhook events.
+# - Production: 300 (5 minutes) - allows batching multiple activity updates
+# - Testing: 30 or 10 seconds - for quicker feedback during development
+# 
+# This delay allows multiple activities (e.g., triathlon swim/bike/run) to
+# be updated and processed together, preventing context loss.
+# ============================================================================
+WEBHOOK_DELAY_SECONDS = 10  # Change this value for testing (e.g., 30 or 10)
+
+def process_queued_webhooks(athlete_id):
+    """
+    Process all queued webhook events for an athlete.
+    This function is called after the delay period to batch process multiple activities.
+    """
+    with webhook_queue_lock:
+        if athlete_id not in webhook_queue:
+            return
+        
+        queue_entry = webhook_queue[athlete_id]
+        activity_ids = list(queue_entry['activity_ids'])
+        activity_updates = queue_entry.get('activity_updates', {})
+        # Remove from queue before processing
+        del webhook_queue[athlete_id]
+    
+    print(f"\n{'='*70}")
+    print(f"PROCESSING QUEUED WEBHOOKS FOR ATHLETE {athlete_id}")
+    print(f"{'='*70}")
+    print(f"⏰ Processing queued activity updates after {WEBHOOK_DELAY_SECONDS}s delay...")
+    print(f"📋 Processing {len(activity_ids)} unique activities")
+    
+    # Log activities that were updated multiple times
+    multiple_updates = {aid: count for aid, count in activity_updates.items() if count > 1}
+    if multiple_updates:
+        print(f"🔄 Activities updated multiple times (will process latest version):")
+        for aid, count in multiple_updates.items():
+            print(f"   - Activity {aid}: {count} updates")
+    
+    # Now process activities (the existing logic will handle finding new activities)
+    # We'll trigger the normal processing flow
+    _trigger_webhook_processing(athlete_id)
+
+
+def _trigger_webhook_processing(athlete_id):
+    """
+    Trigger the normal webhook processing flow for an athlete.
+    This will find and process all new activities.
+    """
+    user_data = data_manager.load_user_data(athlete_id)
+    if not user_data or 'token' not in user_data:
+        print(f"❌ Could not find user data for athlete {athlete_id}")
+        return
+    
+    # Ensure token is valid
+    access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
+    if not access_token:
+        print(f"❌ Could not get valid token for athlete {athlete_id}")
+        return
+    
+    training_plan = user_data.get('plan')
+    if not training_plan:
+        print(f"--- No training plan found for athlete {athlete_id}. Skipping. ---")
+        return
+    
+    if 'feedback_log' not in user_data:
+        user_data['feedback_log'] = []
+    
+    feedback_log = user_data['feedback_log']
+    
+    # Check for new activities
+    processed_activity_ids = set()
+    for entry in feedback_log:
+        for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):
+            processed_activity_ids.add(str(act_id))
+    
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    last_fetch_timestamp = int(seven_days_ago.timestamp())
+    
+    recent_activities_summary = strava_service.get_recent_activities(
+        access_token,
+        last_fetch_timestamp,
+        per_page=100
+    )
+    
+    if not isinstance(recent_activities_summary, list):
+        print(f"⚠️ Strava API call failed for athlete {athlete_id}")
+        return
+    
+    new_activities_to_process = [
+        act for act in recent_activities_summary
+        if str(act['id']) not in processed_activity_ids
+    ]
+    
+    if not new_activities_to_process:
+        print(f"--- No new activities to analyze for athlete {athlete_id}. ---")
+        return
+    
+    new_activities_to_process.reverse()
+    
+    # Continue with existing processing logic (analyze, VDOT, feedback generation, etc.)
+    # This is the same code that was in the webhook handler - we'll call it from there
+    # For now, we'll duplicate the logic here, but ideally we'd extract it to a shared function
+    _process_webhook_activities(athlete_id, user_data, access_token, new_activities_to_process)
+
+
+def _process_webhook_activities(athlete_id, user_data, access_token, new_activities_to_process):
+    """
+    Process activities for webhook - extracted processing logic.
+    This handles analysis, VDOT detection, feedback generation, and plan updates.
+    """
+    # Analyze new activities
+    analyzed_sessions = []
+    raw_activities = []
+    friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
+    
+    for activity_summary in new_activities_to_process:
+        activity = strava_service.get_activity_detail(access_token, activity_summary['id'])
+        if not activity:
+            continue
+        
+        streams = strava_service.get_activity_streams(access_token, activity['id'])
+        analyzed_session = training_service.analyze_activity(
+            activity,
+            streams,
+            {"heart_rate": friel_hr_zones}
+        )
+        
+        raw_time_in_zones = analyzed_session["time_in_hr_zones"].copy()
+        
+        for key, seconds in analyzed_session["time_in_hr_zones"].items():
+            analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
+        
+        analyzed_sessions.append(analyzed_session)
+        raw_activities.append({
+            'activity': activity,
+            'time_in_zones': raw_time_in_zones
+        })
+    
+    if not analyzed_sessions:
+        print("❌ Found new activities, but could not analyze their details.")
+        return
+    
+    # Fetch Garmin data
+    first_activity_date_iso = datetime.fromisoformat(
+        analyzed_sessions[0]['start_date'].replace('Z', '')
+    ).date().isoformat()
+    
+    garmin_data_for_activity = None
+    if 'garmin_credentials' in user_data:
+        garmin_data_for_activity = garmin_service.authenticate_and_fetch(
+            user_data['garmin_credentials']['email'],
+            user_data['garmin_credentials']['password'],
+            first_activity_date_iso
+        )
+    
+    # VDOT DETECTION
+    if raw_activities and analyzed_sessions:
+        from services.vdot_detection_service import vdot_detection_service
+        from utils.vdot_calculator import VDOTCalculator
+        
+        print("\n" + "="*70)
+        print("VDOT DETECTION - DEBUG LOG (WEBHOOK - QUEUED)")
+        print("="*70)
+        
+        raw_activity = raw_activities[0]['activity']
+        time_in_zones_raw = raw_activities[0]['time_in_zones']
+        
+        time_in_zones = {}
+        for zone_name, zone_time in time_in_zones_raw.items():
+            if 'Zone' in zone_name:
+                zone_num = zone_name.replace('Zone ', '')
+                time_in_zones[f'Z{zone_num}'] = zone_time
+            else:
+                time_in_zones[zone_name] = zone_time
+        
+        print(f"📊 Processing {len(raw_activities)} activities for VDOT detection...")
+        
+        vdot_result = vdot_detection_service.calculate_vdot_from_activity(
+            raw_activity,
+            time_in_zones
+        )
+        
+        if vdot_result:
+            print(f"\n✅ VDOT DETECTION SUCCESSFUL!")
+            print(f"   Distance: {vdot_result['distance']}")
+            print(f"   Calculated VDOT: {vdot_result['vdot']}")
+            
+            current_vdot = None
+            if 'training_metrics' in user_data and 'vdot' in user_data['training_metrics']:
+                current_vdot_data = user_data['training_metrics']['vdot']
+                if isinstance(current_vdot_data, dict):
+                    current_vdot = current_vdot_data.get('value')
+            
+            new_vdot = int(vdot_result['vdot'])
+            
+            if current_vdot is not None and current_vdot == new_vdot:
+                print(f"   ⏭️  Skipping update: VDOT value unchanged ({new_vdot})")
+            else:
+                print(f"\n🎯 UPDATING VDOT: {current_vdot} → {new_vdot}")
+                
+                calc = VDOTCalculator()
+                paces = calc.get_training_paces(new_vdot)
+                
+                if 'training_metrics' not in user_data:
+                    user_data['training_metrics'] = {'version': 1}
+                
+                previous_vdot = None
+                if 'vdot' in user_data['training_metrics']:
+                    previous_vdot = user_data['training_metrics']['vdot'].copy()
+                
+                user_data['training_metrics']['vdot'] = {
+                    'value': new_vdot,
+                    'source': 'RACE_DETECTION',
+                    'date_set': datetime.now().isoformat(),
+                    'user_confirmed': False,
+                    'pending_confirmation': True,
+                    'detected_from': {
+                        'activity_id': vdot_result['activity_id'],
+                        'activity_name': vdot_result['activity_name'],
+                        'distance': vdot_result['distance'],
+                        'distance_meters': vdot_result['distance_meters'],
+                        'time_seconds': vdot_result['time_seconds'],
+                        'is_race': vdot_result['is_race'],
+                        'intensity_reason': vdot_result['intensity_reason']
+                    },
+                    'paces': paces,
+                    'previous_value': previous_vdot
+                }
+                
+                safe_save_user_data(athlete_id, user_data)
+                user_data = data_manager.load_user_data(athlete_id)
+    
+    # Prepare VDOT context for AI
+    from utils.vdot_context import prepare_vdot_context
+    
+    vdot_data = prepare_vdot_context(user_data)
+    
+    training_plan = user_data.get('plan')
+    feedback_log = user_data.get('feedback_log', [])
+    
+    # Generate feedback
+    feedback_markdown = ai_service.generate_feedback(
+        training_plan,
+        feedback_log,
+        analyzed_sessions,
+        user_data.get('training_history'),
+        garmin_data_for_activity,
+        incomplete_sessions=None,
+        vdot_data=vdot_data
+    )
+    
+    print(f"\n✅ AI feedback generated ({len(feedback_markdown)} characters)")
+    
+    # Create feedback log entry
+    activity_names = [session['name'] for session in analyzed_sessions]
+    if len(activity_names) == 1:
+        descriptive_name = f"Feedback for: {activity_names[0]}"
+    else:
+        descriptive_name = ai_service.summarize_activities(activity_names)
+        if not descriptive_name:
+            descriptive_name = f"Feedback for activities: {', '.join(activity_names)}"
+    
+    all_activity_ids = [s['id'] for s in analyzed_sessions]
+    
+    new_log_entry = {
+        "activity_id": int(analyzed_sessions[0]['id']),
+        "activity_name": descriptive_name,
+        "activity_date": format_activity_date(analyzed_sessions[0].get('start_date', '')),
+        "feedback_markdown": feedback_markdown,
+        "logged_activity_ids": all_activity_ids
+    }
+    
+    feedback_log.insert(0, new_log_entry)
+    user_data['feedback_log'] = feedback_log
+    print(f"📝 Added feedback entry for {len(analyzed_sessions)} activities to feedback_log")
+    
+    # === SESSION MATCHING ===
+    # Match activities to plan sessions and mark them complete
+    if 'plan_v2' in user_data and user_data['plan_v2']:
+        try:
+            from models.training_plan import TrainingPlan
+            from utils.session_matcher import match_sessions_batch
+            
+            plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+            # Get athlete_type from plan_data (where it's stored)
+            plan_data = user_data.get('plan_data', {})
+            athlete_type = plan_data.get('athlete_type', 'Improviser')  # Default to Improviser if not set
+            
+            print(f"\n{'='*70}")
+            print(f"SESSION MATCHING - WEBHOOK PROCESSING")
+            print(f"{'='*70}")
+            print(f"Athlete type: {athlete_type}")
+            print(f"Activities to match: {len(analyzed_sessions)}")
+            
+            matches = match_sessions_batch(plan_v2, analyzed_sessions, athlete_type)
+            
+            if matches:
+                print(f"\n✅ Found {len(matches)} session matches:")
+                for session, activity_data in matches:
+                    activity_id = activity_data.get('id')
+                    activity_date = datetime.fromisoformat(activity_data['start_date'].replace('Z', '')).date().isoformat()
+                    
+                    # Mark session complete
+                    session.mark_complete(activity_id, activity_data.get('start_date'))
+                    print(f"   ✓ Matched {session.id} ({session.type}) to activity {activity_id} on {activity_date}")
+                
+                # Save updated plan_v2
+                user_data['plan_v2'] = plan_v2.to_dict()
+                print(f"\n💾 Saving plan_v2 with {len(matches)} newly completed sessions")
+            else:
+                print(f"\nℹ️  No sessions matched for {len(analyzed_sessions)} activities")
+                print(f"   (This is normal if activities don't match any incomplete sessions)")
+            
+            print(f"{'='*70}\n")
+            
+        except Exception as e:
+            print(f"⚠️  Error during session matching: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Handle plan updates
+    if '[PLAN_UPDATED]' in feedback_markdown:
+        match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+        if match:
+            new_plan_markdown = match.group(1).strip()
+            user_data['plan'] = new_plan_markdown
+            print(f"✅ Plan updated via queued webhook processing")
+            
+            # Update plan_v2
+            try:
+                current_plan_v2 = user_data.get('plan_v2')
+                existing_completed = {}
+                if current_plan_v2 and 'weeks' in current_plan_v2:
+                    for week in current_plan_v2['weeks']:
+                        for sess in week.get('sessions', []):
+                            if sess.get('completed'):
+                                existing_completed[sess['id']] = {
+                                    'completed': True,
+                                    'strava_activity_id': sess.get('strava_activity_id'),
+                                    'completed_at': sess.get('completed_at')
+                                }
+                    print(f"   📋 Preserving {len(existing_completed)} completed sessions")
+                
+                from utils.migration import parse_ai_response_to_v2
+                
+                user_inputs = {
+                    'goal': user_data.get('goal', ''),
+                    'goal_date': user_data.get('goal_date'),
+                    'plan_start_date': user_data.get('plan_start_date'),
+                    'goal_distance': user_data.get('goal_distance')
+                }
+                
+                plan_structure = user_data.get('plan_structure')
+                if plan_structure and 'weeks' in plan_structure:
+                    import json
+                    json_block = f"\n\n```json\n{json.dumps(plan_structure)}\n```"
+                    ai_response_with_structure = new_plan_markdown + json_block
+                    plan_v2, _ = parse_ai_response_to_v2(
+                        ai_response_with_structure,
+                        athlete_id,
+                        user_inputs
+                    )
+                else:
+                    plan_v2, _ = parse_ai_response_to_v2(
+                        new_plan_markdown,
+                        athlete_id,
+                        user_inputs
+                    )
+                
+                if plan_v2 and plan_v2.weeks:
+                    total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
+                    if total_sessions > 0:
+                        # SAFEGUARD: Archive and restore past weeks
+                        from utils.plan_utils import archive_and_restore_past_weeks
+                        plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
+                        
+                        restored_count = 0
+                        for week in plan_v2.weeks:
+                            for sess in week.sessions:
+                                if sess.id in existing_completed:
+                                    sess.completed = True
+                                    sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                                    sess.completed_at = existing_completed[sess.id]['completed_at']
+                                    restored_count += 1
+                        
+                        if restored_count > 0:
+                            print(f"   ✅ Restored {restored_count} completed sessions")
+                        
+                        user_data['plan_v2'] = plan_v2.to_dict()
+                        final_week_count = len(plan_v2.weeks)
+                        print(f"   ✅ plan_v2 updated with {final_week_count} weeks ({total_sessions} sessions)")
+            except Exception as e:
+                print(f"   ⚠️  Error parsing plan_v2: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    safe_save_user_data(athlete_id, user_data)
+    print(f"✅ Successfully processed queued webhooks for athlete {athlete_id}")
+
 
 def safe_save_user_data(athlete_id, user_data):
     """
@@ -110,382 +519,65 @@ def strava_webhook():
         # Only process activity update events
         if event_data.get('object_type') == 'activity' and event_data.get('aspect_type') == 'update':
             athlete_id = str(event_data.get('owner_id'))
+            activity_id = str(event_data.get('object_id'))
             
             user_data = data_manager.load_user_data(athlete_id)
             if not user_data or 'token' not in user_data:
                 print(f"--- Could not find user data for athlete {athlete_id}. Skipping. ---")
                 return 'EVENT_RECEIVED', 200
             
-            # Ensure token is valid (refresh if needed)
-            access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
-            
-            if not access_token:
-                print(f"❌ Could not get valid token for athlete {athlete_id} - marking as disconnected")
+            # Queue webhook for delayed processing (5 minute delay to batch multiple activities)
+            with webhook_queue_lock:
+                # Cancel existing timer if one exists
+                if athlete_id in webhook_queue:
+                    existing_timer = webhook_queue[athlete_id].get('timer')
+                    if existing_timer:
+                        existing_timer.cancel()
+                        print(f"⏸️  Cancelled existing webhook timer for athlete {athlete_id}")
                 
-                # Mark athlete as disconnected
-                user_data['strava_connected'] = False
-                user_data['strava_disconnected_at'] = datetime.now().isoformat()
-                user_data['strava_disconnect_reason'] = 'token_refresh_failed'
-                safe_save_user_data(athlete_id, user_data)
+                # Add activity to queue
+                if athlete_id not in webhook_queue:
+                    webhook_queue[athlete_id] = {
+                        'activity_ids': set(),
+                        'activity_updates': {},  # Track how many times each activity was updated
+                        'timer': None,
+                        'last_update': datetime.now().timestamp()
+                    }
                 
-                return 'EVENT_RECEIVED', 200
-            
-            training_plan = user_data.get('plan')
-            
-            if not training_plan:
-                print(f"--- No training plan found for athlete {athlete_id}. Skipping. ---")
-                return 'EVENT_RECEIVED', 200
+                # Track if this activity was already in the queue (multiple updates)
+                was_already_queued = activity_id in webhook_queue[athlete_id]['activity_ids']
                 
-            if 'feedback_log' not in user_data:
-                user_data['feedback_log'] = []
-
-            feedback_log = user_data['feedback_log']
-            
-            # Check for new activities
-            processed_activity_ids = set()
-            for entry in feedback_log:
-                for act_id in entry.get('logged_activity_ids', [entry.get('activity_id')]):
-                    processed_activity_ids.add(str(act_id))
-
-            seven_days_ago = datetime.now() - timedelta(days=7)
-            last_fetch_timestamp = int(seven_days_ago.timestamp())
-
-            recent_activities_summary = strava_service.get_recent_activities(
-                access_token,
-                last_fetch_timestamp,
-                per_page=100
-            )
-            
-            # Check if API call failed
-            if not isinstance(recent_activities_summary, list):
-                print(f"⚠️ Strava API call failed in webhook handler for athlete {athlete_id}")
+                webhook_queue[athlete_id]['activity_ids'].add(activity_id)
                 
-                # Log the actual error response for debugging
-                if hasattr(recent_activities_summary, 'status_code'):
-                    print(f"   Status Code: {recent_activities_summary.status_code}")
-                if hasattr(recent_activities_summary, 'get_json'):
-                    try:
-                        error_data = recent_activities_summary.get_json()
-                        print(f"   Error Response: {error_data}")
-                    except:
-                        pass
+                # Track update count for this activity
+                if activity_id not in webhook_queue[athlete_id]['activity_updates']:
+                    webhook_queue[athlete_id]['activity_updates'][activity_id] = 0
+                webhook_queue[athlete_id]['activity_updates'][activity_id] += 1
                 
-                # Check token validity
-                token_data = user_data.get('token', {})
-                print(f"   Token expires_at: {token_data.get('expires_at', 'unknown')}")
-                print(f"   Current time: {datetime.now().timestamp()}")
+                webhook_queue[athlete_id]['last_update'] = datetime.now().timestamp()
                 
-                return 'EVENT_RECEIVED', 200  # Return 200 so Strava doesn't retry
-            
-            new_activities_to_process = [
-                act for act in recent_activities_summary
-                if str(act['id']) not in processed_activity_ids
-            ]
-
-            if not new_activities_to_process:
-                print(f"--- No new activities to analyze for athlete {athlete_id}. ---")
-                return 'EVENT_RECEIVED', 200
-
-            new_activities_to_process.reverse()
-            
-            # Analyze new activities
-            analyzed_sessions = []
-            raw_activities = []  # Store raw Strava data for VDOT detection
-            friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
-            
-            for activity_summary in new_activities_to_process:
-                activity = strava_service.get_activity_detail(access_token, activity_summary['id'])
-                if not activity:
-                    continue
-
-                streams = strava_service.get_activity_streams(access_token, activity['id'])
-                analyzed_session = training_service.analyze_activity(
-                    activity,
-                    streams,
-                    {"heart_rate": friel_hr_zones}
+                # Create new timer for 5-minute delay
+                timer = threading.Timer(
+                    WEBHOOK_DELAY_SECONDS,
+                    process_queued_webhooks,
+                    args=(athlete_id,)
                 )
+                timer.daemon = True  # Allow program to exit even if timer is running
+                timer.start()
                 
-                # Store raw time_in_zones BEFORE formatting
-                raw_time_in_zones = analyzed_session["time_in_hr_zones"].copy()
+                webhook_queue[athlete_id]['timer'] = timer
                 
-                # Format time in zones for display
-                for key, seconds in analyzed_session["time_in_hr_zones"].items():
-                    analyzed_session["time_in_hr_zones"][key] = format_seconds(seconds)
+                queue_size = len(webhook_queue[athlete_id]['activity_ids'])
+                update_count = webhook_queue[athlete_id]['activity_updates'][activity_id]
                 
-                analyzed_sessions.append(analyzed_session)
-                raw_activities.append({
-                    'activity': activity,  # Raw Strava activity
-                    'time_in_zones': raw_time_in_zones  # Unformatted time_in_zones
-                })
-
-            if not analyzed_sessions:
-                return jsonify({"message": "Found new activities, but could not analyze their details."})
-
-            # Fetch Garmin data
-            first_activity_date_iso = datetime.fromisoformat(
-                analyzed_sessions[0]['start_date'].replace('Z', '')
-            ).date().isoformat()
-            
-            garmin_data_for_activity = None
-            if 'garmin_credentials' in user_data:
-                garmin_data_for_activity = garmin_service.authenticate_and_fetch(
-                    user_data['garmin_credentials']['email'],
-                    user_data['garmin_credentials']['password'],
-                    first_activity_date_iso
-                )
-
-            # ============================================
-            # VDOT DETECTION (same as feedback_routes.py)
-            # ============================================
-            if raw_activities and analyzed_sessions:
-                from services.vdot_detection_service import vdot_detection_service
-                from utils.vdot_calculator import VDOTCalculator
-                
-                print("\n" + "="*70)
-                print("VDOT DETECTION - DEBUG LOG (WEBHOOK)")
-                print("="*70)
-                
-                # Use RAW activity for VDOT detection
-                raw_activity = raw_activities[0]['activity']
-                time_in_zones_raw = raw_activities[0]['time_in_zones']  # Unformatted
-                
-                # Convert zone keys: 'Zone 1' -> 'Z1', 'Zone 2' -> 'Z2', etc.
-                time_in_zones = {}
-                for zone_name, zone_time in time_in_zones_raw.items():
-                    if 'Zone' in zone_name:
-                        # Convert 'Zone 1' to 'Z1', 'Zone 2' to 'Z2', etc.
-                        zone_num = zone_name.replace('Zone ', '')
-                        time_in_zones[f'Z{zone_num}'] = zone_time
-                    else:
-                        # Already in correct format
-                        time_in_zones[zone_name] = zone_time
-                
-                print(f"📊 Activity being analyzed:")
-                print(f"   Name: {raw_activity.get('name')}")
-                print(f"   Distance: {raw_activity.get('distance')} meters")
-                print(f"   Time: {raw_activity.get('moving_time')} seconds")
-                print(f"   Type: {raw_activity.get('type')}")
-                print(f"   Workout Type: {raw_activity.get('workout_type')} (1=Race)")
-                print(f"\n⏱️  Time in zones:")
-                for zone, time_secs in time_in_zones.items():
-                    if time_secs and isinstance(time_secs, (int, float)):
-                        minutes = int(time_secs / 60)
-                        seconds = int(time_secs % 60)
-                        percent = (time_secs / raw_activity.get('moving_time', 1)) * 100
-                        print(f"   {zone}: {minutes}:{seconds:02d} ({time_secs}s, {percent:.1f}%)")
-                
-                print(f"\n🔍 Calling vdot_detection_service...")
-                vdot_result = vdot_detection_service.calculate_vdot_from_activity(
-                    raw_activity,  # Pass RAW activity
-                    time_in_zones  # Now with correct Z1, Z2, Z3, Z4, Z5 keys!
-                )
-                
-                if vdot_result:
-                    print(f"\n✅ VDOT DETECTION SUCCESSFUL!")
-                    print(f"   Distance: {vdot_result['distance']}")
-                    print(f"   Time: {vdot_result['time_seconds']}s")
-                    print(f"   Calculated VDOT: {vdot_result['vdot']}")
-                    print(f"   Is Race: {vdot_result['is_race']}")
-                    print(f"   Reason: {vdot_result['intensity_reason']}")
+                if was_already_queued:
+                    print(f"📥 Activity {activity_id} updated again (update #{update_count}) - timer reset, will process latest version after {WEBHOOK_DELAY_SECONDS}s")
                 else:
-                    print(f"\n❌ Activity does not qualify for VDOT calculation")
-                    print(f"   (Not a race or insufficient intensity)")
-                
-                if vdot_result:
-                    # Get current VDOT
-                    current_vdot = None
-                    if 'training_metrics' in user_data and 'vdot' in user_data['training_metrics']:
-                        current_vdot_data = user_data['training_metrics']['vdot']
-                        if isinstance(current_vdot_data, dict):
-                            current_vdot = current_vdot_data.get('value')
-                    
-                    new_vdot = int(vdot_result['vdot'])
-                    
-                    print(f"\n💾 VDOT STORAGE:")
-                    print(f"   Current VDOT in DB: {current_vdot}")
-                    print(f"   New VDOT calculated: {new_vdot}")
-                    print(f"   Will update: {not current_vdot or new_vdot >= (current_vdot + 1)}")
-                    
-                    # Only flag for confirmation if significant improvement (>= 1 point)
-                    if not current_vdot or new_vdot >= (current_vdot + 1):
-                        print(f"\n🎯 UPDATING VDOT: {current_vdot} → {new_vdot}")
-                        
-                        # Calculate paces from Jack Daniels' tables
-                        print(f"\n📏 Calculating training paces from VDOT {new_vdot}...")
-                        calc = VDOTCalculator()
-                        paces = calc.get_training_paces(new_vdot)
-                        
-                        print(f"✅ Training paces calculated:")
-                        for pace_name, pace_value in paces.items():
-                            print(f"   {pace_name}: {pace_value}")
-                        
-                        # Initialize training_metrics if needed
-                        if 'training_metrics' not in user_data:
-                            user_data['training_metrics'] = {'version': 1}
-                        
-                        # Store previous VDOT for rollback
-                        previous_vdot = None
-                        if 'vdot' in user_data['training_metrics']:
-                            previous_vdot = user_data['training_metrics']['vdot'].copy()
-                        
-                        # Store new VDOT with pending confirmation
-                        user_data['training_metrics']['vdot'] = {
-                            'value': new_vdot,
-                            'source': 'RACE_DETECTION',
-                            'date_set': datetime.now().isoformat(),
-                            'user_confirmed': False,
-                            'pending_confirmation': True,
-                            'detected_from': {
-                                'activity_id': vdot_result['activity_id'],
-                                'activity_name': vdot_result['activity_name'],
-                                'distance': vdot_result['distance'],
-                                'distance_meters': vdot_result['distance_meters'],
-                                'time_seconds': vdot_result['time_seconds'],
-                                'is_race': vdot_result['is_race'],
-                                'intensity_reason': vdot_result['intensity_reason']
-                            },
-                            'paces': paces,
-                            'previous_value': previous_vdot
-                        }
-                        
-                        print(f"\n💾 Stored in training_metrics['vdot']:")
-                        print(f"   value: {new_vdot}")
-                        print(f"   source: RACE_DETECTION")
-                        print(f"   user_confirmed: False")
-                        print(f"   paces: {len(paces)} pace entries")
-                        print(f"   detected_from: {vdot_result['activity_name']}")
-                        
-                        # Save immediately (before AI call)
-                        safe_save_user_data(athlete_id, user_data)
-                        
-                        print(f"\n✅ VDOT data saved to DynamoDB")
-                        print("="*70 + "\n")
-                        
-                        # Reload user_data to get the updated training_metrics
-                        user_data = data_manager.load_user_data(athlete_id)
+                    print(f"📥 Queued activity {activity_id} for athlete {athlete_id} (queue size: {queue_size})")
+                    print(f"⏰ Will process after {WEBHOOK_DELAY_SECONDS}s delay (allows batching multiple activities)")
             
-            # Prepare VDOT context for AI
-            from utils.vdot_context import prepare_vdot_context
-            
-            print("\n" + "="*70)
-            print("AI PROMPT PREPARATION - DEBUG LOG (WEBHOOK)")
-            print("="*70)
-            print(f"📝 Preparing VDOT context for AI...")
-            
-            vdot_data = prepare_vdot_context(user_data)
-            
-            if vdot_data and vdot_data.get('current_vdot'):
-                print(f"\n✅ VDOT data prepared for AI:")
-                print(f"   current_vdot: {vdot_data['current_vdot']}")
-                print(f"   easy_pace: {vdot_data.get('easy_pace')}")
-                print(f"   marathon_pace: {vdot_data.get('marathon_pace')}")
-                print(f"   threshold_pace: {vdot_data.get('threshold_pace')}")
-                print(f"   interval_pace: {vdot_data.get('interval_pace')}")
-                print(f"   repetition_pace: {vdot_data.get('repetition_pace')}")
-                if vdot_data.get('source_activity'):
-                    print(f"   source_activity: {vdot_data['source_activity']}")
-            else:
-                print(f"\nℹ️  No VDOT data available - athlete hasn't completed qualifying effort")
-            
-            print(f"\n🤖 Calling AI service with:")
-            print(f"   - Analyzed sessions: {len(analyzed_sessions)}")
-            print(f"   - Feedback log entries: {len(feedback_log)}")
-            print(f"   - VDOT data: {'Yes' if vdot_data and vdot_data.get('current_vdot') else 'No'}")
-            print(f"   - Garmin data: {'Yes' if garmin_data_for_activity else 'No'}")
-            print("="*70 + "\n")
-
-            # Generate feedback (NOW WITH VDOT DATA)
-            feedback_markdown = ai_service.generate_feedback(
-                training_plan,
-                feedback_log,
-                analyzed_sessions,
-                user_data.get('training_history'),
-                garmin_data_for_activity,
-                incomplete_sessions=None,  # Webhook doesn't use this yet
-                vdot_data=vdot_data  # PASS VDOT DATA TO AI
-            )
-            
-            print("\n" + "="*70)
-            print("AI RESPONSE - DEBUG LOG (WEBHOOK)")
-            print("="*70)
-            print(f"✅ AI response received ({len(feedback_markdown)} characters)")
-            
-            # Check if AI mentioned VDOT
-            if 'VDOT' in feedback_markdown or 'vdot' in feedback_markdown.lower():
-                print(f"\n🔍 AI mentioned VDOT in response")
-                
-                # Extract lines mentioning VDOT for debugging
-                vdot_lines = [line.strip() for line in feedback_markdown.split('\n') 
-                             if 'vdot' in line.lower() and line.strip()]
-                
-                if vdot_lines:
-                    print(f"   Found {len(vdot_lines)} lines mentioning VDOT:")
-                    for i, line in enumerate(vdot_lines[:5], 1):  # Show first 5
-                        # Truncate long lines
-                        display_line = line[:100] + "..." if len(line) > 100 else line
-                        print(f"   {i}. {display_line}")
-                    if len(vdot_lines) > 5:
-                        print(f"   ... and {len(vdot_lines) - 5} more")
-                
-                # Check for problematic patterns
-                if re.search(r'calculate.*vdot|vdot.*calculate', feedback_markdown, re.IGNORECASE):
-                    print(f"\n⚠️  WARNING: AI used phrase 'calculate VDOT' - this should not happen!")
-                
-                if re.search(r'based on this.*vdot|vdot.*based on', feedback_markdown, re.IGNORECASE):
-                    print(f"\n⚠️  WARNING: AI said 'based on this, VDOT...' - might be calculating!")
-                
-                # Check if AI used the correct VDOT value
-                if vdot_data and vdot_data.get('current_vdot'):
-                    expected_vdot = int(vdot_data['current_vdot'])
-                    if f"VDOT {expected_vdot}" in feedback_markdown or f"VDOT of {expected_vdot}" in feedback_markdown:
-                        print(f"\n✅ AI correctly referenced VDOT {expected_vdot}")
-                    else:
-                        print(f"\n⚠️  WARNING: Expected VDOT {expected_vdot} not found in response")
-                        
-                        # Look for other VDOT numbers
-                        vdot_numbers = re.findall(r'VDOT[:\s]+(\d+)', feedback_markdown, re.IGNORECASE)
-                        if vdot_numbers:
-                            print(f"   Found these VDOT values instead: {', '.join(set(vdot_numbers))}")
-            else:
-                print(f"\nℹ️  AI did not mention VDOT (expected if no VDOT established)")
-            
-            print("="*70 + "\n")
-
-            # Create descriptive name
-            activity_names = [session['name'] for session in analyzed_sessions]
-            if len(activity_names) == 1:
-                descriptive_name = f"Feedback for: {activity_names[0]}"
-            else:
-                descriptive_name = ai_service.summarize_activities(activity_names)
-                if not descriptive_name:
-                    descriptive_name = f"Feedback for activities: {', '.join(activity_names)}"
-            
-            all_activity_ids = [s['id'] for s in analyzed_sessions]
-
-            new_log_entry = {
-                "activity_id": int(analyzed_sessions[0]['id']),
-                "activity_name": descriptive_name,
-                "activity_date": format_activity_date(analyzed_sessions[0].get('start_date', '')),
-                "feedback_markdown": feedback_markdown,
-                "logged_activity_ids": all_activity_ids
-            }
-            
-            feedback_log.insert(0, new_log_entry)
-
-            # Check for plan update - only update if [PLAN_UPDATED] marker is present
-            if '[PLAN_UPDATED]' in feedback_markdown:
-                match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
-                if match:
-                    new_plan_markdown = match.group(1).strip()
-                    user_data['plan'] = new_plan_markdown
-                    print(f"✅ Plan for athlete {athlete_id} has been updated via webhook!")
-                else:
-                    print(f"⚠️ [PLAN_UPDATED] marker found but no markdown code block for athlete {athlete_id}")
-            else:
-                print(f"ℹ️ No plan update needed for athlete {athlete_id} - marker not found")
-            
-            safe_save_user_data(athlete_id, user_data)
-            print(f"--- Successfully generated and saved feedback for athlete {athlete_id} via webhook. ---")
+            # Return immediately - processing will happen after delay
+            return 'EVENT_RECEIVED', 200
 
         return 'EVENT_RECEIVED', 200
 
@@ -511,8 +603,8 @@ def garmin_summary_api():
             "today": garmin_cache['today_metrics'],
             "trend_data": garmin_cache['metrics_timeline'],
             "readiness_score": garmin_cache['readiness_score'],
-            "readiness_metadata": garmin_cache.get('readiness_metadata'),  # May be None for old cache
-            "cached_at": garmin_cache.get('cached_at'),  # Timestamp of when data was cached
+            "readiness_metadata": garmin_cache.get('readiness_metadata'),
+            "cached_at": garmin_cache.get('cached_at'),
             "status": "success",
             "cached": True
         })
@@ -582,80 +674,51 @@ def garmin_summary_api():
                     'last_updated': today_iso,
                     's3_key': result_key
                 }
-            else:
-                print("S3 SAVE FAILED: Falling back to local storage")
-                if 'garmin_history' not in user_data:
-                    user_data['garmin_history'] = {}
-                for day_stats in stats_range:
-                    day_date = day_stats.get('fetch_date')
-                    if day_date:
-                        user_data['garmin_history'][day_date] = day_stats
+                safe_save_user_data(athlete_id, user_data)
         else:
-            # Local dev or S3 not available - store locally
-            print("Using local storage (development mode)")
-            if 'garmin_history' not in user_data:
-                user_data['garmin_history'] = {}
-            
-            for day_stats in stats_range:
-                day_date = day_stats.get('fetch_date')
-                if day_date:
-                    user_data['garmin_history'][day_date] = day_stats
-            
-            # Keep last 30 days
-            cutoff_date = (date.today() - timedelta(days=30)).isoformat()
-            user_data['garmin_history'] = {
-                k: v for k, v in user_data['garmin_history'].items() 
-                if k >= cutoff_date
-            }
+            # Local storage (development)
+            user_data['garmin_history'] = stats_range
+            safe_save_user_data(athlete_id, user_data)
         
-        # Update cache
-        cached_at = datetime.utcnow().isoformat() + 'Z'
+        # Cache the processed data
         user_data['garmin_cache'] = {
             'last_fetch_date': today_iso,
             'today_metrics': today_metrics,
             'metrics_timeline': metrics_timeline,
             'readiness_score': readiness_score,
-            'readiness_metadata': readiness_metadata,  # Store full details for transparency
-            'cached_at': cached_at  # Store when data was cached
+            'readiness_metadata': readiness_metadata,
+            'cached_at': datetime.now().isoformat()
         }
-        
         safe_save_user_data(athlete_id, user_data)
-        print(f"GARMIN CACHE: Fresh data cached for {today_iso} at {cached_at}")
 
         return jsonify({
             "today": today_metrics,
             "trend_data": metrics_timeline,
             "readiness_score": readiness_score,
-            "readiness_metadata": readiness_metadata,  # Include metadata for dashboard display
-            "cached_at": cached_at,  # Include timestamp for display
+            "readiness_metadata": readiness_metadata,
+            "cached_at": user_data['garmin_cache']['cached_at'],
             "status": "success",
             "cached": False
         })
 
     except Exception as e:
-        print(f"Error in Garmin API: {e}")
+        print(f"Error fetching Garmin data: {e}")
         import traceback
         traceback.print_exc()
-        
-        # Return stale cache if available
-        if cache_date and 'metrics_timeline' in garmin_cache:
-            print(f"GARMIN CACHE: Fetch failed, returning stale cache from {cache_date}")
-            return jsonify({
-                "today": garmin_cache['today_metrics'],
-                "trend_data": garmin_cache['metrics_timeline'],
-                "readiness_score": garmin_cache['readiness_score'],
-                "readiness_metadata": garmin_cache.get('readiness_metadata'),
-                "cached_at": garmin_cache.get('cached_at'),  # Include timestamp even for stale cache
-                "status": "success",
-                "cached": True,
-                "warning": f"Using cached data from {cache_date}"
-            })
-        
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Error fetching Garmin data: {str(e)}"}), 500
 
 @api_bp.route("/api/garmin-refresh", methods=['POST'])
 @login_required
 def garmin_refresh():
+    """Manually refresh Garmin data"""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    if 'garmin_cache' in user_data:
+        del user_data['garmin_cache']
+        safe_save_user_data(athlete_id, user_data)
+    
+    return jsonify({"status": "cache_cleared", "message": "Refresh the page to fetch new data"})
     """Manually refresh Garmin data"""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)

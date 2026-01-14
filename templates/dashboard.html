@@ -101,6 +101,91 @@
     </div>
 </div>
 
+<!-- Weekly Plan Tile (Garmin-style) -->
+{% if plan_v2 %}
+{% set current_week = plan_v2.get_current_week() %}
+{% if not current_week and current_week_number is not none %}
+{% set current_week = plan_v2.get_week_by_number(current_week_number) %}
+{% endif %}
+{% if current_week %}
+{% set total_weeks = plan_v2.weeks|length %}
+{% set week_completion = current_week.completion_percentage() %}
+{% set non_rest_sessions = current_week.sessions|selectattr('type', 'ne', 'REST')|list %}
+{% set completed_non_rest = non_rest_sessions|selectattr('completed')|list %}
+{% set remaining_workouts = (non_rest_sessions|length) - (completed_non_rest|length) %}
+{% set plan_name = plan_v2.goal_distance or plan_v2.athlete_goal or "Training Plan" %}
+
+<a href="{{ url_for('plan.view_plan') }}#week-{{ current_week.week_number }}" class="block bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 hover:bg-brand-dark transition-colors">
+    <!-- Plan Name -->
+    <h3 class="text-base sm:text-lg font-semibold text-white mb-4 truncate">{{ plan_name }}</h3>
+    
+    <!-- Progress Bar Section -->
+    <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-lg sm:text-xl font-bold text-white">Week {{ current_week.week_number }} of {{ total_weeks }}</p>
+            <p class="text-sm font-semibold text-brand-blue">{{ "%.0f"|format(week_completion) }}%</p>
+        </div>
+        <div class="w-full bg-brand-dark rounded-full" style="height: 8px;">
+            <div class="rounded-full transition-all duration-500 bg-brand-blue" style="width: {{ week_completion }}%; height: 8px;"></div>
+        </div>
+        <p class="text-xs sm:text-sm text-brand-light-gray mt-2">
+            {% if remaining_workouts == 1 %}
+                1 workout remaining
+            {% elif remaining_workouts > 1 %}
+                {{ remaining_workouts }} workouts remaining
+            {% else %}
+                Week complete! 🎉
+            {% endif %}
+        </p>
+    </div>
+    
+    <!-- Session Grid -->
+    {% if non_rest_sessions %}
+    {% set session_count = non_rest_sessions|length %}
+    {% set display_count = session_count if session_count <= 8 else 8 %}
+    <div class="flex flex-nowrap gap-2 sm:gap-3 items-center justify-start">
+        {% for session in non_rest_sessions %}
+            <div class="relative flex items-center justify-center flex-shrink-0 flex-1 min-w-0" style="max-width: calc(100% / {{ display_count }});">
+                <!-- Session Icon Box -->
+                <div class="w-full aspect-square rounded bg-gray-700 border border-gray-600 flex items-center justify-center relative" style="max-width: 3.5rem; min-width: 2.5rem;">
+                    {% if session.type == 'RUN' %}
+                        <!-- Running Icon -->
+                        <img src="{{ url_for('static', filename='icons/sports/run.svg') }}" alt="Run" class="w-1/2 h-1/2" />
+                    {% elif session.type == 'BIKE' %}
+                        <!-- Cycling Icon -->
+                        <img src="{{ url_for('static', filename='icons/sports/bike.svg') }}" alt="Bike" class="w-1/2 h-1/2" />
+                    {% elif session.type == 'SWIM' %}
+                        <!-- Swimming Icon -->
+                        <img src="{{ url_for('static', filename='icons/sports/swim.svg') }}" alt="Swim" class="w-1/2 h-1/2" />
+                    {% elif session.type == 'STRENGTH' or session.type == 'CROSS_TRAIN' %}
+                        <!-- Strength/Weights Icon -->
+                        <img src="{{ url_for('static', filename='icons/sports/strength.svg') }}" alt="Strength" class="w-1/2 h-1/2" />
+                    {% else %}
+                        <!-- Default Icon -->
+                        <svg class="w-1/2 h-1/2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    {% endif %}
+                    
+                    <!-- Green Checkmark Overlay for Completed -->
+                    {% if session.completed %}
+                    <div class="absolute inset-0 flex items-center justify-center bg-green-500/30 rounded">
+                        <svg class="w-2/3 h-2/3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-brand-light-gray">No sessions scheduled for this week.</p>
+    {% endif %}
+</a>
+{% endif %}
+{% endif %}
+
 <div id="garmin-container" class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
     <h2 class="text-xl sm:text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
     <div class="flex items-center justify-center pt-4">
@@ -117,7 +202,8 @@
 
 <div class="lg:flex lg:space-x-8">
     <div class="lg:w-1/2">
-        <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8">
+        <!-- Hide detailed view on mobile -->
+        <div class="bg-brand-gray rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 hidden md:block">
             <h2 class="text-xl sm:text-2xl font-bold text-brand-blue mb-4">This Week's Sessions</h2>
             
             {% if current_week_sessions %}

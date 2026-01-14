@@ -65,8 +65,36 @@ class Session:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Session':
-        """Create Session from dictionary"""
-        return cls(**data)
+        """
+        Create Session from dictionary.
+        Only passes known fields to constructor to avoid errors from obsolete fields.
+        """
+        # Only pass fields that are part of the dataclass definition
+        known_fields = {
+            'id': data.get('id'),
+            'day': data.get('day'),
+            'type': data.get('type'),
+            'date': data.get('date'),
+            'priority': data.get('priority'),
+            'duration_minutes': data.get('duration_minutes'),
+            'description': data.get('description', ''),
+            'zones': data.get('zones', {}),
+            'scheduled': data.get('scheduled', True),
+            'completed': data.get('completed', False),
+            'strava_activity_id': data.get('strava_activity_id'),
+            'completed_at': data.get('completed_at'),
+            's_and_c_routine': data.get('s_and_c_routine')
+        }
+        
+        # Validate required fields
+        if 'id' not in data or not data['id']:
+            raise ValueError("Session.from_dict: missing required field 'id'")
+        if 'day' not in data or not data['day']:
+            raise ValueError("Session.from_dict: missing required field 'day'")
+        if 'type' not in data or not data['type']:
+            raise ValueError("Session.from_dict: missing required field 'type'")
+        
+        return cls(**known_fields)
     
     def to_markdown(self) -> str:
         """Render session as markdown text"""
@@ -126,8 +154,8 @@ class Week:
         sessions: List of Session objects
     """
     week_number: int
-    start_date: str  # ISO format YYYY-MM-DD
-    end_date: str  # ISO format YYYY-MM-DD
+    start_date: Optional[str] = None  # ISO format YYYY-MM-DD (None if parsing failed)
+    end_date: Optional[str] = None  # ISO format YYYY-MM-DD (None if parsing failed)
     description: str = ""
     sessions: List[Session] = field(default_factory=list)
     
@@ -177,20 +205,39 @@ class Week:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Week':
-        """Create Week from dictionary"""
+        """
+        Create Week from dictionary.
+        Only passes known fields to constructor to avoid errors from obsolete fields.
+        """
         # Use .get() instead of .pop() to avoid mutating input dict
         sessions_data = data.get('sessions', [])
         
-        # Create a copy of data without sessions for initialization
-        week_data = {k: v for k, v in data.items() if k != 'sessions'}
-        week = cls(**week_data)
+        # Only pass fields that are part of the dataclass definition
+        known_fields = {
+            'week_number': data.get('week_number'),
+            'start_date': data.get('start_date'),
+            'end_date': data.get('end_date'),
+            'description': data.get('description', '')
+        }
+        
+        # Validate required fields
+        if 'week_number' not in data or data['week_number'] is None:
+            raise ValueError("Week.from_dict: missing required field 'week_number'")
+        
+        # Dates are now Optional - allow None if parsing failed
+        # This can happen when date parsing fails during plan regeneration
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        week = cls(**known_fields)
         week.sessions = [Session.from_dict(s) for s in sessions_data]
         return week
     
     def to_markdown(self) -> str:
         """Render week as markdown text"""
         lines = []
-        lines.append(f"## Week {self.week_number}: {self.start_date} to {self.end_date}")
+        date_str = f"{self.start_date} to {self.end_date}" if self.start_date and self.end_date else "TBD"
+        lines.append(f"## Week {self.week_number}: {date_str}")
         if self.description:
             lines.append(f"*{self.description}*\n")
         
@@ -236,6 +283,9 @@ class TrainingPlan:
     def get_week_by_date(self, date_str: str) -> Optional[Week]:
         """Get week containing a specific date"""
         for week in self.weeks:
+            # Skip weeks with missing dates
+            if not week.start_date or not week.end_date:
+                continue
             if week.start_date <= date_str <= week.end_date:
                 return week
         return None
@@ -304,7 +354,10 @@ class TrainingPlan:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TrainingPlan':
-        """Create TrainingPlan from dictionary"""
+        """
+        Create TrainingPlan from dictionary.
+        Only passes known fields to constructor to avoid errors from obsolete fields.
+        """
         # Use deepcopy to avoid mutating input (shallow copy doesn't work with nested dicts)
         data_copy = deepcopy(data)
         
@@ -312,10 +365,18 @@ class TrainingPlan:
         weeks_data = data_copy.get('weeks', [])
         libraries = data_copy.get('libraries', {})
         
-        # Create plan data without weeks and libraries
-        plan_data = {k: v for k, v in data_copy.items() if k not in ['weeks', 'libraries']}
+        # Only pass fields that are part of the dataclass definition
+        known_fields = {
+            'version': data_copy.get('version', 2),
+            'created_at': data_copy.get('created_at'),
+            'athlete_id': data_copy.get('athlete_id'),
+            'athlete_goal': data_copy.get('athlete_goal', ''),
+            'goal_date': data_copy.get('goal_date'),
+            'goal_distance': data_copy.get('goal_distance'),
+            'plan_start_date': data_copy.get('plan_start_date')
+        }
         
-        plan = cls(**plan_data)
+        plan = cls(**known_fields)
         plan.weeks = [Week.from_dict(w) for w in weeks_data]
         plan.libraries = libraries
         return plan
@@ -384,18 +445,51 @@ class MetricValue:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MetricValue':
-        """Create from dictionary - handles both old (date_set) and new (detected_at) formats"""
+        """
+        Create from dictionary - handles both old and new field names.
+        Only passes known fields to the constructor to avoid errors from obsolete fields.
+        """
         # Make a copy to avoid mutating the input
         data_copy = dict(data)
         
-        # Handle migration from old 'date_set' format to new 'detected_at' format
+        # Handle migration from old 'date_set' to new 'detected_at'
         if 'date_set' in data_copy and 'detected_at' not in data_copy:
             data_copy['detected_at'] = data_copy.pop('date_set')
         elif 'date_set' in data_copy:
-            # If both exist, remove the old one
             data_copy.pop('date_set')
         
-        return cls(**data_copy)
+        # Handle migration from old 'source' to new 'detected_from'
+        if 'source' in data_copy and 'detected_from' not in data_copy:
+            data_copy['detected_from'] = data_copy.pop('source')
+        elif 'source' in data_copy:
+            data_copy.pop('source')
+        
+        # Remove obsolete fields from old records (known obsolete fields)
+        obsolete_fields = [
+            'pending_confirmation',  # Removed in favor of user_confirmed
+            'paces',  # Paces are stored separately in TrainingMetrics.zones, not on MetricValue
+        ]
+        for field in obsolete_fields:
+            data_copy.pop(field, None)
+        
+        # Only pass fields that are part of the dataclass definition
+        # This prevents errors from any other unknown/obsolete fields
+        known_fields = {
+            'value': data_copy.get('value'),
+            'detected_at': data_copy.get('detected_at'),
+            'detected_from': data_copy.get('detected_from'),
+            'user_confirmed': data_copy.get('user_confirmed', False),
+            'user_modified': data_copy.get('user_modified', False),
+            'history': data_copy.get('history', [])
+        }
+        
+        # Validate required fields
+        if 'value' not in data_copy or data_copy['value'] is None:
+            raise ValueError("MetricValue.from_dict: missing required field 'value'")
+        if 'detected_at' not in data_copy or not data_copy['detected_at']:
+            raise ValueError("MetricValue.from_dict: missing required field 'detected_at'")
+        
+        return cls(**known_fields)
 
 
 @dataclass
@@ -552,21 +646,39 @@ class TrainingMetrics:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TrainingMetrics':
-        """Create TrainingMetrics from dictionary"""
+        """
+        Create TrainingMetrics from dictionary.
+        Only passes known fields to constructor to avoid errors from obsolete fields.
+        """
         # Use .get() instead of .pop() to avoid mutating input dict
         lthr_data = data.get('lthr', None)
         ftp_data = data.get('ftp', None)
         vdot_data = data.get('vdot', None)
         
-        # Create metrics dict without the metric fields
-        metrics_data = {k: v for k, v in data.items() if k not in ['lthr', 'ftp', 'vdot']}
-        metrics = cls(**metrics_data)
+        # Only pass fields that are part of the dataclass definition
+        # This prevents errors from any unknown/obsolete fields
+        known_fields = {
+            'version': data.get('version', 1),
+            'zones': data.get('zones', {})
+        }
         
+        metrics = cls(**known_fields)
+        
+        # Handle metric values - they might be None, dict, or already MetricValue objects
         if lthr_data:
-            metrics.lthr = MetricValue.from_dict(lthr_data)
+            if isinstance(lthr_data, dict):
+                metrics.lthr = MetricValue.from_dict(lthr_data)
+            else:
+                metrics.lthr = lthr_data  # Already a MetricValue object
         if ftp_data:
-            metrics.ftp = MetricValue.from_dict(ftp_data)
+            if isinstance(ftp_data, dict):
+                metrics.ftp = MetricValue.from_dict(ftp_data)
+            else:
+                metrics.ftp = ftp_data  # Already a MetricValue object
         if vdot_data:
-            metrics.vdot = MetricValue.from_dict(vdot_data)
+            if isinstance(vdot_data, dict):
+                metrics.vdot = MetricValue.from_dict(vdot_data)
+            else:
+                metrics.vdot = vdot_data  # Already a MetricValue object
         
         return metrics
