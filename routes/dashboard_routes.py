@@ -85,6 +85,73 @@ def dashboard():
         try:
             plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
             
+            # AUTO-REPARSE: Check if plan_v2 has weeks with 0 sessions (parsing issue)
+            # This can happen if the parser didn't match a new format
+            weeks_with_no_sessions = [w for w in plan_v2.weeks if len(w.sessions) == 0]
+            if weeks_with_no_sessions and 'plan' in user_data:
+                week_numbers = [w.week_number for w in weeks_with_no_sessions]
+                print(f"⚠️  Detected {len(weeks_with_no_sessions)} weeks with 0 sessions: {week_numbers}")
+                print(f"   Attempting to reparse from markdown...")
+                
+                try:
+                    from utils.migration import migrate_plan_to_v2
+                    plan_data = user_data.get('plan_data', {})
+                    user_inputs = {
+                        'goal': user_data.get('goal', ''),
+                        'goal_date': user_data.get('goal_date'),
+                        'plan_start_date': user_data.get('plan_start_date'),
+                        'goal_distance': user_data.get('goal_distance')
+                    }
+                    
+                    # Reparse from markdown
+                    reparsed_plan = migrate_plan_to_v2(
+                        user_data['plan'],
+                        plan_data,
+                        athlete_id,
+                        user_inputs
+                    )
+                    
+                    # Check if reparse fixed the issue
+                    reparsed_weeks_with_sessions = sum(1 for w in reparsed_plan.weeks if len(w.sessions) > 0)
+                    original_weeks_with_sessions = sum(1 for w in plan_v2.weeks if len(w.sessions) > 0)
+                    
+                    if reparsed_weeks_with_sessions > original_weeks_with_sessions:
+                        # Reparse was successful - update plan_v2
+                        # Preserve completed sessions from original plan_v2
+                        existing_completed = {}
+                        for week in plan_v2.weeks:
+                            for sess in week.sessions:
+                                if sess.completed:
+                                    existing_completed[sess.id] = {
+                                        'completed': True,
+                                        'strava_activity_id': sess.strava_activity_id if hasattr(sess, 'strava_activity_id') else None,
+                                        'completed_at': sess.completed_at if hasattr(sess, 'completed_at') else None
+                                    }
+                        
+                        # Restore completed sessions in reparsed plan
+                        restored_count = 0
+                        for week in reparsed_plan.weeks:
+                            for sess in week.sessions:
+                                if sess.id in existing_completed:
+                                    sess.completed = True
+                                    sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                                    sess.completed_at = existing_completed[sess.id]['completed_at']
+                                    restored_count += 1
+                        
+                        # Update plan_v2
+                        plan_v2 = reparsed_plan
+                        user_data['plan_v2'] = plan_v2.to_dict()
+                        data_manager.save_user_data(athlete_id, user_data)
+                        print(f"   ✅ Reparse successful! Restored {restored_count} completed sessions")
+                        print(f"   📊 Now have {reparsed_weeks_with_sessions} weeks with sessions (was {original_weeks_with_sessions})")
+                    else:
+                        print(f"   ⚠️  Reparse didn't improve session count - keeping original plan_v2")
+                        
+                except Exception as e:
+                    print(f"   ❌ Reparse failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
             # Mark sessions complete based on feedback_log
             # This works even without Strava access_token
             if 'feedback_log' in user_data and user_data['feedback_log']:
@@ -1030,3 +1097,84 @@ def confirm_vdot():
         data_manager.save_user_data(athlete_id, user_data)
     
     return redirect('/dashboard')
+
+@dashboard_bp.route("/reparse_plan", methods=['POST'])
+@login_required
+def reparse_plan():
+    """Manually trigger reparse of plan from markdown to plan_v2"""
+    athlete_id = session.get('athlete_id')
+    if not athlete_id:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    user_data = data_manager.load_user_data(athlete_id)
+    if not user_data or 'plan' not in user_data:
+        return jsonify({'success': False, 'error': 'No plan found to reparse'}), 400
+    
+    try:
+        from utils.migration import migrate_plan_to_v2
+        
+        plan_data = user_data.get('plan_data', {})
+        user_inputs = {
+            'goal': user_data.get('goal', ''),
+            'goal_date': user_data.get('goal_date'),
+            'plan_start_date': user_data.get('plan_start_date'),
+            'goal_distance': user_data.get('goal_distance')
+        }
+        
+        # Preserve completed sessions from existing plan_v2
+        existing_completed = {}
+        if 'plan_v2' in user_data:
+            try:
+                old_plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
+                for week in old_plan_v2.weeks:
+                    for sess in week.sessions:
+                        if sess.completed:
+                            existing_completed[sess.id] = {
+                                'completed': True,
+                                'strava_activity_id': sess.strava_activity_id if hasattr(sess, 'strava_activity_id') else None,
+                                'completed_at': sess.completed_at if hasattr(sess, 'completed_at') else None
+                            }
+            except Exception as e:
+                print(f"⚠️  Could not load existing plan_v2 for preservation: {e}")
+        
+        # Reparse from markdown
+        reparsed_plan = migrate_plan_to_v2(
+            user_data['plan'],
+            plan_data,
+            athlete_id,
+            user_inputs
+        )
+        
+        # Restore completed sessions
+        restored_count = 0
+        for week in reparsed_plan.weeks:
+            for sess in week.sessions:
+                if sess.id in existing_completed:
+                    sess.completed = True
+                    sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                    sess.completed_at = existing_completed[sess.id]['completed_at']
+                    restored_count += 1
+        
+        # Update plan_v2
+        user_data['plan_v2'] = reparsed_plan.to_dict()
+        data_manager.save_user_data(athlete_id, user_data)
+        
+        total_sessions = sum(len(w.sessions) for w in reparsed_plan.weeks)
+        weeks_with_sessions = sum(1 for w in reparsed_plan.weeks if len(w.sessions) > 0)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Plan reparsed successfully',
+            'stats': {
+                'weeks': len(reparsed_plan.weeks),
+                'weeks_with_sessions': weeks_with_sessions,
+                'total_sessions': total_sessions,
+                'restored_completed': restored_count
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Reparse failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
