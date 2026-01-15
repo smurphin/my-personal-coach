@@ -131,7 +131,10 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         # Current AI format: **Type: Description** [PRIORITY] (single line)
         # Bullet point is optional (AI sometimes forgets it)
         # Matches both: *   **Run: ...** [KEY] and **Run: ...** [KEY]
-        session_pattern_current = r'^(?:\*\s+)?\*\*([A-Za-z&\s]+):\s+([^\*]+)\*\*\s+\[([^\]]+)\]'
+        # Also handles day prefixes like: **Tue Jan 20:** **Run: ...** [KEY] or **Mon:** **Run: ...** [KEY]
+        # Pattern allows optional day prefix (e.g., **Mon:** or **Tue Jan 20:**) before the session pattern
+        # The pattern doesn't require line start, allowing it to match anywhere in the line
+        session_pattern_current = r'(?:\*\s+)?(?:\*\*[^:]+:\*\*\s+)?\*\*([A-Za-z&\s]+):\s+([^\*]+)\*\*\s+\[([^\]]+)\]'
         matches_current = list(re.finditer(session_pattern_current, week_text, re.MULTILINE))
         
         # Legacy formats (for backward compatibility with existing DB plans)
