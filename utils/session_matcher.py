@@ -159,6 +159,19 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
                 score += 8.0
                 reasons.append(f"specific type match: {activity_keywords[0]}")
                 break
+
+        # Use lap-derived interval structure when available (helps when activity title is generic
+        # and HR doesn't neatly match prescribed zones).
+        intervals = activity_data.get('intervals_detected') or {}
+        if intervals.get('has_intervals'):
+            # Session description indicates structured work.
+            if any(kw in session_desc for kw in ['interval', 'repeats', 'vo2', 'track', ' i ', ' i-pace', 'rep']):
+                score += 4.0
+                reasons.append("interval structure match (laps)")
+            # Activity name indicates intervals even if session description doesn't.
+            elif any(kw in activity_name for kw in ['interval', 'repeats', 'vo2', 'track']):
+                score += 2.0
+                reasons.append("interval structure match (laps, name)")
         
         # SECONDARY: Intensity keywords
         intensity_keywords = {

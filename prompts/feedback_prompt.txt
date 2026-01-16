@@ -37,8 +37,51 @@ You have been given a list of one or more recently completed sessions. Your task
     - Speculate if these sessions appear to be part of a single event (like a triathlon with its swim, bike, run, and transition components) or just separate workouts done on the same day.
 
 ### Session Analysis
+
+**⚠️ BEFORE YOU START ANALYZING - CHECK THE DATA SOURCE:**
+- If \`intervals_detected.has_intervals\` = true OR \`preferred_segment_summary\` = "laps_summary": Use \`laps_summary\` segments, NOT splits
+- If \`preferred_segment_summary\` = "splits_metric_summary" or "splits_standard_summary": Use splits (standard run)
+- **DO NOT analyze splits for interval sessions - you will get wrong results**
+
 1.  Acknowledge the athlete's \`private_note\` if provided.
 2.  Analyze the \`completed_sessions\` data. Provide a **consolidated critique** of the sessions combined if it appears to be 1 activity, i.e a triathlon, otherwise analyse each session individually but pay attention to the time between sessions to understand how this contributes to overall load. How did this block of training align with the \`training_plan\`? Show a table comparing goal times in zones versus actual time in zones, including the percentage of the whole activity in each zone.  If the focus of the session was pace based, use this as the primary factor in critiquing the session, provide a table showing target pace zones and actual time in those pace zones, do this only if the session was targetting pace in it's structure.  Heart rate zones are still important in these pace focused sessions, so continue to include this data, but it's more for information and to show how particular paces relate to HR to help the athlete understand the feeling of training at this pace, if HR drifts outside the ideal zone for the session when it's pace focused then it's a secondary concern, the goal is to hit (or be within a reasonable ~5% range of the pace.)  For HR target sessions focus on the athlete's adherance to prescribed HR zones, pace is not relevant if the prescribed session is HR based, include it for information but don't be critical if the pace is different than expected if they have hit HR targets, if HR targets hae not been met and it's clear from the pace the reason is due to poor pacing, i.e target HR Z2, but was mostly in Z3 and pace was closer to Threshold than Easy, then the reason for high HR is most likely running too fast, guide the athlete to consider slowing down to achieve the target HR zone, give example of what pace would be expected, but remember the if the session is HR targetted pace is just a guide.
+    - **🚨 CRITICAL - LAPS vs SPLITS for Interval Sessions - YOU MUST FOLLOW THIS:**
+        
+        **STEP 1: Check for intervals:**
+        - Look at \`intervals_detected.has_intervals\` - if true, this is an interval session
+        - Look at \`preferred_segment_summary\` - if it says "laps_summary", use laps
+        - Look at the session name/description - if it mentions "interval", "repeat", "x 3min", "x 3 min", "6x", etc., it's likely an interval session
+        
+        **STEP 2: Choose the correct data source:**
+        - **IF intervals detected OR preferred_segment_summary = "laps_summary":**
+          - ✅ USE \`laps_summary.segments\` for your analysis
+          - ❌ DO NOT use \`splits_metric_summary\` or \`splits_standard_summary\`
+          - ❌ DO NOT create tables showing "Split" - use "Lap" instead
+        - **IF NO intervals detected AND preferred_segment_summary = "splits_metric_summary" (or splits_standard_summary):**
+          - ✅ USE splits for analysis (this is a standard run)
+        
+        **STEP 3: Understand the difference:**
+        - **Laps** = Manual lap button presses OR workout-defined intervals (e.g., 3-minute intervals)
+        - **Splits** = Auto-laps at fixed distances (e.g., every 1km or 1 mile)
+        - For interval sessions, laps represent the actual workout structure (interval 1, recovery 1, interval 2, recovery 2, etc.)
+        - Splits will cut across intervals and recoveries, giving meaningless data
+        
+        **STEP 4: Create the correct table:**
+        - For interval sessions, create a table with header "Lap Analysis" or "Interval Analysis"
+        - Show columns: Lap Number, Distance (km or miles), Time (s), Pace (min/km or min/mile), Average HR (bpm)
+        - Use data from \`laps_summary.segments\`, NOT from splits
+        
+        **EXAMPLE - "6 x 3min interval pace, 3min easy":**
+        - ✅ CORRECT: Use \`laps_summary\` which will have ~18 laps (warmup + 6 intervals + 6 recoveries + cooldown)
+        - ❌ WRONG: Using \`splits_metric_summary\` which will have ~12 splits (1km auto-laps that cut across intervals)
+        
+        **IF YOU ANALYZE SPLITS FOR AN INTERVAL SESSION, YOU WILL GET INCORRECT RESULTS AND THE ATHLETE WILL NOTICE.**
+    - **DISTANCE FORMATTING:** When displaying distances in tables or analysis:
+        - **Check \`distance_unit_preference\`** in the activity data - it will be "km" or "miles". Use this unit system consistently throughout your entire feedback.
+        - **Choose ONE unit system per feedback** (either all km OR all miles) and use it consistently throughout. Never mix units.
+        - **Format partial distances as decimals:** 410.7m = 0.41 km (or 0.26 miles), 1000.5m = 1.00 km (or 0.62 miles). Always round to 2 decimal places.
+        - Use the \`distance_km\` or \`distance_miles\` fields from segment data - these are already formatted to 1 decimal place. Choose based on \`distance_unit_preference\`.
+        - **Example table format:** If using km, show "Distance (km)" column with values from \`distance_km\` field (e.g., "1.00", "0.41", "1.20"). If using miles, show "Distance (miles)" with values from \`distance_miles\` field (e.g., "0.62", "0.26", "0.75").
 3.  Compare the completed session to the likely intended session from the \`training_plan\`.
 4.  Provide a concise, one-paragraph critique on execution and intensity.
 5.  Give a single, overall **Execution Score out of 10** for the combined effort if it appears to be 1 activity, i.e a triathlon, otherwise give each session an **Execution Score out of 10**. Remember we're not looking for perfection, but consistency. Repeated 7/10s are better than a 10/10 followed by multiple 2/10s.
@@ -184,6 +227,31 @@ Just Completed Session(s):
 ```json
 {{ completed_sessions }}
 ```
+
+**🚨🚨🚨 CRITICAL: BEFORE ANALYZING - READ THIS FIRST 🚨🚨🚨**
+
+**STEP 1: Check if this is an interval session:**
+- Look for \`intervals_detected.has_intervals\` = true
+- Look for \`preferred_segment_summary\` = "laps_summary"  
+- Look for session name containing "interval", "repeat", "x 3min", "6x", "3 min", etc.
+
+**STEP 2: If it's an interval session, you MUST:**
+- ✅ **FIRST:** Check \`laps_summary.count\` - this is the NUMBER OF LAPS available. Look at the actual number, don't assume.
+- ✅ **IF \`laps_summary.count > 1\`:** You have multiple laps! Use \`laps_summary.segments\` array for your analysis. Each element in the array is a lap.
+- ✅ **IF \`laps_summary.count = 0 or 1\`:** This means there's a data issue. Check if \`laps_summary.segments\` exists and has data. If it does, use it. If not, mention this as a data logging issue.
+- ✅ Create a table with header "Lap Analysis" or "Interval Analysis" showing ALL laps from \`laps_summary.segments\`
+- ✅ Show each LAP (not split) with its distance, time, pace, HR
+- ❌ DO NOT use \`splits_metric_summary\` or \`splits_standard_summary\` for interval sessions
+- ❌ DO NOT create tables showing "Split" - use "Lap" instead
+- ❌ DO NOT analyze 1km splits for interval sessions - they cut across intervals and give wrong results
+- ❌ DO NOT say "single lap" if \`laps_summary.count > 1\` - check the actual count value!
+
+**STEP 3: Why this matters:**
+For "6 x 3min interval pace, 3min easy":
+- Laps = 18 segments (warmup + 6 intervals + 6 recoveries + cooldown) - THIS IS CORRECT
+- Splits = 12 segments (1km auto-laps) - THIS IS WRONG, splits cut across intervals
+
+**IF YOU USE SPLITS FOR AN INTERVAL SESSION, YOUR ANALYSIS WILL BE COMPLETELY WRONG. THE ATHLETE WILL NOTICE AND COMPLAIN.**
 {% if incomplete_sessions %}
 
 ---

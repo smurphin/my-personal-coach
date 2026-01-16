@@ -21,6 +21,7 @@ class VDOTDetectionService:
     """
     
     # Distance ranges that are valid for VDOT (in meters)
+    # Strict ranges for normal activities
     VALID_DISTANCES = {
         '1500M': (1400, 1600),
         'MILE': (1580, 1620),
@@ -30,6 +31,18 @@ class VDOTDetectionService:
         '15K': (14900, 15100),
         'HM': (21000, 21300),
         'MARATHON': (42000, 42500)
+    }
+    
+    # Lenient ranges (±10% tolerance) for races/hard efforts (GPS can be off, courses can be long)
+    LENIENT_DISTANCES = {
+        '1500M': (1260, 1760),      # ±10% of 1500m
+        'MILE': (1422, 1782),       # ±10% of 1609m
+        '3K': (2610, 3410),         # ±10% of 3000m
+        '5K': (4410, 5610),         # ±10% of 5000m (covers 5350m!)
+        '10K': (8910, 11110),       # ±10% of 10000m
+        '15K': (13410, 16610),      # ±10% of 15000m
+        'HM': (18900, 23430),       # ±10% of 21150m
+        'MARATHON': (37800, 46750)  # ±10% of 42250m
     }
     
     def __init__(self):
@@ -62,19 +75,27 @@ class VDOTDetectionService:
         
         return False
     
-    def get_distance_category(self, distance_meters: float) -> Optional[str]:
+    def get_distance_category(self, distance_meters: float, lenient: bool = False) -> Optional[str]:
         """
         Determine which standard race distance this activity matches.
         
         Args:
             distance_meters: Distance in meters
-        
+            lenient: If True, use ±10% tolerance for GPS/course variations
+            
         Returns:
             Distance category (e.g., '5K', 'HM') or None if not a standard distance
         """
-        for category, (min_dist, max_dist) in self.VALID_DISTANCES.items():
-            if min_dist <= distance_meters <= max_dist:
-                return category
+        if lenient:
+            # Use lenient ranges for races/hard efforts (GPS can be off, courses can be long)
+            for category, (min_dist, max_dist) in self.LENIENT_DISTANCES.items():
+                if min_dist <= distance_meters <= max_dist:
+                    return category
+        else:
+            # Strict range matching
+            for category, (min_dist, max_dist) in self.VALID_DISTANCES.items():
+                if min_dist <= distance_meters <= max_dist:
+                    return category
         
         return None
     
@@ -176,7 +197,7 @@ class VDOTDetectionService:
         Args:
             activity: Strava activity dict
             time_in_zones: Dict of zone -> seconds
-        
+            
         Returns:
             Tuple of (should_calculate, reason, distance_category)
         """
@@ -185,7 +206,38 @@ class VDOTDetectionService:
         
         # Check 2: Is it an appropriate distance?
         distance_meters = activity.get('distance', 0)
-        distance_category = self.get_distance_category(distance_meters)
+        
+        # Try strict matching first
+        distance_category = self.get_distance_category(distance_meters, lenient=False)
+        
+        # If strict match failed, check if we should use lenient matching
+        if not distance_category:
+            # Use lenient matching if:
+            # 1. Marked as race, OR
+            # 2. Has high intensity (>50% Z4+Z5) suggesting hard effort
+            should_use_lenient = False
+            lenient_reason = ""
+            
+            if is_race:
+                should_use_lenient = True
+                lenient_reason = "marked as race"
+            else:
+                # Check intensity to see if it's a hard effort
+                total_time = activity.get('moving_time', 0)
+                if total_time > 0:
+                    z4_pct = (time_in_zones.get('Z4', 0) / total_time) * 100
+                    z5_pct = (time_in_zones.get('Z5', 0) / total_time) * 100
+                    z4_z5_pct = z4_pct + z5_pct
+                    
+                    # If >50% in Z4+Z5, likely a hard effort - use lenient distance matching
+                    if z4_z5_pct >= 50:
+                        should_use_lenient = True
+                        lenient_reason = f"hard effort ({z4_z5_pct:.0f}% Z4+Z5)"
+            
+            if should_use_lenient:
+                distance_category = self.get_distance_category(distance_meters, lenient=True)
+                if distance_category:
+                    print(f"   ℹ️  Using lenient distance matching ({lenient_reason}): {distance_meters}m matches {distance_category}")
         
         if not distance_category:
             return False, f"Distance {distance_meters}m not a standard race distance", None

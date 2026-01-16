@@ -155,6 +155,21 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         if not activity:
             continue
         
+        # Check if activity detail has laps, if not try dedicated endpoint
+        # The activity detail endpoint usually includes laps, but the dedicated endpoint is more reliable
+        activity_laps_from_detail = activity.get('laps') or []
+        if len(activity_laps_from_detail) <= 1:
+            # If activity detail has 0 or 1 lap, try dedicated endpoint (might have more)
+            activity_laps = strava_service.get_activity_laps(access_token, activity['id'])
+            if activity_laps and len(activity_laps) > len(activity_laps_from_detail):
+                # Override laps in activity dict with data from dedicated endpoint
+                activity['laps'] = activity_laps
+                print(f"✅ Fetched {len(activity_laps)} laps from /activities/{activity['id']}/laps endpoint (detail had {len(activity_laps_from_detail)})")
+            elif activity_laps_from_detail:
+                print(f"ℹ️  Activity detail has {len(activity_laps_from_detail)} lap(s), dedicated endpoint returned {len(activity_laps) if activity_laps else 0}")
+        else:
+            print(f"✅ Activity detail has {len(activity_laps_from_detail)} laps - using those")
+        
         streams = strava_service.get_activity_streams(access_token, activity['id'])
         analyzed_session = training_service.analyze_activity(
             activity,
