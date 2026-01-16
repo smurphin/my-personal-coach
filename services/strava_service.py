@@ -47,6 +47,22 @@ class StravaService:
         """Get detailed information about a specific activity"""
         return self.get_api_data(access_token, f"activities/{activity_id}")
     
+    def get_activity_laps(self, access_token, activity_id):
+        """
+        Get laps for a specific activity using the dedicated laps endpoint.
+        
+        This endpoint returns all laps recorded by the device, which is more reliable
+        than relying on the laps field in the activity detail response.
+        
+        Returns:
+            List of lap objects, or empty list if no laps or error
+        """
+        try:
+            return self.get_api_data(access_token, f"activities/{activity_id}/laps")
+        except Exception as e:
+            print(f"⚠️  Error fetching laps for activity {activity_id}: {e}")
+            return []
+    
     def deauthorize(self, access_token):
         """Deauthorize the app from Strava"""
         try:

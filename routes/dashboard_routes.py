@@ -419,6 +419,22 @@ def dashboard():
         except Exception as e:
             print(f"Error loading plan_v2 for template: {e}")
     
+    # Check for pending VDOT confirmation
+    pending_vdot = None
+    if 'training_metrics' in user_data:
+        metrics_dict = user_data['training_metrics']
+        if 'vdot' in metrics_dict and metrics_dict['vdot']:
+            vdot_data = metrics_dict['vdot']
+            if isinstance(vdot_data, dict):
+                # Check if VDOT is pending confirmation
+                user_confirmed = vdot_data.get('user_confirmed', True)  # Default to True for backwards compat
+                pending_confirmation = vdot_data.get('pending_confirmation', False)
+                
+                if not user_confirmed or pending_confirmation:
+                    # VDOT needs user confirmation
+                    pending_vdot = vdot_data.copy()
+                    print(f"📋 Pending VDOT detected: {pending_vdot.get('value')} (needs user confirmation)")
+    
     # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
@@ -437,6 +453,7 @@ def dashboard():
         vdot_paces=vdot_paces,
         lthr=lthr,
         ftp=ftp,
+        pending_vdot=pending_vdot,
         get_routine_link=get_routine_link
     )
 
@@ -1071,6 +1088,7 @@ def confirm_vdot():
     user_data = data_manager.load_user_data(athlete_id)
     
     action = request.form.get('action')  # 'accept' or 'deny'
+    rejection_reason = request.form.get('rejection_reason', '').strip()  # Optional reason
     
     if 'training_metrics' in user_data and 'vdot' in user_data['training_metrics']:
         vdot_data = user_data['training_metrics']['vdot']
@@ -1082,6 +1100,39 @@ def confirm_vdot():
             print(f"✅ User confirmed VDOT {vdot_data['value']}")
         
         elif action == 'deny':
+            # Store rejection info before removing the pending VDOT
+            rejected_vdot = vdot_data.get('value')
+            detected_from = vdot_data.get('detected_from', {})
+            
+            # Initialize vdot_rejections array if it doesn't exist
+            if 'training_metrics' not in user_data:
+                user_data['training_metrics'] = {'version': 1}
+            if 'vdot_rejections' not in user_data['training_metrics']:
+                user_data['training_metrics']['vdot_rejections'] = []
+            
+            # Store rejection info
+            rejection_info = {
+                'rejected_vdot': rejected_vdot,
+                'rejected_at': datetime.now().isoformat(),
+                'detected_from': {
+                    'activity_id': detected_from.get('activity_id'),
+                    'activity_name': detected_from.get('activity_name', 'Unknown'),
+                    'distance': detected_from.get('distance'),
+                    'distance_meters': detected_from.get('distance_meters'),
+                    'time_seconds': detected_from.get('time_seconds'),
+                    'is_race': detected_from.get('is_race', False),
+                    'intensity_reason': detected_from.get('intensity_reason')
+                }
+            }
+            
+            if rejection_reason:
+                rejection_info['user_reason'] = rejection_reason
+            
+            # Add to rejections array (keep last 10 rejections)
+            user_data['training_metrics']['vdot_rejections'].append(rejection_info)
+            if len(user_data['training_metrics']['vdot_rejections']) > 10:
+                user_data['training_metrics']['vdot_rejections'] = user_data['training_metrics']['vdot_rejections'][-10:]
+            
             # Remove the pending VDOT, restore previous if it exists
             old_vdot = vdot_data.get('previous_value')
             if old_vdot:
@@ -1092,7 +1143,10 @@ def confirm_vdot():
                 # No previous, just delete
                 del user_data['training_metrics']['vdot']
                 flash('VDOT update rejected', 'info')
-            print(f"❌ User rejected VDOT update")
+            
+            print(f"❌ User rejected VDOT {rejected_vdot} from {detected_from.get('activity_name', 'Unknown')}")
+            if rejection_reason:
+                print(f"   Reason: {rejection_reason}")
         
         data_manager.save_user_data(athlete_id, user_data)
     

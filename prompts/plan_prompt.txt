@@ -133,6 +133,15 @@ Your current VDOT is **{{ vdot_data.current_vdot|int }}**{% if vdot_data.source_
 
 These paces will automatically update when you complete qualifying races or time trials.
 
+{% if vdot_data.recent_rejections and vdot_data.recent_rejections|length > 0 %}
+**Note:** The athlete has recently rejected some VDOT updates. When prescribing pace-based sessions, be aware that:
+- The current VDOT may not reflect their true fitness if recent rejections suggest detection issues
+- Consider being more conservative with pace prescriptions until a VDOT is confirmed
+- If multiple rejections occurred, prioritize heart rate zones over pace targets
+- Recent rejections: {% for rejection in vdot_data.recent_rejections %}VDOT {{ rejection.rejected_vdot }} from "{{ rejection.activity_name }}"{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endif %}
+
 {% else %}
 **VDOT Not Yet Established.** Complete a 5K time trial, Parkrun, or race (marked as "Race" in Strava) to establish your VDOT. Until then, use heart rate zones for intensity prescription. Once established, your training paces will be automatically calculated from Jack Daniels' tables.
 {% endif %}
