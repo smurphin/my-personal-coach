@@ -268,7 +268,37 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
                     activity_type_raw = match.group(2).strip()
                     description = match.group(3).strip()
                 elif pattern_name == "Lenient fallback":
-                    description = match.group(1).strip()
+                    # For lenient fallback, the description includes text after the closing **
+                    # Pattern: **Description** – details here [PRIORITY]
+                    # Example: **Run: The XC Sandwich** – 3 hours total... [KEY]
+                    full_match = match.group(0)
+                    session_name = match.group(1).strip()
+                    
+                    # Extract everything after the closing ** but before [PRIORITY]
+                    # Find where the session name's closing ** ends
+                    session_name_with_bold = f"**{session_name}**"
+                    name_end_pos = full_match.find(session_name_with_bold)
+                    if name_end_pos != -1:
+                        after_bold_start = name_end_pos + len(session_name_with_bold)
+                        # Find the [PRIORITY] tag
+                        priority_start = full_match.rfind('[')
+                        if priority_start > after_bold_start:
+                            after_bold = full_match[after_bold_start:priority_start].strip()
+                            # Clean up the text (remove extra ** markers, normalize whitespace)
+                            after_bold = re.sub(r'\*\*([^*]+)\*\*', r'\1', after_bold)  # Remove nested **
+                            after_bold = re.sub(r'\s+', ' ', after_bold).strip()  # Normalize whitespace
+                            # Remove leading dashes/separators (em dash, en dash, regular dash)
+                            after_bold = re.sub(r'^[–—\-]\s*', '', after_bold)
+                            # Combine session name with details
+                            if after_bold:
+                                description = f"{session_name}. {after_bold}".strip()
+                            else:
+                                description = session_name
+                        else:
+                            description = session_name
+                    else:
+                        description = session_name
+                    
                     priority = match.group(2).strip().upper()
                     activity_type_raw = "OTHER"
                 else:
@@ -304,24 +334,34 @@ def parse_sessions_from_week_text(week_text: str, week_num: int) -> List[Dict[st
                         zones['hr'] = zone_match.group(1)
                 
                 # Extract workout details from follow-up lines
-                workout_details = extract_workout_details(lines, match_line_idx)
-                
-                # Consolidate description: combine session title with workout details
-                if workout_details:
-                    # Format: "Session Title. Workout details here"
-                    # Remove any trailing period from description first
-                    desc_clean = description.rstrip('.')
-                    full_description = f"{desc_clean}. {workout_details}".strip()
-                    sessions_with_details += 1
-                    print(f"      📝 Session {idx+1}: Extracted workout details")
-                    print(f"         Original: {description[:60]}{'...' if len(description) > 60 else ''}")
-                    print(f"         Details: {workout_details[:80]}{'...' if len(workout_details) > 80 else ''}")
-                    print(f"         Final: {full_description[:100]}{'...' if len(full_description) > 100 else ''}")
-                else:
+                # Note: For "Lenient fallback" pattern, details are already in the description (same line)
+                # So we only need to check follow-up lines for other patterns
+                if pattern_name == "Lenient fallback":
+                    # Details already extracted from same line, no need to check follow-up lines
                     full_description = description
-                    sessions_without_details += 1
-                    print(f"      📝 Session {idx+1}: No workout details found")
-                    print(f"         Description: {description[:80]}{'...' if len(description) > 80 else ''}")
+                    sessions_with_details += 1
+                    print(f"      📝 Session {idx+1}: Description from same line (Lenient fallback pattern)")
+                    print(f"         Description: {description[:100]}{'...' if len(description) > 100 else ''}")
+                else:
+                    # For other patterns, check follow-up lines for workout details
+                    workout_details = extract_workout_details(lines, match_line_idx)
+                    
+                    # Consolidate description: combine session title with workout details
+                    if workout_details:
+                        # Format: "Session Title. Workout details here"
+                        # Remove any trailing period from description first
+                        desc_clean = description.rstrip('.')
+                        full_description = f"{desc_clean}. {workout_details}".strip()
+                        sessions_with_details += 1
+                        print(f"      📝 Session {idx+1}: Extracted workout details from follow-up lines")
+                        print(f"         Original: {description[:60]}{'...' if len(description) > 60 else ''}")
+                        print(f"         Details: {workout_details[:80]}{'...' if len(workout_details) > 80 else ''}")
+                        print(f"         Final: {full_description[:100]}{'...' if len(full_description) > 100 else ''}")
+                    else:
+                        full_description = description
+                        sessions_without_details += 1
+                        print(f"      📝 Session {idx+1}: No workout details in follow-up lines")
+                        print(f"         Description: {description[:80]}{'...' if len(description) > 80 else ''}")
                 
                 # Extract S&C routine name
                 s_and_c_routine = None
