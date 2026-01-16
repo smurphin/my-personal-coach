@@ -172,6 +172,31 @@ You have been given a list of one or more recently completed sessions. Your task
 **Why these restrictions?**
 The VDOT value and training paces above are calculated by code using Jack Daniels' official lookup tables. Previous attempts at AI-calculated VDOT resulted in errors (e.g., calculating VDOT 49 for a performance that should be VDOT 45). By using the pre-calculated values above, we ensure accuracy and consistency.
 
+{% if vdot_data.recent_rejections and vdot_data.recent_rejections|length > 0 %}
+**RECENT VDOT REJECTIONS:**
+The athlete has recently rejected the following VDOT updates. Use this information to:
+1. **Acknowledge the rejection** if relevant to current feedback (e.g., if analyzing the same activity that was rejected)
+2. **Understand the athlete's perspective** - they may have valid reasons (GPS issues, not a true race effort, etc.)
+3. **Adjust pace recommendations** - if a VDOT was rejected, be more cautious about pace-based prescriptions until a confirmed VDOT is established
+4. **Learn from patterns** - if multiple VDOTs from similar activities were rejected, consider what the athlete values in VDOT detection
+
+**Rejected VDOTs:**
+{% for rejection in vdot_data.recent_rejections %}
+- **VDOT {{ rejection.rejected_vdot }}** from "{{ rejection.activity_name }}" ({{ rejection.distance }})
+  - Rejected on: {{ rejection.rejected_at[:10] }}
+  {% if rejection.user_reason %}
+  - Athlete's reason: "{{ rejection.user_reason }}"
+  {% endif %}
+{% endfor %}
+
+**Guidance:**
+- If the athlete rejected a VDOT, respect their judgment - they know their own effort level better than the system
+- If they provided a reason (e.g., "GPS was inaccurate"), acknowledge this in your feedback
+- When prescribing pace-based sessions, be aware that the current VDOT may not reflect their true fitness if recent rejections suggest detection issues
+- If multiple rejections occurred, consider focusing more on heart rate zones until a VDOT is confirmed
+
+{% endif %}
+
 {% else %}
 
 ## VDOT NOT YET ESTABLISHED

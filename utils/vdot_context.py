@@ -33,7 +33,8 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
         'threshold_pace': None,
         'interval_pace': None,
         'repetition_pace': None,
-        'source_activity': None
+        'source_activity': None,
+        'recent_rejections': []  # List of recently rejected VDOTs
     }
     
     # Check if training_metrics exists
@@ -203,6 +204,31 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
                 if debug:
                     print(f"   Date: {source_activity.get('date', 'Unknown')}")
                     print(f"   Time: {source_activity.get('time', 'Unknown')}")
+        
+        # Get recent VDOT rejections (last 3 rejections)
+        if 'vdot_rejections' in metrics_dict and metrics_dict['vdot_rejections']:
+            rejections = metrics_dict['vdot_rejections']
+            # Get last 3 rejections (most recent first)
+            recent_rejections = rejections[-3:] if len(rejections) <= 3 else rejections[-3:]
+            
+            vdot_context['recent_rejections'] = []
+            for rejection in recent_rejections:
+                rejection_info = {
+                    'rejected_vdot': rejection.get('rejected_vdot'),
+                    'rejected_at': rejection.get('rejected_at'),
+                    'activity_name': rejection.get('detected_from', {}).get('activity_name', 'Unknown'),
+                    'distance': rejection.get('detected_from', {}).get('distance'),
+                    'time_seconds': rejection.get('detected_from', {}).get('time_seconds'),
+                    'user_reason': rejection.get('user_reason')
+                }
+                vdot_context['recent_rejections'].append(rejection_info)
+            
+            if debug:
+                print(f"\n❌ Recent VDOT rejections: {len(vdot_context['recent_rejections'])}")
+                for i, rej in enumerate(vdot_context['recent_rejections'], 1):
+                    print(f"   {i}. VDOT {rej['rejected_vdot']} from {rej['activity_name']}")
+                    if rej.get('user_reason'):
+                        print(f"      Reason: {rej['user_reason']}")
     
     except Exception as e:
         if debug:
@@ -218,7 +244,8 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
             'threshold_pace': None,
             'interval_pace': None,
             'repetition_pace': None,
-            'source_activity': None
+            'source_activity': None,
+            'recent_rejections': []
         }
     
     if debug:
@@ -226,6 +253,7 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
         print(f"   current_vdot: {vdot_context['current_vdot']}")
         print(f"   Has paces: {vdot_context['easy_pace'] != None}")
         print(f"   Has source: {vdot_context['source_activity'] != None}")
+        print(f"   Recent rejections: {len(vdot_context.get('recent_rejections', []))}")
         print("-"*70 + "\n")
     
     return vdot_context

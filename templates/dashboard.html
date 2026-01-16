@@ -1595,32 +1595,62 @@ function getReadinessMessage(score) {
             </div>
         </div>
         
-        <form method="POST" action="{{ url_for('dashboard.confirm_vdot') }}" class="flex gap-3">
-            <button type="submit" name="action" value="accept" 
-                    class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors">
-                ✓ Accept
-            </button>
-            <button type="submit" name="action" value="deny"
-                    class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
-                ✗ Deny
-            </button>
+        <form method="POST" action="{{ url_for('dashboard.confirm_vdot') }}" class="space-y-3">
+            <div id="rejection-reason-container" style="display: none;">
+                <label for="rejection_reason" class="block text-sm text-gray-400 mb-1">Optional reason for rejection:</label>
+                <textarea id="rejection_reason" name="rejection_reason" 
+                          rows="2" 
+                          class="w-full px-3 py-2 bg-brand-gray border border-brand-medium-gray rounded text-white text-sm"
+                          placeholder="e.g., GPS was inaccurate, wasn't a race effort, forgot to start watch, etc."></textarea>
+            </div>
+            
+            <div id="initial-buttons" class="flex gap-3">
+                <button type="submit" name="action" value="accept" 
+                        class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors">
+                    ✓ Accept
+                </button>
+                <button type="button" id="reject-btn" 
+                        class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
+                    ✗ Reject
+                </button>
+            </div>
+            
+            <div id="confirmation-buttons" class="flex gap-3" style="display: none;">
+                <button type="submit" name="action" value="deny" 
+                        class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors">
+                    ✓ Confirm Rejection
+                </button>
+                <button type="button" id="cancel-btn" 
+                        class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
+                    ✗ Cancel
+                </button>
+            </div>
         </form>
     </div>
 </div>
 
 <script>
+// Handle reject button click - show reason field and confirmation buttons
+document.getElementById('reject-btn')?.addEventListener('click', function() {
+    document.getElementById('rejection-reason-container').style.display = 'block';
+    document.getElementById('initial-buttons').style.display = 'none';
+    document.getElementById('confirmation-buttons').style.display = 'flex';
+});
+
+// Handle cancel button click - go back to initial state
+document.getElementById('cancel-btn')?.addEventListener('click', function() {
+    document.getElementById('rejection-reason-container').style.display = 'none';
+    document.getElementById('initial-buttons').style.display = 'flex';
+    document.getElementById('confirmation-buttons').style.display = 'none';
+    // Clear the reason field
+    document.getElementById('rejection_reason').value = '';
+});
+
 // Close modal when clicking outside
 document.getElementById('vdot-confirmation-modal')?.addEventListener('click', function(e) {
     if (e.target === this) {
-        this.style.display = 'none';
+        // Don't close on outside click - user must accept or reject
     }
-});
-
-// Prevent form submission from closing modal accidentally
-document.querySelectorAll('#vdot-confirmation-modal form button').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-    });
 });
 </script>
 {% endif %}

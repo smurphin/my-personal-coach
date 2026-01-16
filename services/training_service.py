@@ -367,7 +367,9 @@ class TrainingService:
         }
         
         # Additional check: if activity name/description suggests intervals and we have laps, prefer laps
-        activity_name_lower = (activity.get('name', '') + ' ' + activity.get('description', '')).lower()
+        activity_name = activity.get('name') or ''
+        activity_description = activity.get('description') or ''
+        activity_name_lower = (activity_name + ' ' + activity_description).lower()
         mentions_intervals = any(keyword in activity_name_lower for keyword in ['interval', 'repeat', 'x ', 'x3', 'x4', 'x5', 'x6', 'x8', '3 min', '4 min', '5 min', '6 min', '8 min'])
         
         # Add guidance for AI: which summary to prioritize and unit preference
