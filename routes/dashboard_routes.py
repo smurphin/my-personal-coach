@@ -115,7 +115,10 @@ def dashboard():
                     reparsed_weeks_with_sessions = sum(1 for w in reparsed_plan.weeks if len(w.sessions) > 0)
                     original_weeks_with_sessions = sum(1 for w in plan_v2.weeks if len(w.sessions) > 0)
                     
-                    if reparsed_weeks_with_sessions > original_weeks_with_sessions:
+                    # Accept reparse as long as it does not reduce the number of weeks with sessions.
+                    # This allows us to adopt improved parsing (better descriptions, S&C detection, etc.)
+                    # even when the total session count stays the same.
+                    if reparsed_weeks_with_sessions >= original_weeks_with_sessions:
                         # Reparse was successful - update plan_v2
                         # Preserve completed sessions from original plan_v2
                         existing_completed = {}
@@ -513,6 +516,22 @@ def chat():
         vdot_data=vdot_data,
         athlete_profile=athlete_profile  # Pass lifestyle context and athlete type
     )
+    
+    # CRITICAL: Convert escape sequences to actual characters
+    # The AI sometimes returns literal \n\n instead of actual newlines
+    # This happens when the response is serialized/deserialized or contains raw escape sequences
+    if isinstance(ai_response_markdown, str):
+        # Handle Python-style escape sequences (e.g., \n, \t)
+        # First, try to decode unicode escapes safely
+        try:
+            # Replace common escape sequences
+            ai_response_markdown = ai_response_markdown.replace('\\n', '\n')
+            ai_response_markdown = ai_response_markdown.replace('\\t', '\t')
+            ai_response_markdown = ai_response_markdown.replace('\\r', '\r')
+            # Handle escaped backslashes (\\ becomes \)
+            ai_response_markdown = ai_response_markdown.replace('\\\\', '\\')
+        except Exception as e:
+            print(f"⚠️  Error processing escape sequences: {e}")
 
     # Add AI response
     chat_history.append({
@@ -523,8 +542,21 @@ def chat():
     user_data['chat_log'] = chat_history
 
     # Check for plan update in response
-    match = re.search(r"```markdown\n(.*?)```", ai_response_markdown, re.DOTALL)
+    # Try multiple patterns to handle different code block formats
+    # Pattern 1: ```markdown\n...``` (standard format)
+    # Pattern 2: ```markdown...``` (no newline after markdown keyword)
+    # Pattern 3: ```\nmarkdown\n...``` (newline before markdown)
+    print(f"🔍 Checking for plan update in chat response (length: {len(ai_response_markdown)} chars)")
+    match = re.search(r"```\s*markdown\s*\n(.*?)```", ai_response_markdown, re.DOTALL)
+    if not match:
+        # Try without requiring newline after markdown keyword
+        match = re.search(r"```\s*markdown\s+(.*?)```", ai_response_markdown, re.DOTALL)
+    if not match:
+        # Try with any whitespace
+        match = re.search(r"```\s*markdown\s*(.*?)```", ai_response_markdown, re.DOTALL)
+    
     if match:
+        print(f"✅ Found plan update in chat response!")
         new_plan_markdown = match.group(1).strip()
         user_data['plan'] = new_plan_markdown
         print(f"--- Plan updated via chat! ---")
@@ -630,7 +662,16 @@ def chat_log_list():
         for message in chat_history:
             if message.get('role') == 'model' and 'content' in message:
                 try:
-                    message['content'] = render_markdown_with_toc(message['content'])['content']
+                    content = message['content']
+                    # CRITICAL: Convert escape sequences to actual characters before rendering
+                    # Handle Python-style escape sequences (e.g., \n, \t)
+                    if isinstance(content, str):
+                        content = content.replace('\\n', '\n')
+                        content = content.replace('\\t', '\t')
+                        content = content.replace('\\r', '\r')
+                        # Handle escaped backslashes (\\ becomes \)
+                        content = content.replace('\\\\', '\\')
+                    message['content'] = render_markdown_with_toc(content)['content']
                 except Exception as e:
                     print(f"Error rendering markdown for message: {e}")
 

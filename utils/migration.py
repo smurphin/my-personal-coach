@@ -121,6 +121,16 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         
         # === SESSION PARSING ===
         
+        # Format with priority BEFORE colon: **Type Number [PRIORITY]: Description**
+        # Example: *   **Run 1 [KEY]: Threshold Run** (Completed 14/01)
+        #          *   **Workout:** ... details ...
+        #          *   **Duration:** ~80 minutes
+        session_pattern_priority_before = r'^\*\s+\*\*([A-Za-z&\s]+)\s+(\d+)\s+\[([^\]]+)\]:\s+([^\*]+)\*\*'
+        matches_priority_before = list(re.finditer(session_pattern_priority_before, week_text, re.MULTILINE))
+        
+        # Standalone S&C focus sessions: **S&C:** Core Focus, 30 mins [IMPORTANT]
+        session_pattern_sc_focus = r'^\*\s+\*\*S&C:\*\*\s+([^\*]+)\s+\[([^\]]+)\]'
+        
         # NEW format: Multi-line with nested bullets
         # *   **Run 1: Hill Repeats** [KEY]
         #     *   Duration: ...
@@ -134,7 +144,9 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         # Also handles day prefixes like: **Tue Jan 20:** **Run: ...** [KEY] or **Mon:** **Run: ...** [KEY]
         # Pattern allows optional day prefix (e.g., **Mon:** or **Tue Jan 20:**) before the session pattern
         # The pattern doesn't require line start, allowing it to match anywhere in the line
-        session_pattern_current = r'(?:\*\s+)?(?:\*\*[^:]+:\*\*\s+)?\*\*([A-Za-z&\s]+):\s+([^\*]+)\*\*\s+\[([^\]]+)\]'
+        # IMPORTANT: Also handles extra text between closing ** and [PRIORITY], e.g.:
+        #   **Bike: Threshold Intervals, 45 mins** - 10 min warm-up... [KEY]
+        session_pattern_current = r'(?:\*\s+)?(?:\*\*[^:]+:\*\*\s+)?\*\*([A-Za-z&\s]+):\s+([^\*]+)\*\*\s+(?:[^\[]*?)\[([^\]]+)\]'
         matches_current = list(re.finditer(session_pattern_current, week_text, re.MULTILINE))
         
         # Legacy formats (for backward compatibility with existing DB plans)
@@ -153,7 +165,197 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         sessions = []
         session_counter = 0
         
-        if matches_new:
+        if matches_priority_before:
+            # Handle format with priority BEFORE colon: **Type Number [PRIORITY]: Description**
+            print(f"   Week {week_num}: Using format with priority before colon (**Type Number [PRIORITY]: Description**)")
+            lines = week_text.split('\n')
+            
+            for match in matches_priority_before:
+                session_counter += 1
+                activity_type_raw = match.group(1).strip()
+                session_num_str = match.group(2)
+                priority = match.group(3).strip().upper()
+                session_name = match.group(4).strip()
+                
+                # Remove completion status like "(Completed 14/01)"
+                session_name = re.sub(r'\s*\(Completed\s+\d+/\d+\)', '', session_name).strip()
+                
+                # Find the line number of this match
+                match_line_num = week_text[:match.start()].count('\n')
+                
+                # Look ahead for nested bullets (Workout and Duration)
+                workout_text = ""
+                duration_text = ""
+                
+                # Look at lines after the header (up to next session or end of week)
+                for i in range(match_line_num + 1, len(lines)):
+                    line = lines[i].strip()
+                    
+                    # Stop if we hit another session header
+                    if re.match(r'^\*\s+\*\*[A-Za-z]', line):
+                        break
+                    
+                    # Stop if we hit another week
+                    if re.match(r'^###?\s+Week\s+\d+', line):
+                        break
+                    
+                    # Stop if we hit a blank line followed by another session
+                    if i > match_line_num + 1 and not line and i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        if re.match(r'^\*\s+\*\*[A-Za-z]', next_line):
+                            break
+                    
+                    # Extract Workout (this contains the detailed instructions)
+                    if re.match(r'^\*\s+\*\*?Workout:', line, re.IGNORECASE):
+                        workout_text = re.sub(r'^\*\s+\*\*?Workout:\s*', '', line, flags=re.IGNORECASE).strip()
+                        # Workout might continue on next lines if they're indented
+                        j = i + 1
+                        while j < len(lines):
+                            next_line = lines[j].strip()
+                            # Stop if we hit another bullet or header
+                            if (re.match(r'^\*\s+\*\*?', next_line) or 
+                                re.match(r'^###?\s+Week', next_line) or
+                                not next_line):
+                                break
+                            # If it's indented (starts with spaces), it's continuation
+                            if lines[j].startswith('    ') or lines[j].startswith('\t'):
+                                workout_text += " " + next_line
+                                j += 1
+                            else:
+                                break
+                    
+                    # Extract Duration
+                    elif re.match(r'^\*\s+\*\*?Duration:', line, re.IGNORECASE):
+                        duration_text = re.sub(r'^\*\s+\*\*?Duration:\s*', '', line, flags=re.IGNORECASE).strip()
+                        # Duration might continue on next lines if they're indented
+                        j = i + 1
+                        while j < len(lines):
+                            next_line = lines[j].strip()
+                            # Stop if we hit another bullet or header
+                            if (re.match(r'^\*\s+\*\*?', next_line) or 
+                                re.match(r'^###?\s+Week', next_line) or
+                                not next_line):
+                                break
+                            # If it's indented (starts with spaces), it's continuation
+                            if lines[j].startswith('    ') or lines[j].startswith('\t'):
+                                duration_text += " " + next_line
+                                j += 1
+                            else:
+                                break
+                
+                # Combine session name, workout, and duration for full description
+                description_parts = [session_name]
+                if workout_text:
+                    description_parts.append(workout_text)
+                if duration_text:
+                    description_parts.append(f"Duration: {duration_text}")
+                
+                full_description = ". ".join(description_parts)
+                
+                # Determine session type
+                combined_text = (activity_type_raw + " " + full_description).lower()
+                
+                if any(x in combined_text for x in ['run', 'jog', 'parkrun', 'xc', 'cross country', 'track']):
+                    session_type = 'RUN'
+                elif any(x in combined_text for x in ['bike', 'cycling', 'cycle', 'ride', 'turbo', 'spin', 'trainer']):
+                    session_type = 'BIKE'
+                elif any(x in combined_text for x in ['swim', 'pool', 'lake', 'dip']):
+                    session_type = 'SWIM'
+                elif any(x in combined_text for x in ['s&c', 'strength', 'routine', 'gym', 'mobility', 'cross-training']):
+                    session_type = 'STRENGTH'
+                elif any(x in combined_text for x in ['cross-train', 'cross train']):
+                    session_type = 'CROSS_TRAIN'
+                else:
+                    session_type = 'OTHER'
+                
+                # Extract duration from duration_text or workout_text
+                duration_minutes = None
+                if duration_text:
+                    duration_matches = re.findall(r'(\d+)\s*(?:min|mins|minutes)', duration_text, re.IGNORECASE)
+                    if duration_matches:
+                        duration_minutes = int(duration_matches[0])
+                elif workout_text:
+                    duration_match = re.search(r'(\d+)\s*(?:min|mins|minutes)', workout_text, re.IGNORECASE)
+                    if duration_match:
+                        duration_minutes = int(duration_match.group(1))
+                
+                # Extract zones from workout and duration text
+                zones = {}
+                search_text = f"{workout_text} {duration_text}" if workout_text and duration_text else (workout_text or duration_text or "")
+                zone_match = re.search(r'[Zz]one\s*(\d+)(?:\s*[/-]\s*(\d+))?', search_text)
+                if zone_match:
+                    if zone_match.group(2):
+                        zones['hr'] = f"{zone_match.group(1)}-{zone_match.group(2)}"
+                    else:
+                        zones['hr'] = zone_match.group(1)
+                
+                # Extract pace information
+                pace_match = re.search(r'~?(\d+):(\d+)/km', full_description)
+                if pace_match:
+                    zones['pace'] = f"{pace_match.group(1)}:{pace_match.group(2)}/km"
+                
+                # Extract S&C routine for STRENGTH sessions
+                s_and_c_routine = None
+                if session_type == 'STRENGTH':
+                    routine_match = re.search(r'S&C[:\s]+([^,]+)', full_description, re.IGNORECASE)
+                    if routine_match:
+                        routine_name = routine_match.group(1).strip()
+                        s_and_c_routine = routine_name
+                
+                session = Session(
+                    id=f"w{week_num}-s{session_counter}",
+                    day="Anytime",
+                    type=session_type,
+                    date=start_date,
+                    priority=priority,
+                    duration_minutes=duration_minutes,
+                    description=full_description,
+                    zones=zones,
+                    s_and_c_routine=s_and_c_routine,
+                    scheduled=False,
+                    completed=False
+                )
+                sessions.append(session)
+            
+            # Also handle any standalone S&C focus sessions in this week that
+            # don't follow the priority-before-colon pattern (e.g. "**S&C:** Lower Body Focus, 35 mins [IMPORTANT]").
+            sc_matches = list(re.finditer(session_pattern_sc_focus, week_text, re.MULTILINE))
+            for sc_match in sc_matches:
+                session_counter += 1
+                sc_description_raw = sc_match.group(1).strip()
+                sc_priority = sc_match.group(2).strip().upper()
+                
+                full_description = f"S&C: {sc_description_raw}"
+                session_type = 'STRENGTH'
+                
+                # Extract duration from description (e.g. "35 mins")
+                duration_minutes = None
+                duration_match = re.search(r'(\d+)\s*(?:min|mins|minutes)', sc_description_raw, re.IGNORECASE)
+                if duration_match:
+                    duration_minutes = int(duration_match.group(1))
+                
+                # Extract S&C routine focus (e.g. "Lower Body Focus")
+                s_and_c_routine = None
+                focus_match = re.search(r'([^,]+)', sc_description_raw)
+                if focus_match:
+                    s_and_c_routine = focus_match.group(1).strip()
+                
+                session = Session(
+                    id=f"w{week_num}-s{session_counter}",
+                    day="Anytime",
+                    type=session_type,
+                    date=start_date,
+                    priority=sc_priority,
+                    duration_minutes=duration_minutes,
+                    description=full_description,
+                    zones={},
+                    s_and_c_routine=s_and_c_routine,
+                    scheduled=False,
+                    completed=False
+                )
+                sessions.append(session)
+        
+        elif matches_new:
             # Use new multi-line format with nested bullets
             print(f"   Week {week_num}: Using new multi-line format (**Type: Name** [PRIORITY] with nested bullets)")
             lines = week_text.split('\n')
@@ -340,6 +542,19 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                 activity_type_raw = match.group(1).strip()
                 description_without_type = match.group(2).strip()
                 priority = match.group(3).strip().upper()
+                
+                # Extract any additional text between closing ** and [PRIORITY]
+                # The pattern allows this but doesn't capture it, so extract from full match
+                full_match_text = match.group(0)
+                # Find the position after the closing ** (of the description) and before [
+                # Look for the last ** before the [PRIORITY]
+                closing_bold_pos = full_match_text.rfind('**', 0, full_match_text.rfind('['))
+                opening_bracket_pos = full_match_text.find('[', closing_bold_pos)
+                if closing_bold_pos >= 0 and opening_bracket_pos > closing_bold_pos:
+                    extra_text = full_match_text[closing_bold_pos + 2:opening_bracket_pos].strip()
+                    if extra_text:
+                        # Append extra text to description (e.g., " - 10 min warm-up...")
+                        description_without_type = f"{description_without_type} {extra_text}".strip()
                 
                 # Determine session type from activity_type_raw AND description
                 combined_text = (activity_type_raw + " " + description_without_type).lower()

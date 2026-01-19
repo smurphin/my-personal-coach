@@ -255,9 +255,20 @@ class VDOTDetectionService:
         if elapsed_time > 0 and (moving_time / elapsed_time) < 0.9:
             return False, "Too many stops (not continuous effort)", None
         
-        # Check for recovery intervals
-        if self.has_recovery_intervals(time_in_zones, moving_time):
-            return False, "Contains recovery intervals (not a continuous effort)", None
+        # Check for recovery intervals - but skip this check if:
+        # 1. It's marked as a race, OR
+        # 2. It has high Z4+Z5 time (>50%), indicating an all-out effort
+        #    (high Z1 could be HRM issues at start, not actual recovery)
+        if not is_race and moving_time > 0:
+            z4_pct = (time_in_zones.get('Z4', 0) / moving_time) * 100
+            z5_pct = (time_in_zones.get('Z5', 0) / moving_time) * 100
+            z4_z5_pct = z4_pct + z5_pct
+            
+            # Only check for recovery intervals if Z4+Z5 is <50%
+            # If Z4+Z5 is high, it's clearly an all-out effort regardless of Z1 time
+            if z4_z5_pct < 50:
+                if self.has_recovery_intervals(time_in_zones, moving_time):
+                    return False, "Contains recovery intervals (not a continuous effort)", None
         
         # Check 5: Is the intensity appropriate?
         qualifies, intensity_reason = self.analyze_effort_intensity(

@@ -809,6 +809,21 @@ def get_feedback_api():
             match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
             if match:
                 new_plan_markdown = match.group(1).strip()
+                
+                # CRITICAL: Archive old plan BEFORE overwriting
+                if 'plan' in user_data and user_data.get('plan'):
+                    if 'archive' not in user_data:
+                        user_data['archive'] = []
+                    
+                    # Archive current plan with timestamp
+                    user_data['archive'].insert(0, {
+                        'plan': user_data['plan'],
+                        'plan_v2': user_data.get('plan_v2'),  # Also archive plan_v2
+                        'completed_date': datetime.now().isoformat(),
+                        'reason': 'regenerated_via_feedback'
+                    })
+                    print(f"📦 Archived old plan before regeneration (archive now has {len(user_data['archive'])} entries)")
+                
                 user_data['plan'] = new_plan_markdown
                 print(f"✅ Plan updated via feedback")
                 

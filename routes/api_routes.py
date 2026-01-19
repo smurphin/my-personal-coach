@@ -205,7 +205,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             first_activity_date_iso
         )
     
-    # VDOT DETECTION
+    # VDOT DETECTION - Check ALL activities, not just the first one
     if raw_activities and analyzed_sessions:
         from services.vdot_detection_service import vdot_detection_service
         from utils.vdot_calculator import VDOTCalculator
@@ -214,23 +214,60 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         print("VDOT DETECTION - DEBUG LOG (WEBHOOK - QUEUED)")
         print("="*70)
         
-        raw_activity = raw_activities[0]['activity']
-        time_in_zones_raw = raw_activities[0]['time_in_zones']
-        
-        time_in_zones = {}
-        for zone_name, zone_time in time_in_zones_raw.items():
-            if 'Zone' in zone_name:
-                zone_num = zone_name.replace('Zone ', '')
-                time_in_zones[f'Z{zone_num}'] = zone_time
-            else:
-                time_in_zones[zone_name] = zone_time
-        
         print(f"📊 Processing {len(raw_activities)} activities for VDOT detection...")
         
-        vdot_result = vdot_detection_service.calculate_vdot_from_activity(
-            raw_activity,
-            time_in_zones
-        )
+        # Process ALL activities and find the best VDOT candidate
+        vdot_result = None
+        vdot_candidates = []
+        
+        for idx, raw_activity_data in enumerate(raw_activities):
+            raw_activity = raw_activity_data['activity']
+            time_in_zones_raw = raw_activity_data['time_in_zones']
+            
+            time_in_zones = {}
+            for zone_name, zone_time in time_in_zones_raw.items():
+                if 'Zone' in zone_name:
+                    zone_num = zone_name.replace('Zone ', '')
+                    time_in_zones[f'Z{zone_num}'] = zone_time
+                else:
+                    time_in_zones[zone_name] = zone_time
+            
+            activity_id = raw_activity.get('id')
+            activity_name = raw_activity.get('name', 'Unknown')
+            is_race = raw_activity.get('workout_type') == 1
+            
+            print(f"   🔍 Checking activity {idx+1}/{len(raw_activities)}: {activity_name} (ID: {activity_id}, Race: {is_race})")
+            
+            result = vdot_detection_service.calculate_vdot_from_activity(
+                raw_activity,
+                time_in_zones
+            )
+            
+            if result:
+                # Prioritize: races first, then by intensity (Z4+Z5 %)
+                distance_meters = raw_activity.get('distance', 0)
+                moving_time = raw_activity.get('moving_time', 0)
+                priority = 0
+                
+                if is_race:
+                    priority = 1000  # Races get highest priority
+                elif moving_time > 0:
+                    z4_pct = (time_in_zones.get('Z4', 0) / moving_time) * 100
+                    z5_pct = (time_in_zones.get('Z5', 0) / moving_time) * 100
+                    priority = z4_pct + z5_pct  # Higher intensity = higher priority
+                
+                vdot_candidates.append((priority, result, raw_activity, time_in_zones))
+                print(f"   ✅ Qualifies for VDOT: VDOT {result['vdot']}, Priority: {priority:.1f}")
+            else:
+                should_calc, reason, _ = vdot_detection_service.should_calculate_vdot(raw_activity, time_in_zones)
+                print(f"   ❌ Does not qualify: {reason}")
+        
+        # Use the highest priority candidate (or first if multiple have same priority)
+        if vdot_candidates:
+            # Sort by priority (highest first), then by distance (for tie-breaking)
+            vdot_candidates.sort(key=lambda x: (x[0], x[1]['distance_meters']), reverse=True)
+            priority, vdot_result, _, _ = vdot_candidates[0]
+            print(f"\n🎯 Selected highest priority VDOT candidate (priority: {priority:.1f})")
         
         if vdot_result:
             print(f"\n✅ VDOT DETECTION SUCCESSFUL!")
@@ -325,6 +362,16 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     feedback_log.insert(0, new_log_entry)
     user_data['feedback_log'] = feedback_log
     print(f"📝 Added feedback entry for {len(analyzed_sessions)} activities to feedback_log")
+    print(f"   📋 feedback_log now has {len(feedback_log)} entries")
+    print(f"   🔍 New entry activity_id: {new_log_entry.get('activity_id')}, name: {new_log_entry.get('activity_name', '')[:50]}")
+    
+    # CRITICAL: Verify the entry is actually in user_data before proceeding
+    if 'feedback_log' not in user_data or not user_data['feedback_log']:
+        print(f"❌ CRITICAL: feedback_log missing or empty after adding entry!")
+    elif user_data['feedback_log'][0].get('activity_id') != new_log_entry.get('activity_id'):
+        print(f"❌ CRITICAL: feedback_log[0] activity_id mismatch! Expected {new_log_entry.get('activity_id')}, got {user_data['feedback_log'][0].get('activity_id')}")
+    else:
+        print(f"   ✅ Verified: feedback_log[0] has correct activity_id {user_data['feedback_log'][0].get('activity_id')}")
     
     # === SESSION MATCHING ===
     # Match activities to plan sessions and mark them complete
@@ -370,11 +417,26 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             import traceback
             traceback.print_exc()
     
-    # Handle plan updates
+    # Handle plan updates - ARCHIVE OLD PLAN FIRST
     if '[PLAN_UPDATED]' in feedback_markdown:
         match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
         if match:
             new_plan_markdown = match.group(1).strip()
+            
+            # CRITICAL: Archive old plan BEFORE overwriting
+            if 'plan' in user_data and user_data.get('plan'):
+                if 'archive' not in user_data:
+                    user_data['archive'] = []
+                
+                # Archive current plan with timestamp
+                user_data['archive'].insert(0, {
+                    'plan': user_data['plan'],
+                    'plan_v2': user_data.get('plan_v2'),  # Also archive plan_v2
+                    'completed_date': datetime.now().isoformat(),
+                    'reason': 'regenerated_via_feedback'
+                })
+                print(f"📦 Archived old plan before regeneration (archive now has {len(user_data['archive'])} entries)")
+            
             user_data['plan'] = new_plan_markdown
             print(f"✅ Plan updated via queued webhook processing")
             
@@ -446,7 +508,30 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
                 import traceback
                 traceback.print_exc()
     
+    # CRITICAL: Double-check feedback_log entry is still present before saving
+    first_entry_id = None
+    if 'feedback_log' in user_data and user_data['feedback_log']:
+        first_entry_id = user_data['feedback_log'][0].get('activity_id')
+        print(f"🔍 Before final save: feedback_log[0] activity_id = {first_entry_id}")
+    else:
+        print(f"❌ CRITICAL: feedback_log missing or empty BEFORE final save!")
+    
     safe_save_user_data(athlete_id, user_data)
+    
+    # CRITICAL: Verify entry was saved by reloading and checking
+    if first_entry_id:
+        try:
+            verification_data = data_manager.load_user_data(athlete_id)
+            if 'feedback_log' in verification_data and verification_data['feedback_log']:
+                saved_entry_id = verification_data['feedback_log'][0].get('activity_id')
+                print(f"✅ After save: Reloaded feedback_log[0] activity_id = {saved_entry_id}")
+                if saved_entry_id != first_entry_id:
+                    print(f"❌ CRITICAL: Entry not saved correctly! Expected {first_entry_id}, got {saved_entry_id}")
+            else:
+                print(f"❌ CRITICAL: feedback_log missing or empty AFTER save and reload!")
+        except Exception as e:
+            print(f"⚠️  Could not verify save: {e}")
+    
     print(f"✅ Successfully processed queued webhooks for athlete {athlete_id}")
 
 
@@ -458,8 +543,17 @@ def safe_save_user_data(athlete_id, user_data):
     """
     # Trim feedback_log - but save trimmed entries to S3 first
     if 'feedback_log' in user_data and len(user_data['feedback_log']) > 20:
+        # Debug: log what entries we're keeping vs trimming
+        new_entry_activity_id = user_data['feedback_log'][0].get('activity_id') if user_data['feedback_log'] else None
         trimmed_entries = user_data['feedback_log'][20:]  # Entries beyond the first 20
+        kept_entries = user_data['feedback_log'][:20]  # Entries we're keeping
+        kept_activity_ids = [e.get('activity_id') for e in kept_entries]
+        trimmed_activity_ids = [e.get('activity_id') for e in trimmed_entries]
+        
         print(f"⚠️  Trimming feedback_log from {len(user_data['feedback_log'])} to 20 entries")
+        print(f"   🔍 New entry activity_id {new_entry_activity_id} will be {'KEPT' if new_entry_activity_id in kept_activity_ids else 'TRIMMED'}")
+        print(f"   📋 Keeping {len(kept_entries)} entries (activity_ids: {kept_activity_ids[:5]}...)")
+        print(f"   ✂️  Trimming {len(trimmed_entries)} entries (activity_ids: {trimmed_activity_ids})")
         
         # Save trimmed entries to S3 for permanent storage
         try:
@@ -494,6 +588,8 @@ def safe_save_user_data(athlete_id, user_data):
         
         # Now trim the in-memory version
         user_data['feedback_log'] = user_data['feedback_log'][:20]
+        print(f"   ✅ Trimmed feedback_log to {len(user_data['feedback_log'])} entries in memory")
+        print(f"   📋 Remaining entries activity_ids: {[e.get('activity_id') for e in user_data['feedback_log'][:5]]}")
     
     # Trim chat_log
     if 'chat_log' in user_data and len(user_data['chat_log']) > 30:
@@ -509,6 +605,12 @@ def safe_save_user_data(athlete_id, user_data):
     if 'garmin_history_metadata' in user_data and 'garmin_history' in user_data:
         print(f"⚠️  Removing duplicate garmin_history (already in S3)")
         del user_data['garmin_history']
+    
+    # Debug: log feedback_log state before saving
+    if 'feedback_log' in user_data:
+        print(f"💾 Saving feedback_log with {len(user_data['feedback_log'])} entries to DynamoDB")
+        if user_data['feedback_log']:
+            print(f"   📋 First entry activity_id: {user_data['feedback_log'][0].get('activity_id')}, name: {user_data['feedback_log'][0].get('activity_name', '')[:50]}")
     
     data_manager.save_user_data(athlete_id, user_data)
 

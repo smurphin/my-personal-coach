@@ -75,9 +75,19 @@ def archive_and_restore_past_weeks(current_plan_v2: Optional[Dict[str, Any]], ne
                 for week in new_plan_weeks:
                     week.week_number = max_past_week_num + week.week_number
             
-            # Merge: past weeks + (possibly renumbered) new weeks
-            new_plan_v2.weeks = past_week_objects + new_plan_weeks
-            print(f"   ✅ Merged {len(past_week_objects)} archived past weeks back into plan")
+            # Avoid duplicating weeks: if a past week's week_number already exists
+            # in the new plan, skip that past week (the new plan's version wins).
+            new_plan_week_numbers = {w.week_number for w in new_plan_weeks}
+            filtered_past_weeks = []
+            for w in past_week_objects:
+                if w.week_number in new_plan_week_numbers:
+                    print(f"   ⚠️  Skipping archived past week {w.week_number} because new plan already has this week number")
+                else:
+                    filtered_past_weeks.append(w)
+            
+            # Merge: filtered past weeks + (possibly renumbered) new weeks
+            new_plan_v2.weeks = filtered_past_weeks + new_plan_weeks
+            print(f"   ✅ Merged {len(filtered_past_weeks)} archived past weeks back into plan")
             print(f"   📊 Final plan: {len(new_plan_v2.weeks)} weeks total (Weeks {new_plan_v2.weeks[0].week_number} to {new_plan_v2.weeks[-1].week_number})")
     
     return new_plan_v2
