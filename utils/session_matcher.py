@@ -152,6 +152,27 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
             (['hill'], ['hill'])
         ]
         
+        # Cycling-specific matches
+        bike_type_matches = [
+            (['ftp', 'functional threshold', 'threshold test'], ['ftp', 'threshold', 'functional threshold']),
+            (['ramp', 'ramp test', 'incremental'], ['ramp', 'incremental']),
+            (['time trial', 'tt'], ['time trial', 'tt']),
+            (['sweet spot'], ['sweet spot']),
+            (['vo2', 'vo2max'], ['vo2', 'vo2max']),
+            (['endurance', 'base'], ['endurance', 'base']),
+        ]
+        
+        # Check cycling matches first (if it's a bike activity)
+        if session_type == 'BIKE':
+            for activity_keywords, session_keywords in bike_type_matches:
+                activity_has = any(kw in activity_name for kw in activity_keywords)
+                session_has = any(kw in session_desc for kw in session_keywords)
+                if activity_has and session_has:
+                    score += 10.0  # Strong boost for FTP/ramp test matches
+                    reasons.append(f"cycling type match: {activity_keywords[0]}")
+                    break
+        
+        # Then check run matches
         for activity_keywords, session_keywords in run_type_matches:
             activity_has = any(kw in activity_name for kw in activity_keywords)
             session_has = any(kw in session_desc for kw in session_keywords)

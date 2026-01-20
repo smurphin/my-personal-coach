@@ -28,11 +28,23 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
     
     vdot_context = {
         'current_vdot': None,
+        # Primary per-km paces (legacy fields, kept for backwards compatibility)
         'easy_pace': None,
         'marathon_pace': None,
         'threshold_pace': None,
-        'interval_pace': None,
-        'repetition_pace': None,
+        'interval_pace': None,      # Historically stored as per-mile interval pace
+        'repetition_pace': None,    # Historically stored as per-km repetition pace
+        # Explicit unit-specific paces
+        'easy_pace_km': None,
+        'easy_pace_mile': None,
+        'marathon_pace_km': None,
+        'marathon_pace_mile': None,
+        'threshold_pace_km': None,
+        'threshold_pace_mile': None,
+        'interval_pace_km': None,
+        'interval_pace_mile': None,
+        'repetition_pace_km': None,
+        'repetition_pace_mile': None,
         'source_activity': None,
         'recent_rejections': []  # List of recently rejected VDOTs
     }
@@ -93,44 +105,89 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
             
             if paces:
                 # Map pace keys to context keys
-                # Your VDOTCalculator returns keys like "Easy/Long Pace per km"
-                vdot_context['easy_pace'] = (
+                # VDOTCalculator returns keys like "Easy/Long Pace per km" / "Marathon Pace per Mile"
+                # We also support the shorter keys you've historically stored (e.g. "Easy Long per km").
+
+                # --- Easy / Long ---
+                easy_km = (
                     paces.get('Easy/Long Pace per km') or 
                     paces.get('Easy Long per km') or 
-                    paces.get('Easy') or
-                    'N/A'
+                    paces.get('Easy per km')
                 )
-                vdot_context['marathon_pace'] = (
+                easy_mile = (
+                    paces.get('Easy/Long Pace per Mile') or
+                    paces.get('Easy Long per Mile') or
+                    paces.get('Easy per Mile')
+                )
+
+                # --- Marathon ---
+                mara_km = (
                     paces.get('Marathon Pace per km') or 
                     paces.get('Marathon per km') or 
-                    paces.get('Marathon') or
-                    'N/A'
+                    paces.get('Marathon')
                 )
-                vdot_context['threshold_pace'] = (
+                mara_mile = (
+                    paces.get('Marathon Pace per Mile') or 
+                    paces.get('Marathon per Mile')
+                )
+
+                # --- Threshold ---
+                thresh_km = (
                     paces.get('Threshold Pace per km') or 
                     paces.get('Threshold per km') or 
-                    paces.get('Threshold') or
-                    'N/A'
+                    paces.get('Threshold')
                 )
-                vdot_context['interval_pace'] = (
+                thresh_mile = (
+                    paces.get('Threshold Pace per Mile') or 
+                    paces.get('Threshold per Mile')
+                )
+
+                # --- Interval (VO2max) ---
+                int_km = (
+                    paces.get('Interval Pace per km') or
+                    paces.get('Interval per km')
+                )
+                int_mile = (
                     paces.get('Interval Pace per Mile') or 
                     paces.get('Interval per Mile') or 
-                    paces.get('Interval') or
-                    'N/A'
+                    paces.get('Interval')
                 )
-                vdot_context['repetition_pace'] = (
+
+                # --- Repetition ---
+                rep_km = (
                     paces.get('Repetition Pace per km') or 
-                    paces.get('Repetition per km') or 
-                    paces.get('Repetition') or
-                    'N/A'
+                    paces.get('Repetition per km')
                 )
+                rep_mile = (
+                    paces.get('Repetition Pace per Mile') or
+                    paces.get('Repetition per Mile')
+                )
+
+                # Populate explicit unit-specific fields
+                vdot_context['easy_pace_km'] = easy_km or 'N/A'
+                vdot_context['easy_pace_mile'] = easy_mile or 'N/A'
+                vdot_context['marathon_pace_km'] = mara_km or 'N/A'
+                vdot_context['marathon_pace_mile'] = mara_mile or 'N/A'
+                vdot_context['threshold_pace_km'] = thresh_km or 'N/A'
+                vdot_context['threshold_pace_mile'] = thresh_mile or 'N/A'
+                vdot_context['interval_pace_km'] = int_km or 'N/A'
+                vdot_context['interval_pace_mile'] = int_mile or 'N/A'
+                vdot_context['repetition_pace_km'] = rep_km or 'N/A'
+                vdot_context['repetition_pace_mile'] = rep_mile or 'N/A'
+
+                # Maintain legacy top-level fields for compatibility
+                vdot_context['easy_pace'] = easy_km or easy_mile or 'N/A'
+                vdot_context['marathon_pace'] = mara_km or mara_mile or 'N/A'
+                vdot_context['threshold_pace'] = thresh_km or thresh_mile or 'N/A'
+                vdot_context['interval_pace'] = int_mile or int_km or 'N/A'
+                vdot_context['repetition_pace'] = rep_km or rep_mile or 'N/A'
                 
                 if debug:
-                    print(f"   Easy: {vdot_context['easy_pace']}")
-                    print(f"   Marathon: {vdot_context['marathon_pace']}")
-                    print(f"   Threshold: {vdot_context['threshold_pace']}")
-                    print(f"   Interval: {vdot_context['interval_pace']}")
-                    print(f"   Repetition: {vdot_context['repetition_pace']}")
+                    print(f"   Easy: {vdot_context['easy_pace']} (km: {vdot_context['easy_pace_km']}, mile: {vdot_context['easy_pace_mile']})")
+                    print(f"   Marathon: {vdot_context['marathon_pace']} (km: {vdot_context['marathon_pace_km']}, mile: {vdot_context['marathon_pace_mile']})")
+                    print(f"   Threshold: {vdot_context['threshold_pace']} (km: {vdot_context['threshold_pace_km']}, mile: {vdot_context['threshold_pace_mile']})")
+                    print(f"   Interval: {vdot_context['interval_pace']} (km: {vdot_context['interval_pace_km']}, mile: {vdot_context['interval_pace_mile']})")
+                    print(f"   Repetition: {vdot_context['repetition_pace']} (km: {vdot_context['repetition_pace_km']}, mile: {vdot_context['repetition_pace_mile']})")
         else:
             # Paces not stored - calculate on the fly
             if debug:
@@ -143,16 +200,39 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
                 paces = calc.get_training_paces(int(vdot_value))
                 
                 if paces:
-                    vdot_context['easy_pace'] = paces.get('Easy/Long Pace per km', 'N/A')
-                    vdot_context['marathon_pace'] = paces.get('Marathon Pace per km', 'N/A')
-                    vdot_context['threshold_pace'] = paces.get('Threshold Pace per km', 'N/A')
-                    vdot_context['interval_pace'] = paces.get('Interval Pace per Mile', 'N/A')
-                    vdot_context['repetition_pace'] = paces.get('Repetition Pace per km', 'N/A')
+                    # Re-use the same mapping logic as above for consistency
+                    easy_km = paces.get('Easy/Long Pace per km')
+                    easy_mile = paces.get('Easy/Long Pace per Mile')
+                    mara_km = paces.get('Marathon Pace per km')
+                    mara_mile = paces.get('Marathon Pace per Mile')
+                    thresh_km = paces.get('Threshold Pace per km')
+                    thresh_mile = paces.get('Threshold Pace per Mile')
+                    int_km = paces.get('Interval Pace per km')
+                    int_mile = paces.get('Interval Pace per Mile')
+                    rep_km = paces.get('Repetition Pace per km')
+                    rep_mile = paces.get('Repetition Pace per Mile')
+
+                    vdot_context['easy_pace_km'] = easy_km or 'N/A'
+                    vdot_context['easy_pace_mile'] = easy_mile or 'N/A'
+                    vdot_context['marathon_pace_km'] = mara_km or 'N/A'
+                    vdot_context['marathon_pace_mile'] = mara_mile or 'N/A'
+                    vdot_context['threshold_pace_km'] = thresh_km or 'N/A'
+                    vdot_context['threshold_pace_mile'] = thresh_mile or 'N/A'
+                    vdot_context['interval_pace_km'] = int_km or 'N/A'
+                    vdot_context['interval_pace_mile'] = int_mile or 'N/A'
+                    vdot_context['repetition_pace_km'] = rep_km or 'N/A'
+                    vdot_context['repetition_pace_mile'] = rep_mile or 'N/A'
+
+                    vdot_context['easy_pace'] = easy_km or easy_mile or 'N/A'
+                    vdot_context['marathon_pace'] = mara_km or mara_mile or 'N/A'
+                    vdot_context['threshold_pace'] = thresh_km or thresh_mile or 'N/A'
+                    vdot_context['interval_pace'] = int_mile or int_km or 'N/A'
+                    vdot_context['repetition_pace'] = rep_km or rep_mile or 'N/A'
                     
                     if debug:
                         print(f"✅ Calculated paces on-the-fly")
-                        print(f"   Easy: {vdot_context['easy_pace']}")
-                        print(f"   Marathon: {vdot_context['marathon_pace']}")
+                        print(f"   Easy: {vdot_context['easy_pace']} (km: {vdot_context['easy_pace_km']}, mile: {vdot_context['easy_pace_mile']})")
+                        print(f"   Marathon: {vdot_context['marathon_pace']} (km: {vdot_context['marathon_pace_km']}, mile: {vdot_context['marathon_pace_mile']})")
             except Exception as e:
                 if debug:
                     print(f"❌ Error calculating paces: {e}")

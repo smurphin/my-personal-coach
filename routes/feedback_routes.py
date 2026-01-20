@@ -322,8 +322,17 @@ def get_feedback_api():
         # Analyze new activities
         analyzed_sessions = []
         raw_activities = []  # Store raw Strava data for VDOT detection
-        friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
-        
+
+        # Load Friel zones from plan_data (same source used for plan generation)
+        plan_data = user_data.get('plan_data', {}) or {}
+        friel_hr_zones = plan_data.get('friel_hr_zones') or {}
+        friel_power_zones = plan_data.get('friel_power_zones') or {}
+
+        if friel_power_zones:
+            print("✅ Loaded Friel power zones for feedback analysis")
+        else:
+            print("ℹ️  No Friel power zones found in plan_data; power zone analysis will be limited")
+
         for activity_summary in new_activities_to_process:
             activity = strava_service.get_activity_detail(access_token, activity_summary['id'])
             if not activity:
@@ -345,10 +354,18 @@ def get_feedback_api():
                 print(f"✅ Activity detail has {len(activity_laps_from_detail)} laps - using those")
 
             streams = strava_service.get_activity_streams(access_token, activity['id'])
+
+            # Build zones dict for analysis, including power zones when available
+            zones_for_analysis = {}
+            if friel_hr_zones:
+                zones_for_analysis["heart_rate"] = friel_hr_zones
+            if friel_power_zones:
+                zones_for_analysis["power"] = friel_power_zones
+
             analyzed_session = training_service.analyze_activity(
                 activity,
                 streams,
-                {"heart_rate": friel_hr_zones}
+                zones_for_analysis
             )
             
             # Debug: Log laps/splits data for interval sessions
@@ -478,49 +495,57 @@ def get_feedback_api():
                     user_data['garmin_history'][first_activity_date_iso] = garmin_data_for_activity
                     safe_save_user_data(athlete_id, user_data)
         
-        # Check for VDOT detection from completed activity
+        # Check for VDOT detection from completed activity (ONLY for running activities)
+        # Fix for issue #87: VDOT should only be calculated from running activities
         if raw_activities and analyzed_sessions:
             from services.vdot_detection_service import vdot_detection_service
             from utils.vdot_calculator import VDOTCalculator
             
-            print("\n" + "="*70)
-            print("VDOT DETECTION - DEBUG LOG")
-            print("="*70)
-            
             # Use RAW activity for VDOT detection
             raw_activity = raw_activities[0]['activity']
-            time_in_zones_raw = raw_activities[0]['time_in_zones']  # Unformatted
+            activity_type = raw_activity.get('type', '')
             
-            # Convert zone keys: 'Zone 1' -> 'Z1', 'Zone 2' -> 'Z2', etc.
-            time_in_zones = {}
-            for zone_name, zone_time in time_in_zones_raw.items():
-                if 'Zone' in zone_name:
-                    # Convert 'Zone 1' to 'Z1', 'Zone 2' to 'Z2', etc.
-                    zone_num = zone_name.replace('Zone ', '')
-                    time_in_zones[f'Z{zone_num}'] = zone_time
-                else:
-                    # Already in correct format
-                    time_in_zones[zone_name] = zone_time
-            
-            print(f"📊 Activity being analyzed:")
-            print(f"   Name: {raw_activity.get('name')}")
-            print(f"   Distance: {raw_activity.get('distance')} meters")
-            print(f"   Time: {raw_activity.get('moving_time')} seconds")
-            print(f"   Type: {raw_activity.get('type')}")
-            print(f"   Workout Type: {raw_activity.get('workout_type')} (1=Race)")
-            print(f"\n⏱️  Time in zones:")
-            for zone, time_secs in time_in_zones.items():
-                if time_secs and isinstance(time_secs, (int, float)):
-                    minutes = int(time_secs / 60)
-                    seconds = int(time_secs % 60)
-                    percent = (time_secs / raw_activity.get('moving_time', 1)) * 100
-                    print(f"   {zone}: {minutes}:{seconds:02d} ({time_secs}s, {percent:.1f}%)")
-            
-            print(f"\n🔍 Calling vdot_detection_service...")
-            vdot_result = vdot_detection_service.calculate_vdot_from_activity(
-                raw_activity,  # Pass RAW activity
-                time_in_zones  # Now with correct Z1, Z2, Z3, Z4, Z5 keys!
-            )
+            # Only check running activities for VDOT (fix for issue #87)
+            if activity_type in ['Run', 'VirtualRun']:
+                print("\n" + "="*70)
+                print("VDOT DETECTION - DEBUG LOG")
+                print("="*70)
+                
+                time_in_zones_raw = raw_activities[0]['time_in_zones']  # Unformatted
+                
+                # Convert zone keys: 'Zone 1' -> 'Z1', 'Zone 2' -> 'Z2', etc.
+                time_in_zones = {}
+                for zone_name, zone_time in time_in_zones_raw.items():
+                    if 'Zone' in zone_name:
+                        # Convert 'Zone 1' to 'Z1', 'Zone 2' to 'Z2', etc.
+                        zone_num = zone_name.replace('Zone ', '')
+                        time_in_zones[f'Z{zone_num}'] = zone_time
+                    else:
+                        # Already in correct format
+                        time_in_zones[zone_name] = zone_time
+                
+                print(f"📊 Activity being analyzed:")
+                print(f"   Name: {raw_activity.get('name')}")
+                print(f"   Distance: {raw_activity.get('distance')} meters")
+                print(f"   Time: {raw_activity.get('moving_time')} seconds")
+                print(f"   Type: {raw_activity.get('type')}")
+                print(f"   Workout Type: {raw_activity.get('workout_type')} (1=Race)")
+                print(f"\n⏱️  Time in zones:")
+                for zone, time_secs in time_in_zones.items():
+                    if time_secs and isinstance(time_secs, (int, float)):
+                        minutes = int(time_secs / 60)
+                        seconds = int(time_secs % 60)
+                        percent = (time_secs / raw_activity.get('moving_time', 1)) * 100
+                        print(f"   {zone}: {minutes}:{seconds:02d} ({time_secs}s, {percent:.1f}%)")
+                
+                print(f"\n🔍 Calling vdot_detection_service...")
+                vdot_result = vdot_detection_service.calculate_vdot_from_activity(
+                    raw_activity,  # Pass RAW activity
+                    time_in_zones  # Now with correct Z1, Z2, Z3, Z4, Z5 keys!
+                )
+            else:
+                print(f"\nℹ️  Skipping VDOT detection: Activity type '{activity_type}' is not a running activity")
+                vdot_result = None
             
             if vdot_result:
                 print(f"\n✅ VDOT DETECTION SUCCESSFUL!")
@@ -613,6 +638,134 @@ def get_feedback_api():
                     from flask import flash
                     race_name = vdot_result['activity_name']
                     flash(f'New VDOT {new_vdot} detected from {race_name}! Please review in your dashboard.', 'info')
+            
+            # Check for FTP detection from completed cycling activity
+            # Only check cycling activities for FTP (similar to VDOT for running)
+            if activity_type in ['Ride', 'VirtualRide']:
+                from services.ftp_detection_service import ftp_detection_service
+                
+                print("\n" + "="*70)
+                print("FTP DETECTION - DEBUG LOG")
+                print("="*70)
+                
+                # Get power zones from analyzed session
+                analyzed_session = analyzed_sessions[0]
+                time_in_power_zones_raw = analyzed_session.get('time_in_power_zones', {})
+                
+                # Get HR zones for validation (use raw unformatted data)
+                time_in_hr_zones = {}
+                if raw_activities and raw_activities[0].get('time_in_zones'):
+                    # Use raw unformatted HR zones (stored before formatting)
+                    raw_hr_zones = raw_activities[0]['time_in_zones']
+                    for zone, value in raw_hr_zones.items():
+                        if isinstance(value, (int, float)):
+                            time_in_hr_zones[zone] = int(value)
+                
+                # Get streams for power data
+                activity_id = raw_activity.get('id')
+                streams = strava_service.get_activity_streams(access_token, activity_id)
+                
+                print(f"📊 Cycling activity being analyzed:")
+                print(f"   Name: {raw_activity.get('name')}")
+                print(f"   Time: {raw_activity.get('moving_time')} seconds")
+                print(f"   Type: {raw_activity.get('type')}")
+                print(f"   Average Power: {raw_activity.get('average_watts', 'N/A')} W")
+                print(f"\n⏱️  Time in power zones:")
+                for zone, time_str in time_in_power_zones_raw.items():
+                    print(f"   {zone}: {time_str}")
+                print(f"\n⏱️  Time in HR zones:")
+                for zone, time_secs in time_in_hr_zones.items():
+                    if time_secs and isinstance(time_secs, (int, float)):
+                        minutes = int(time_secs / 60)
+                        seconds = int(time_secs % 60)
+                        print(f"   {zone}: {minutes}:{seconds:02d} ({time_secs}s)")
+                
+                print(f"\n🔍 Calling ftp_detection_service...")
+                ftp_result = ftp_detection_service.calculate_ftp_from_activity(
+                    raw_activity,
+                    streams,
+                    time_in_power_zones_raw,
+                    time_in_hr_zones
+                )
+                
+                if ftp_result:
+                    print(f"\n✅ FTP DETECTION SUCCESSFUL!")
+                    print(f"   Test Duration: {ftp_result['test_duration']}")
+                    print(f"   Average Power: {ftp_result['average_power']} W")
+                    print(f"   Calculated FTP: {ftp_result['ftp']} W")
+                    print(f"   Is FTP Test: {ftp_result['is_ftp_test']}")
+                    print(f"   Reason: {ftp_result['intensity_reason']}")
+                    
+                    # Get current FTP
+                    current_ftp = None
+                    if 'training_metrics' in user_data and 'ftp' in user_data['training_metrics']:
+                        current_ftp_data = user_data['training_metrics']['ftp']
+                        if isinstance(current_ftp_data, dict):
+                            current_ftp = current_ftp_data.get('value')
+                    
+                    new_ftp = int(ftp_result['ftp'])
+                    
+                    print(f"\n💾 FTP STORAGE:")
+                    print(f"   Current FTP in DB: {current_ftp}")
+                    print(f"   New FTP calculated: {new_ftp}")
+                    
+                    # Skip update if FTP value hasn't changed (avoid unnecessary recalculations)
+                    if current_ftp is not None and current_ftp == new_ftp:
+                        print(f"   ⏭️  Skipping update: FTP value unchanged ({new_ftp})")
+                    else:
+                        print(f"\n🎯 UPDATING FTP: {current_ftp} → {new_ftp}")
+                        
+                        # Initialize training_metrics if needed
+                        if 'training_metrics' not in user_data:
+                            user_data['training_metrics'] = {'version': 1}
+                        
+                        # Store previous FTP for rollback
+                        previous_ftp = None
+                        if 'ftp' in user_data['training_metrics']:
+                            previous_ftp = user_data['training_metrics']['ftp'].copy()
+                        
+                        # Store new FTP with pending confirmation
+                        user_data['training_metrics']['ftp'] = {
+                            'value': new_ftp,
+                            'source': 'FTP_TEST_DETECTION',
+                            'date_set': datetime.now().isoformat(),
+                            'user_confirmed': False,
+                            'pending_confirmation': True,
+                            'detected_from': {
+                                'activity_id': ftp_result['activity_id'],
+                                'activity_name': ftp_result['activity_name'],
+                                'test_duration': ftp_result['test_duration'],
+                                'average_power': ftp_result['average_power'],
+                                'is_ftp_test': ftp_result['is_ftp_test'],
+                                'intensity_reason': ftp_result['intensity_reason']
+                            },
+                            'previous_value': previous_ftp
+                        }
+                        
+                        print(f"\n💾 Stored in training_metrics['ftp']:")
+                        print(f"   value: {new_ftp}")
+                        print(f"   source: FTP_TEST_DETECTION")
+                        print(f"   user_confirmed: False")
+                        print(f"   detected_from: {ftp_result['activity_name']}")
+                        
+                        # Save immediately
+                        safe_save_user_data(athlete_id, user_data)
+                        
+                        print(f"\n✅ FTP data saved to DynamoDB")
+                        print("="*70 + "\n")
+                        
+                        print(f"✅ New FTP {new_ftp}W stored (pending user confirmation)")
+                        
+                        # Flash message to user
+                        from flask import flash
+                        activity_name = ftp_result['activity_name']
+                        flash(f'New FTP {new_ftp}W detected from {activity_name}! Please review in your dashboard.', 'info')
+                else:
+                    print(f"\n❌ Activity does not qualify for FTP calculation")
+                    print(f"   (Not an FTP test or insufficient intensity)")
+                    print("="*70 + "\n")
+            else:
+                print(f"\nℹ️  Skipping FTP detection: Activity type '{activity_type}' is not a cycling activity")
 
         # Generate feedback
         # Use plan_v2 if available, otherwise fall back to markdown

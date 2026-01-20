@@ -148,7 +148,11 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     # Analyze new activities
     analyzed_sessions = []
     raw_activities = []
-    friel_hr_zones = user_data.get('plan_data', {}).get('friel_hr_zones', {})
+    
+    # Load Friel zones from plan_data (same source used for plan generation)
+    plan_data = user_data.get('plan_data', {}) or {}
+    friel_hr_zones = plan_data.get('friel_hr_zones') or {}
+    friel_power_zones = plan_data.get('friel_power_zones') or {}
     
     for activity_summary in new_activities_to_process:
         activity = strava_service.get_activity_detail(access_token, activity_summary['id'])
@@ -171,10 +175,18 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             print(f"✅ Activity detail has {len(activity_laps_from_detail)} laps - using those")
         
         streams = strava_service.get_activity_streams(access_token, activity['id'])
+        
+        # Build zones dict for analysis, including power zones when available
+        zones_for_analysis = {}
+        if friel_hr_zones:
+            zones_for_analysis["heart_rate"] = friel_hr_zones
+        if friel_power_zones:
+            zones_for_analysis["power"] = friel_power_zones
+        
         analyzed_session = training_service.analyze_activity(
             activity,
             streams,
-            {"heart_rate": friel_hr_zones}
+            zones_for_analysis
         )
         
         raw_time_in_zones = analyzed_session["time_in_hr_zones"].copy()
@@ -205,7 +217,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             first_activity_date_iso
         )
     
-    # VDOT DETECTION - Check ALL activities, not just the first one
+    # VDOT DETECTION - Check ALL activities, but ONLY running activities (fix for issue #87)
     if raw_activities and analyzed_sessions:
         from services.vdot_detection_service import vdot_detection_service
         from utils.vdot_calculator import VDOTCalculator
@@ -214,14 +226,22 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         print("VDOT DETECTION - DEBUG LOG (WEBHOOK - QUEUED)")
         print("="*70)
         
-        print(f"📊 Processing {len(raw_activities)} activities for VDOT detection...")
+        print(f"📊 Processing {len(raw_activities)} activities for VDOT detection (running only)...")
         
         # Process ALL activities and find the best VDOT candidate
+        # BUT: Only check running activities (fix for issue #87)
         vdot_result = None
         vdot_candidates = []
         
         for idx, raw_activity_data in enumerate(raw_activities):
             raw_activity = raw_activity_data['activity']
+            activity_type = raw_activity.get('type', '')
+            
+            # Skip non-running activities (fix for issue #87)
+            if activity_type not in ['Run', 'VirtualRun']:
+                print(f"   ⏭️  Skipping activity {idx+1}/{len(raw_activities)}: {raw_activity.get('name', 'Unknown')} (Type: {activity_type} - not a running activity)")
+                continue
+            
             time_in_zones_raw = raw_activity_data['time_in_zones']
             
             time_in_zones = {}
@@ -314,6 +334,142 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
                     },
                     'paces': paces,
                     'previous_value': previous_vdot
+                }
+                
+                safe_save_user_data(athlete_id, user_data)
+                user_data = data_manager.load_user_data(athlete_id)
+    
+    # FTP DETECTION - Check ALL activities, but ONLY cycling activities
+    if raw_activities and analyzed_sessions:
+        from services.ftp_detection_service import ftp_detection_service
+        
+        print("\n" + "="*70)
+        print("FTP DETECTION - DEBUG LOG (WEBHOOK - QUEUED)")
+        print("="*70)
+        
+        print(f"📊 Processing {len(raw_activities)} activities for FTP detection (cycling only)...")
+        
+        # Process ALL activities and find the best FTP candidate
+        # BUT: Only check cycling activities
+        ftp_result = None
+        ftp_candidates = []
+        
+        for idx, raw_activity_data in enumerate(raw_activities):
+            raw_activity = raw_activity_data['activity']
+            activity_type = raw_activity.get('type', '')
+            
+            # Skip non-cycling activities
+            if activity_type not in ['Ride', 'VirtualRide']:
+                print(f"   ⏭️  Skipping activity {idx+1}/{len(raw_activities)}: {raw_activity.get('name', 'Unknown')} (Type: {activity_type} - not a cycling activity)")
+                continue
+            
+            # Get power zones from analyzed session (match by activity ID)
+            activity_id = raw_activity.get('id')
+            analyzed_session = None
+            for sess in analyzed_sessions:
+                if sess.get('id') == activity_id:
+                    analyzed_session = sess
+                    break
+            
+            if not analyzed_session:
+                print(f"   ⚠️  Could not find analyzed session for activity {activity_id}")
+                continue
+            
+            time_in_power_zones = analyzed_session.get('time_in_power_zones', {})
+            # Get HR zones for validation (convert formatted strings back to seconds)
+            time_in_hr_zones_raw = analyzed_session.get('time_in_hr_zones', {})
+            time_in_hr_zones = {}
+            if time_in_hr_zones_raw:
+                # Try to convert formatted strings back to seconds
+                # Check if already in seconds (numeric) or formatted (MM:SS)
+                for zone, value in time_in_hr_zones_raw.items():
+                    if isinstance(value, (int, float)):
+                        time_in_hr_zones[zone] = int(value)
+                    elif isinstance(value, str) and ':' in value:
+                        # Format: "MM:SS" - convert back to seconds
+                        try:
+                            parts = value.split(':')
+                            if len(parts) == 2:
+                                minutes, seconds = int(parts[0]), int(parts[1])
+                                time_in_hr_zones[zone] = minutes * 60 + seconds
+                        except (ValueError, IndexError):
+                            continue
+            
+            # Get streams for power data (activity_id already set above)
+            streams = strava_service.get_activity_streams(access_token, activity_id)
+            
+            activity_name = raw_activity.get('name', 'Unknown')
+            is_ftp_test = 'ftp' in activity_name.lower() or 'test' in activity_name.lower()
+            
+            print(f"   🔍 Checking activity {idx+1}/{len(raw_activities)}: {activity_name} (ID: {activity_id}, FTP Test: {is_ftp_test})")
+            
+            result = ftp_detection_service.calculate_ftp_from_activity(
+                raw_activity,
+                streams,
+                time_in_power_zones,
+                time_in_hr_zones
+            )
+            
+            if result:
+                # Prioritize: marked FTP tests first, then by intensity
+                priority = 0
+                if result['is_ftp_test']:
+                    priority = 1000  # Marked FTP tests get highest priority
+                else:
+                    # Use average power as priority (higher power = more likely valid FTP)
+                    priority = result.get('average_power', 0)
+                
+                ftp_candidates.append((priority, result))
+                print(f"   ✅ Qualifies for FTP: FTP {result['ftp']}W, Priority: {priority:.1f}")
+            else:
+                print(f"   ❌ Does not qualify for FTP calculation")
+        
+        # Use the highest priority candidate
+        if ftp_candidates:
+            ftp_candidates.sort(key=lambda x: x[0], reverse=True)
+            priority, ftp_result = ftp_candidates[0]
+            print(f"\n🎯 Selected highest priority FTP candidate (priority: {priority:.1f})")
+        
+        if ftp_result:
+            print(f"\n✅ FTP DETECTION SUCCESSFUL!")
+            print(f"   Test Duration: {ftp_result['test_duration']}")
+            print(f"   Calculated FTP: {ftp_result['ftp']}W")
+            
+            current_ftp = None
+            if 'training_metrics' in user_data and 'ftp' in user_data['training_metrics']:
+                current_ftp_data = user_data['training_metrics']['ftp']
+                if isinstance(current_ftp_data, dict):
+                    current_ftp = current_ftp_data.get('value')
+            
+            new_ftp = int(ftp_result['ftp'])
+            
+            if current_ftp is not None and current_ftp == new_ftp:
+                print(f"   ⏭️  Skipping update: FTP value unchanged ({new_ftp})")
+            else:
+                print(f"\n🎯 UPDATING FTP: {current_ftp} → {new_ftp}")
+                
+                if 'training_metrics' not in user_data:
+                    user_data['training_metrics'] = {'version': 1}
+                
+                previous_ftp = None
+                if 'ftp' in user_data['training_metrics']:
+                    previous_ftp = user_data['training_metrics']['ftp'].copy()
+                
+                user_data['training_metrics']['ftp'] = {
+                    'value': new_ftp,
+                    'source': 'FTP_TEST_DETECTION',
+                    'date_set': datetime.now().isoformat(),
+                    'user_confirmed': False,
+                    'pending_confirmation': True,
+                    'detected_from': {
+                        'activity_id': ftp_result['activity_id'],
+                        'activity_name': ftp_result['activity_name'],
+                        'test_duration': ftp_result['test_duration'],
+                        'average_power': ftp_result['average_power'],
+                        'is_ftp_test': ftp_result['is_ftp_test'],
+                        'intensity_reason': ftp_result['intensity_reason']
+                    },
+                    'previous_value': previous_ftp
                 }
                 
                 safe_save_user_data(athlete_id, user_data)

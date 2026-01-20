@@ -333,8 +333,12 @@ class VDOTCalculator:
             'Threshold_Pace_per_Mile',
             'Threshold_Pace_per_km',
             'Interval_Pace_400m',
+            # Support both the legacy mislabelled header and the corrected one.
+            # - Legacy: Interval_Pace_1.2km  (you may later rename this in the CSV)
+            # - Correct: Interval_Pace_per_km
             'Interval_Pace_1.2km',
             'Interval_Pace_per_Mile',
+            'Interval_Pace_per_km',
             'Repetition_Pace_200m',
             'Repetition_Pace_400m',
             'Repetition_Pace_per_Mile'
