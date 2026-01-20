@@ -45,6 +45,24 @@ Here is the athlete's latest health data from Garmin. Use this to inform your "W
 - No Garmin data available.
 {% endif %}
 
+{% if vdot_data and vdot_data.current_vdot %}
+**CRITICAL - ATHLETE'S CURRENT VDOT:**
+The athlete's current VDOT is **{{ vdot_data.current_vdot }}**. You MUST use this EXACT value when referencing VDOT in your summary. 
+
+**IMPORTANT:** Do NOT use any other VDOT value you might see in feedback logs, chat history, or anywhere else in this prompt - those may be outdated or incorrect. Ignore any VDOT mentions in previous conversations or feedback. Always and only use the value provided here: **{{ vdot_data.current_vdot }}**.
+
+{% if vdot_data.easy_pace and vdot_data.easy_pace != 'N/A' %}
+**Training Paces (based on VDOT {{ vdot_data.current_vdot }}):**
+- Easy/Long: {{ vdot_data.easy_pace }}
+- Marathon: {{ vdot_data.marathon_pace }}
+- Threshold: {{ vdot_data.threshold_pace }}
+- Interval: {{ vdot_data.interval_pace }}
+{% if vdot_data.repetition_pace and vdot_data.repetition_pace != 'N/A' %}
+- Repetition: {{ vdot_data.repetition_pace }}
+{% endif %}
+{% endif %}
+{% endif %}
+
 Your tone should be that of a supportive coach, providing a brief, actionable summary for the current week.
 ...
 

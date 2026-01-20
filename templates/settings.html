@@ -120,6 +120,70 @@
             </div>
         </div>
 
+        <!-- Unit Preferences Section -->
+        <div class="bg-brand-dark rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Unit Preferences</h2>
+            <p class="text-sm text-brand-light-gray mb-6">
+                Choose how you'd like distances and paces to be shown for each sport. This helps your coach answer in the units that feel natural to you.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Running units -->
+                <div>
+                    <label for="unit_run" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        Running Units
+                    </label>
+                    <select
+                        id="unit_run"
+                        name="unit_run"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                        <option value="km" {% if unit_prefs.run == 'km' or not unit_prefs.run %}selected{% endif %}>Kilometres (km)</option>
+                        <option value="miles" {% if unit_prefs.run == 'miles' %}selected{% endif %}>Miles</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-2">
+                        Controls how running distances and paces are described (e.g., min/km vs min/mile).
+                    </p>
+                </div>
+
+                <!-- Cycling units -->
+                <div>
+                    <label for="unit_ride" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        Cycling Units
+                    </label>
+                    <select
+                        id="unit_ride"
+                        name="unit_ride"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                        <option value="km" {% if unit_prefs.ride == 'km' or not unit_prefs.ride %}selected{% endif %}>Kilometres (km)</option>
+                        <option value="miles" {% if unit_prefs.ride == 'miles' %}selected{% endif %}>Miles</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-2">
+                        Controls how cycling distances are described.
+                    </p>
+                </div>
+
+                <!-- Swimming units -->
+                <div>
+                    <label for="unit_swim" class="block text-sm font-medium text-brand-light-gray mb-2">
+                        Swimming Units
+                    </label>
+                    <select
+                        id="unit_swim"
+                        name="unit_swim"
+                        class="w-full px-4 py-2 bg-brand-gray border border-brand-medium-gray rounded-lg text-white focus:outline-none focus:border-brand-blue"
+                    >
+                        <option value="meters" {% if unit_prefs.swim == 'meters' or not unit_prefs.swim %}selected{% endif %}>Metres</option>
+                        <option value="yards" {% if unit_prefs.swim == 'yards' %}selected{% endif %}>Yards</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-2">
+                        Most pools are metres; choose yards if you train in yard pools.
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- Lifestyle Context Section -->
         <div class="bg-brand-dark rounded-lg p-6 mb-6">
             <h2 class="text-xl font-semibold text-white mb-4">Lifestyle & Context</h2>

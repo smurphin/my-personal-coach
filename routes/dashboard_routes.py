@@ -111,14 +111,26 @@ def dashboard():
                         user_inputs
                     )
                     
-                    # Check if reparse fixed the issue
+                    # Check if reparse improved the plan
                     reparsed_weeks_with_sessions = sum(1 for w in reparsed_plan.weeks if len(w.sessions) > 0)
                     original_weeks_with_sessions = sum(1 for w in plan_v2.weeks if len(w.sessions) > 0)
+                    reparsed_total_sessions = sum(len(w.sessions) for w in reparsed_plan.weeks)
+                    original_total_sessions = sum(len(w.sessions) for w in plan_v2.weeks)
                     
-                    # Accept reparse as long as it does not reduce the number of weeks with sessions.
-                    # This allows us to adopt improved parsing (better descriptions, S&C detection, etc.)
-                    # even when the total session count stays the same.
-                    if reparsed_weeks_with_sessions >= original_weeks_with_sessions:
+                    # Check if we're fixing empty weeks (any empty week in original that now has sessions)
+                    original_empty_weeks = {w.week_number for w in plan_v2.weeks if len(w.sessions) == 0}
+                    reparsed_fixed_weeks = {w.week_number for w in reparsed_plan.weeks if w.week_number in original_empty_weeks and len(w.sessions) > 0}
+                    fixing_empty_weeks = len(reparsed_fixed_weeks) > 0
+                    
+                    # Accept reparse if:
+                    # 1. It doesn't reduce weeks with sessions (structural integrity)
+                    # 2. AND either: total sessions increased OR we're fixing empty weeks (improved parsing quality)
+                    weeks_improved = reparsed_weeks_with_sessions >= original_weeks_with_sessions
+                    sessions_improved = reparsed_total_sessions > original_total_sessions
+                    
+                    if weeks_improved and (sessions_improved or fixing_empty_weeks):
+                        if fixing_empty_weeks:
+                            print(f"   📊 Fixed {len(reparsed_fixed_weeks)} empty weeks: {sorted(reparsed_fixed_weeks)}")
                         # Reparse was successful - update plan_v2
                         # Preserve completed sessions from original plan_v2
                         existing_completed = {}
@@ -438,6 +450,29 @@ def dashboard():
                     pending_vdot = vdot_data.copy()
                     print(f"📋 Pending VDOT detected: {pending_vdot.get('value')} (needs user confirmation)")
     
+    # Check for pending FTP confirmation
+    pending_ftp = None
+    if 'training_metrics' in user_data:
+        metrics_dict = user_data['training_metrics']
+        if 'ftp' in metrics_dict and metrics_dict['ftp']:
+            ftp_data = metrics_dict['ftp']
+            if isinstance(ftp_data, dict):
+                # Check if FTP is pending confirmation
+                user_confirmed = ftp_data.get('user_confirmed', True)  # Default to True for backwards compat
+                pending_confirmation = ftp_data.get('pending_confirmation', False)
+                
+                if not user_confirmed or pending_confirmation:
+                    # FTP needs user confirmation
+                    pending_ftp = ftp_data.copy()
+                    print(f"📋 Pending FTP detected: {pending_ftp.get('value')}W (needs user confirmation)")
+    
+    # Get unit preferences for dashboard display
+    unit_prefs = user_data.get('unit_preferences', {
+        'run': 'km',
+        'ride': 'km',
+        'swim': 'meters'
+    })
+    
     # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
@@ -457,7 +492,9 @@ def dashboard():
         lthr=lthr,
         ftp=ftp,
         pending_vdot=pending_vdot,
-        get_routine_link=get_routine_link
+        pending_ftp=pending_ftp,
+        get_routine_link=get_routine_link,
+        unit_prefs=unit_prefs
     )
 
 @dashboard_bp.route("/chat", methods=['POST'])
@@ -509,12 +546,21 @@ def chat():
     from utils.vdot_context import prepare_vdot_context
     vdot_data = prepare_vdot_context(user_data)
 
+    # Attach unit preferences to athlete_profile so AI can use them for units
+    unit_prefs = user_data.get('unit_preferences', {
+        'run': 'km',
+        'ride': 'km',
+        'swim': 'meters'
+    })
+    if isinstance(athlete_profile, dict):
+        athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
+
     ai_response_markdown = ai_service.generate_chat_response(
         training_plan,
         feedback_log,
         chat_history,
         vdot_data=vdot_data,
-        athlete_profile=athlete_profile  # Pass lifestyle context and athlete type
+        athlete_profile=athlete_profile  # Includes lifestyle, type, and unit preferences
     )
     
     # CRITICAL: Convert escape sequences to actual characters
@@ -838,13 +884,18 @@ You're currently going with the flow without a structured training plan. When yo
             except Exception as e:
                 print(f"Warning: Could not fetch Garmin data: {e}")
             
+            # Prepare VDOT context for AI (to prevent AI from using old/incorrect VDOT values)
+            from utils.vdot_context import prepare_vdot_context
+            vdot_data = prepare_vdot_context(user_data, debug=False)  # Disable debug to reduce noise
+            
             # Generate summary with AI
             weekly_summary = ai_service.generate_weekly_summary(
                 current_week_text,
                 user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
                 feedback_log[0].get('feedback_markdown') if feedback_log else None,
                 chat_log,
-                garmin_data
+                garmin_data,
+                vdot_data=vdot_data  # Pass VDOT data to prevent AI from using old values
             )
             
             if not weekly_summary or not weekly_summary.strip():
@@ -994,7 +1045,12 @@ def settings():
         lthr_date=lthr_date,
         ftp=ftp,
         ftp_source=ftp_source,
-        ftp_date=ftp_date
+        ftp_date=ftp_date,
+        unit_prefs=user_data.get('unit_preferences', {
+            'run': 'km',
+            'ride': 'km',
+            'swim': 'meters'
+        })
     )
 
 @dashboard_bp.route("/settings/update", methods=['POST'])
@@ -1053,28 +1109,37 @@ def update_settings():
             try:
                 vdot_float = float(vdot_value)
                 vdot_int = int(vdot_float)  # Always round DOWN
-                
-                # Calculate training paces using VDOTCalculator
+
+                # Only update and flash if VDOT actually changed
+                existing_vdot = None
                 try:
-                    from utils.vdot_calculator import VDOTCalculator
-                    calc = VDOTCalculator()
-                    paces = calc.get_training_paces(vdot_int)
-                except Exception as e:
-                    print(f"Warning: Could not calculate VDOT paces: {e}")
-                    paces = None
-                
-                metrics_dict['vdot'] = {
-                    'value': vdot_int,
-                    'source': 'USER_OVERRIDE',
-                    'date_set': datetime.now().isoformat(),
-                    'user_confirmed': True,
-                    'pending_confirmation': False,
-                    'paces': paces  # Store ALL paces from Jack Daniels' tables
-                }
-                print(f"Updated VDOT: {vdot_float} → {vdot_int} (rounded down)")
-                if paces:
-                    print(f"  Stored {len(paces)} paces from Jack Daniels' tables")
-                flash(f'VDOT updated to {vdot_int}', 'success')
+                    if 'vdot' in metrics_dict and isinstance(metrics_dict['vdot'], dict):
+                        existing_vdot = int(metrics_dict['vdot'].get('value')) if metrics_dict['vdot'].get('value') is not None else None
+                except (ValueError, TypeError):
+                    existing_vdot = None
+
+                if existing_vdot != vdot_int:
+                    # Calculate training paces using VDOTCalculator
+                    try:
+                        from utils.vdot_calculator import VDOTCalculator
+                        calc = VDOTCalculator()
+                        paces = calc.get_training_paces(vdot_int)
+                    except Exception as e:
+                        print(f"Warning: Could not calculate VDOT paces: {e}")
+                        paces = None
+                    
+                    metrics_dict['vdot'] = {
+                        'value': vdot_int,
+                        'source': 'USER_OVERRIDE',
+                        'date_set': datetime.now().isoformat(),
+                        'user_confirmed': True,
+                        'pending_confirmation': False,
+                        'paces': paces  # Store ALL paces from Jack Daniels' tables
+                    }
+                    print(f"Updated VDOT: {vdot_float} → {vdot_int} (rounded down)")
+                    if paces:
+                        print(f"  Stored {len(paces)} paces from Jack Daniels' tables")
+                    flash(f'VDOT updated to {vdot_int}', 'success')
             except ValueError:
                 flash('Invalid VDOT value', 'error')
         
@@ -1115,6 +1180,17 @@ def update_settings():
         import traceback
         traceback.print_exc()
         flash('Error updating training metrics', 'error')
+    
+    # === Unit preferences (per sport) ===
+    # Simple per-sport unit preferences so AI can answer in the athlete's preferred units.
+    unit_run = request.form.get('unit_run', 'km')
+    unit_ride = request.form.get('unit_ride', 'km')
+    unit_swim = request.form.get('unit_swim', 'meters')
+    user_data['unit_preferences'] = {
+        'run': unit_run,
+        'ride': unit_ride,
+        'swim': unit_swim
+    }
     
     data_manager.save_user_data(athlete_id, user_data)
     flash('Settings updated successfully!', 'success')
@@ -1186,6 +1262,77 @@ def confirm_vdot():
                 flash('VDOT update rejected', 'info')
             
             print(f"❌ User rejected VDOT {rejected_vdot} from {detected_from.get('activity_name', 'Unknown')}")
+            if rejection_reason:
+                print(f"   Reason: {rejection_reason}")
+        
+        data_manager.save_user_data(athlete_id, user_data)
+    
+    return redirect('/dashboard')
+
+@dashboard_bp.route("/confirm_ftp", methods=['POST'])
+@login_required
+def confirm_ftp():
+    """Confirm or deny pending FTP update"""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    
+    action = request.form.get('action')  # 'accept' or 'deny'
+    rejection_reason = request.form.get('rejection_reason', '').strip()  # Optional reason
+    
+    if 'training_metrics' in user_data and 'ftp' in user_data['training_metrics']:
+        ftp_data = user_data['training_metrics']['ftp']
+        
+        if action == 'accept':
+            ftp_data['user_confirmed'] = True
+            ftp_data['pending_confirmation'] = False
+            flash(f"FTP {ftp_data['value']}W confirmed!", 'success')
+            print(f"✅ User confirmed FTP {ftp_data['value']}W")
+        
+        elif action == 'deny':
+            # Store rejection info before removing the pending FTP
+            rejected_ftp = ftp_data.get('value')
+            detected_from = ftp_data.get('detected_from', {})
+            
+            # Initialize ftp_rejections array if it doesn't exist
+            if 'training_metrics' not in user_data:
+                user_data['training_metrics'] = {'version': 1}
+            if 'ftp_rejections' not in user_data['training_metrics']:
+                user_data['training_metrics']['ftp_rejections'] = []
+            
+            # Store rejection info
+            rejection_info = {
+                'rejected_ftp': rejected_ftp,
+                'rejected_at': datetime.now().isoformat(),
+                'detected_from': {
+                    'activity_id': detected_from.get('activity_id'),
+                    'activity_name': detected_from.get('activity_name', 'Unknown'),
+                    'test_duration': detected_from.get('test_duration'),
+                    'average_power': detected_from.get('average_power'),
+                    'is_ftp_test': detected_from.get('is_ftp_test', False),
+                    'intensity_reason': detected_from.get('intensity_reason')
+                }
+            }
+            
+            if rejection_reason:
+                rejection_info['user_reason'] = rejection_reason
+            
+            # Add to rejections array (keep last 10 rejections)
+            user_data['training_metrics']['ftp_rejections'].append(rejection_info)
+            if len(user_data['training_metrics']['ftp_rejections']) > 10:
+                user_data['training_metrics']['ftp_rejections'] = user_data['training_metrics']['ftp_rejections'][-10:]
+            
+            # Remove the pending FTP, restore previous if it exists
+            old_ftp = ftp_data.get('previous_value')
+            if old_ftp:
+                # Restore previous FTP
+                user_data['training_metrics']['ftp'] = old_ftp
+                flash('FTP update rejected, previous value restored', 'info')
+            else:
+                # No previous, just delete
+                del user_data['training_metrics']['ftp']
+                flash('FTP update rejected', 'info')
+            
+            print(f"❌ User rejected FTP {rejected_ftp}W from {detected_from.get('activity_name', 'Unknown')}")
             if rejection_reason:
                 print(f"   Reason: {rejection_reason}")
         

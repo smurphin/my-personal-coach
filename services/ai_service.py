@@ -246,7 +246,7 @@ class AIService:
         return self.generate_content(prompt)
     
     def generate_weekly_summary(self, current_week_text, athlete_goal, latest_feedback=None, 
-                                chat_history=None, garmin_health_stats=None):
+                                chat_history=None, garmin_health_stats=None, vdot_data=None):
         """Generate a weekly summary for the dashboard"""
         
         # Debug logging
@@ -256,6 +256,9 @@ class AIService:
         print(f"  - Has feedback: {latest_feedback is not None}")
         print(f"  - Has chat history: {chat_history is not None and len(chat_history) > 0 if chat_history else False}")
         print(f"  - Has Garmin data: {garmin_health_stats is not None}")
+        print(f"  - Has VDOT data: {vdot_data is not None and vdot_data.get('current_vdot') is not None}")
+        if vdot_data and vdot_data.get('current_vdot'):
+            print(f"  - VDOT value: {vdot_data.get('current_vdot')}")
         
         with open('prompts/dashboard_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
@@ -267,7 +270,8 @@ class AIService:
             training_plan=current_week_text,
             latest_feedback=latest_feedback,
             chat_history=json.dumps(chat_history, indent=2) if chat_history else None,
-            garmin_health_stats=garmin_health_stats
+            garmin_health_stats=garmin_health_stats,
+            vdot_data=vdot_data  # Pass VDOT data to prompt template
         )
         
         print(f"DEBUG: Prompt length: {len(prompt)} characters")

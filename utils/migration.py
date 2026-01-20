@@ -121,6 +121,36 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         
         # === SESSION PARSING ===
         
+        # Debug logging for weeks with 0 sessions (especially Week 2 and Week 6)
+        if week_num in [2, 6]:
+            try:
+                import os
+                import json
+                debug_log_path = '/home/darrenmurphy/git/.cursor/debug.log'
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+                with open(debug_log_path, 'a') as f:
+                    log_entry = {
+                        'timestamp': datetime.now().isoformat(),
+                        'location': 'migration.py:parse_week',
+                        'message': f'Week {week_num} parsing - week_text sample',
+                        'data': {
+                            'week_num': week_num,
+                            'week_text_length': len(week_text),
+                            'week_text_preview': week_text[:500] if len(week_text) > 500 else week_text,
+                            'week_text_full': week_text if len(week_text) < 2000 else week_text[:2000] + '...[truncated]',
+                            'has_asterisks': '*' in week_text,
+                            'line_count': len(week_text.split('\n'))
+                        },
+                        'sessionId': 'debug-session',
+                        'runId': 'plan-parse-debug',
+                        'hypothesisId': 'A'
+                    }
+                    f.write(json.dumps(log_entry) + '\n')
+            except Exception as e:
+                # Gracefully handle debug log failures - don't crash the app
+                print(f"   ⚠️  Debug logging failed for Week {week_num}: {e}")
+        
         # Format with priority BEFORE colon: **Type Number [PRIORITY]: Description**
         # Example: *   **Run 1 [KEY]: Threshold Run** (Completed 14/01)
         #          *   **Workout:** ... details ...
@@ -162,8 +192,25 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         session_pattern_4 = r'^\*\s+\*\*\[([^\]]+)\]\s+([^:]+):\*\*\s+(.+)'  # Priority before type
         matches_4 = list(re.finditer(session_pattern_4, week_text, re.MULTILINE))
         
+        # Special format for activity notes (e.g., skiing weeks, special events)
+        # Matches: *   **Activity: Skiing in Les Arcs** or *   **All Planned Workouts...**
+        session_pattern_activity_note = r'^\*\s+\*\*(Activity|All Planned Workouts):\s+([^\*]+)\*\*'
+        matches_activity_note = list(re.finditer(session_pattern_activity_note, week_text, re.MULTILINE))
+        
         sessions = []
         session_counter = 0
+        
+        # Debug: Print week text for Week 2 and Week 6 to help diagnose parsing issues
+        if week_num in [2, 6]:
+            print(f"   🔍 DEBUG Week {week_num}: Week text preview (first 500 chars):")
+            print(f"      {week_text[:500]}")
+            print(f"   🔍 DEBUG Week {week_num}: Total length: {len(week_text)} chars, Lines: {len(week_text.split(chr(10)))}")
+            lines_with_asterisks = [line.strip() for line in week_text.split('\n') if '*' in line]
+            print(f"   🔍 DEBUG Week {week_num}: Lines with asterisks: {len(lines_with_asterisks)}")
+            if lines_with_asterisks:
+                print(f"   🔍 DEBUG Week {week_num}: First 5 lines with asterisks:")
+                for i, line in enumerate(lines_with_asterisks[:5], 1):
+                    print(f"      {i}. {line[:150]}")
         
         if matches_priority_before:
             # Handle format with priority BEFORE colon: **Type Number [PRIORITY]: Description**
@@ -189,20 +236,29 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                 
                 # Look at lines after the header (up to next session or end of week)
                 for i in range(match_line_num + 1, len(lines)):
-                    line = lines[i].strip()
-                    
-                    # Stop if we hit another session header
-                    if re.match(r'^\*\s+\*\*[A-Za-z]', line):
-                        break
+                    raw_line = lines[i]
+                    line = raw_line.strip()
                     
                     # Stop if we hit another week
                     if re.match(r'^###?\s+Week\s+\d+', line):
                         break
                     
-                    # Stop if we hit a blank line followed by another session
+                    # Check if this is a new session header (not indented, starts with **Type)
+                    # Indented lines (starting with spaces/tabs) are detail lines, not new sessions
+                    is_indented = raw_line.startswith('    ') or raw_line.startswith('\t') or raw_line.startswith('  ')
+                    if not is_indented and re.match(r'^\*\s+\*\*([A-Za-z&\s]+)\s+(\d+)\s+\[', line):
+                        # This is a new session header (format: **Type Number [PRIORITY]: ...)
+                        break
+                    if not is_indented and re.match(r'^\*\s+\*\*([A-Za-z&\s]+):\s+[^\*]+\*\*\s+\[', line):
+                        # This is a new session header (format: **Type: Description** [PRIORITY])
+                        break
+                    
+                    # Stop if we hit a blank line followed by another session (not indented)
                     if i > match_line_num + 1 and not line and i + 1 < len(lines):
-                        next_line = lines[i + 1].strip()
-                        if re.match(r'^\*\s+\*\*[A-Za-z]', next_line):
+                        next_raw_line = lines[i + 1]
+                        next_line = next_raw_line.strip()
+                        next_is_indented = next_raw_line.startswith('    ') or next_raw_line.startswith('\t') or next_raw_line.startswith('  ')
+                        if not next_is_indented and re.match(r'^\*\s+\*\*[A-Za-z]', next_line):
                             break
                     
                     # Extract Workout (this contains the detailed instructions)
@@ -350,6 +406,92 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                     description=full_description,
                     zones={},
                     s_and_c_routine=s_and_c_routine,
+                    scheduled=False,
+                    completed=False
+                )
+                sessions.append(session)
+        
+        # IMPORTANT: Prefer the "current" single-line format when both patterns match.
+        # For newer plans, lines like:
+        #   *   **Run: Long Run** – 2 hours ... [KEY]
+        # and
+        #   *   **S&C: Upper Body Focus, 30 mins** [IMPORTANT]
+        # are better handled by session_pattern_current, which preserves all inline details.
+        # The "new multi-line" format with nested Duration/Description bullets is now rare.
+        if not matches_priority_before and matches_current:
+            # Use current format
+            print(f"   Week {week_num}: Using current format (**Type: Description** [PRIORITY])")
+            for match in matches_current:
+                session_counter += 1
+                activity_type_raw = match.group(1).strip()
+                description_without_type = match.group(2).strip()
+                priority = match.group(3).strip().upper()
+                
+                # Extract any additional text between closing ** and [PRIORITY]
+                # The pattern allows this but doesn't capture it, so extract from full match
+                full_match_text = match.group(0)
+                # Find the position after the closing ** (of the description) and before [
+                # Look for the last ** before the [PRIORITY]
+                closing_bold_pos = full_match_text.rfind('**', 0, full_match_text.rfind('['))
+                opening_bracket_pos = full_match_text.find('[', closing_bold_pos)
+                if closing_bold_pos >= 0 and opening_bracket_pos > closing_bold_pos:
+                    extra_text = full_match_text[closing_bold_pos + 2:opening_bracket_pos].strip()
+                    if extra_text:
+                        # Append extra text to description (e.g., "– 2 hours at Zone 2...")
+                        description_without_type = f"{description_without_type} {extra_text}".strip()
+                
+                # Determine session type from activity_type_raw AND description
+                combined_text = (activity_type_raw + " " + description_without_type).lower()
+                
+                if any(x in combined_text for x in ['run', 'jog', 'parkrun', 'xc', 'cross country', 'track']):
+                    session_type = 'RUN'
+                elif any(x in combined_text for x in ['bike', 'cycling', 'cycle', 'ride', 'turbo', 'spin', 'trainer']):
+                    session_type = 'BIKE'
+                elif any(x in combined_text for x in ['swim', 'pool', 'lake', 'dip']):
+                    session_type = 'SWIM'
+                elif any(x in combined_text for x in ['s&c', 'strength', 'routine', 'gym', 'mobility']):
+                    session_type = 'STRENGTH'
+                else:
+                    session_type = 'OTHER'
+                
+                # For STRENGTH sessions, preserve "S&C:" prefix so s_and_c_utils can match it
+                if session_type == 'STRENGTH':
+                    description = f"{activity_type_raw}: {description_without_type}"
+                else:
+                    description = description_without_type
+                
+                # Extract duration
+                duration_match = re.search(r'(\d+)\s*(?:min|mins|minutes)', description, re.IGNORECASE)
+                duration_minutes = int(duration_match.group(1)) if duration_match else None
+                
+                # Extract zones
+                zones = {}
+                zone_match = re.search(r'[Zz]one\s*(\d+)(?:\s*-\s*(\d+))?', description)
+                if zone_match:
+                    if zone_match.group(2):
+                        zones['hr'] = f"{zone_match.group(1)}-{zone_match.group(2)}"
+                    else:
+                        zones['hr'] = zone_match.group(1)
+                
+                # Extract S&C routine name for linking
+                s_and_c_routine = None
+                if session_type == 'STRENGTH':
+                    # Description format: "S&C: Core Focus, 20 mins"
+                    # Extract "Core Focus" part
+                    routine_match = re.search(r'S&C:\s*([^,]+)', description, re.IGNORECASE)
+                    if routine_match:
+                        s_and_c_routine = routine_match.group(1).strip()
+                
+                session = Session(
+                    id=f"w{week_num}-s{session_counter}",
+                    day="Anytime",
+                    type=session_type,
+                    date=start_date,
+                    priority=priority,
+                    duration_minutes=duration_minutes,
+                    description=description,
+                    zones=zones,
+                    s_and_c_routine=s_and_c_routine,  # Add routine name for linking
                     scheduled=False,
                     completed=False
                 )
@@ -833,8 +975,126 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                 )
                 sessions.append(session)
         
-        else:
+        # Handle special activity notes (e.g., skiing weeks, special events) if no regular sessions found
+        if not sessions and matches_activity_note:
+            print(f"   Week {week_num}: Using special activity note format")
+            lines = week_text.split('\n')
+            for match in matches_activity_note:
+                session_counter += 1
+                activity_type = match.group(1).strip()
+                activity_description = match.group(2).strip()
+                
+                # Look ahead for nested details (Workout, Duration, Purpose)
+                match_line_num = week_text[:match.start()].count('\n')
+                workout_text = ""
+                duration_text = ""
+                purpose_text = ""
+                
+                for i in range(match_line_num + 1, len(lines)):
+                    line = lines[i].strip()
+                    
+                    # Stop if we hit another session header or week
+                    if (re.match(r'^\*\s+\*\*[A-Za-z]', line) or 
+                        re.match(r'^###?\s+Week\s+\d+', line) or
+                        (i > match_line_num + 1 and not line and i + 1 < len(lines) and 
+                         re.match(r'^\*\s+\*\*[A-Za-z]', lines[i + 1].strip()))):
+                        break
+                    
+                    if re.match(r'^\*\s+\*\*?Workout:', line, re.IGNORECASE):
+                        workout_text = re.sub(r'^\*\s+\*\*?Workout:\s*', '', line, flags=re.IGNORECASE).strip()
+                    elif re.match(r'^\*\s+\*\*?Duration:', line, re.IGNORECASE):
+                        duration_text = re.sub(r'^\*\s+\*\*?Duration:\s*', '', line, flags=re.IGNORECASE).strip()
+                    elif re.match(r'^\*\s+\*\*?Purpose:', line, re.IGNORECASE):
+                        purpose_text = re.sub(r'^\*\s+\*\*?Purpose:\s*', '', line, flags=re.IGNORECASE).strip()
+                
+                # Combine all parts for full description
+                description_parts = [activity_description]
+                if workout_text:
+                    description_parts.append(f"Workout: {workout_text}")
+                if duration_text:
+                    description_parts.append(f"Duration: {duration_text}")
+                if purpose_text:
+                    description_parts.append(f"Purpose: {purpose_text}")
+                
+                full_description = ". ".join(description_parts)
+                
+                # Determine session type based on activity
+                desc_lower = full_description.lower()
+                if 'ski' in desc_lower:
+                    session_type = 'OTHER'  # Skiing is cross-training
+                elif 'rest' in desc_lower or 'recovery' in desc_lower:
+                    session_type = 'OTHER'
+                else:
+                    session_type = 'OTHER'
+                
+                session = Session(
+                    id=f"w{week_num}-s{session_counter}",
+                    day="Anytime",
+                    type=session_type,
+                    date=start_date,
+                    priority="IMPORTANT",  # Default for special activities
+                    duration_minutes=None,  # Variable duration
+                    description=full_description,
+                    zones={},
+                    s_and_c_routine=None,
+                    scheduled=False,
+                    completed=False
+                )
+                sessions.append(session)
+        
+        if not sessions:
             print(f"   Week {week_num}: ⚠️  No sessions matched any format")
+            # Debug logging for weeks with 0 sessions
+            if week_num in [2, 6] or len(sessions) == 0:
+                try:
+                    import os
+                    import json
+                    debug_log_path = '/home/darrenmurphy/git/.cursor/debug.log'
+                    # Create directory if it doesn't exist
+                    os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+                    with open(debug_log_path, 'a') as f:
+                        # Count matches for each pattern
+                        pattern_counts = {
+                            'priority_before': len(matches_priority_before),
+                            'sc_focus': len(list(re.finditer(session_pattern_sc_focus, week_text, re.MULTILINE))),
+                            'new_format': len(matches_new),
+                            'current': len(matches_current),
+                            'pattern_1': len(matches_1),
+                            'pattern_2': len(matches_2),
+                            'pattern_3': len(matches_3),
+                            'pattern_4': len(matches_4)
+                        }
+                        # Get sample lines with asterisks
+                        lines_with_asterisks = [line.strip() for line in week_text.split('\n') if '*' in line][:10]
+                        log_entry = {
+                            'timestamp': datetime.now().isoformat(),
+                            'location': 'migration.py:no_sessions_found',
+                            'message': f'Week {week_num} - no sessions matched',
+                            'data': {
+                                'week_num': week_num,
+                                'pattern_match_counts': pattern_counts,
+                                'week_text_length': len(week_text),
+                                'sample_lines_with_asterisks': lines_with_asterisks,
+                                'week_text_preview': week_text[:1000] if len(week_text) > 1000 else week_text
+                            },
+                            'sessionId': 'debug-session',
+                            'runId': 'plan-parse-debug',
+                            'hypothesisId': 'A'
+                        }
+                        f.write(json.dumps(log_entry) + '\n')
+                except Exception as e:
+                    # Gracefully handle debug log failures - don't crash the app
+                    print(f"   ⚠️  Debug logging failed for Week {week_num}: {e}")
+                    # Still print useful info to console
+                    print(f"   📋 Week {week_num} text length: {len(week_text)} chars")
+                    lines_with_asterisks = [l for l in week_text.split('\n') if '*' in l]
+                    print(f"   📋 Week {week_num} lines with asterisks: {len(lines_with_asterisks)}")
+                    if week_text.strip():
+                        sample_lines = [line.strip() for line in week_text.split('\n') if line.strip() and '*' in line][:5]
+                        if sample_lines:
+                            print(f"   📋 Sample lines:")
+                            for line in sample_lines:
+                                print(f"      → {line[:100]}")
         
         # Create week object
         week = Week(

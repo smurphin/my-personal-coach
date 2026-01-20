@@ -350,6 +350,17 @@ def generate_plan():
         user_data['athlete_profile'] = athlete_profile
         print(f"--- Saved athlete_profile for athlete {athlete_id} ---")
         
+        # Save unit preferences (per sport)
+        unit_run = request.form.get('unit_run', 'km')
+        unit_ride = request.form.get('unit_ride', 'km')
+        unit_swim = request.form.get('unit_swim', 'meters')
+        user_data['unit_preferences'] = {
+            'run': unit_run,
+            'ride': unit_ride,
+            'swim': unit_swim
+        }
+        print(f"--- Saved unit preferences: run={unit_run}, ride={unit_ride}, swim={unit_swim} ---")
+        
         # Get upcoming commitments (specific to this plan, not saved to profile)
         upcoming_commitments = request.form.get('upcoming_commitments', '').strip() or None
         
