@@ -97,18 +97,28 @@ No additional detail should exist within the week heading, this makes the plan u
 {% endif %}
 
 **Training Paces (from Jack Daniels' tables - use these EXACTLY):**
-- Easy: {{ vdot_data.easy_pace_km or vdot_data.easy_pace }} per km{% if vdot_data.easy_pace_mile %} / {{ vdot_data.easy_pace_mile }} per mile{% endif %}
-- Marathon: {{ vdot_data.marathon_pace_km or vdot_data.marathon_pace }} per km{% if vdot_data.marathon_pace_mile %} / {{ vdot_data.marathon_pace_mile }} per mile{% endif %}
-- Threshold: {{ vdot_data.threshold_pace_km or vdot_data.threshold_pace }} per km{% if vdot_data.threshold_pace_mile %} / {{ vdot_data.threshold_pace_mile }} per mile{% endif %}
-- Interval (VO2max): {% if vdot_data.interval_pace_km %}{{ vdot_data.interval_pace_km }} per km{% endif %}{% if vdot_data.interval_pace_km and vdot_data.interval_pace_mile %} / {% endif %}{% if vdot_data.interval_pace_mile %}{{ vdot_data.interval_pace_mile }} per mile{% endif %}
-- Repetition: {% if vdot_data.repetition_pace_km %}{{ vdot_data.repetition_pace_km }} per km{% endif %}{% if vdot_data.repetition_pace_km and vdot_data.repetition_pace_mile %} / {% endif %}{% if vdot_data.repetition_pace_mile %}{{ vdot_data.repetition_pace_mile }} per mile{% endif %}
+{% if athlete_profile and athlete_profile.unit_preferences and athlete_profile.unit_preferences.run == 'miles' %}
+{# User prefers miles for running - show miles first, km as reference #}
+- Easy: {{ vdot_data.easy_pace_mile or 'N/A' }} per mile{% if vdot_data.easy_pace_km %} ({{ vdot_data.easy_pace_km }} per km){% endif %}
+- Marathon: {{ vdot_data.marathon_pace_mile or 'N/A' }} per mile{% if vdot_data.marathon_pace_km %} ({{ vdot_data.marathon_pace_km }} per km){% endif %}
+- Threshold: {{ vdot_data.threshold_pace_mile or 'N/A' }} per mile{% if vdot_data.threshold_pace_km %} ({{ vdot_data.threshold_pace_km }} per km){% endif %}
+- Interval (VO2max): {{ vdot_data.interval_pace_mile or 'N/A' }} per mile{% if vdot_data.interval_pace_km %} ({{ vdot_data.interval_pace_km }} per km){% endif %}
+- Repetition: {{ vdot_data.repetition_pace_mile or 'N/A' }} per mile{% if vdot_data.repetition_pace_km %} ({{ vdot_data.repetition_pace_km }} per km){% endif %}
+{% else %}
+{# User prefers km (default) - show km first, miles as reference #}
+- Easy: {{ vdot_data.easy_pace_km or vdot_data.easy_pace or 'N/A' }} per km{% if vdot_data.easy_pace_mile %} ({{ vdot_data.easy_pace_mile }} per mile){% endif %}
+- Marathon: {{ vdot_data.marathon_pace_km or vdot_data.marathon_pace or 'N/A' }} per km{% if vdot_data.marathon_pace_mile %} ({{ vdot_data.marathon_pace_mile }} per mile){% endif %}
+- Threshold: {{ vdot_data.threshold_pace_km or vdot_data.threshold_pace or 'N/A' }} per km{% if vdot_data.threshold_pace_mile %} ({{ vdot_data.threshold_pace_mile }} per mile){% endif %}
+- Interval (VO2max): {{ vdot_data.interval_pace_km or 'N/A' }} per km{% if vdot_data.interval_pace_mile %} ({{ vdot_data.interval_pace_mile }} per mile){% endif %}
+- Repetition: {{ vdot_data.repetition_pace_km or 'N/A' }} per km{% if vdot_data.repetition_pace_mile %} ({{ vdot_data.repetition_pace_mile }} per mile){% endif %}
+{% endif %}
 
-**IMPORTANT:**  
-- These paces are calculated from authoritative Jack Daniels' VDOT tables
+**CRITICAL PACE USAGE RULES:**
+- These paces are from authoritative Jack Daniels' VDOT tables - use the EXACT values shown above
+- **When answering questions about paces or prescribing running sessions, use the PRIMARY unit shown (before the parentheses)**
+- Do NOT calculate or convert paces yourself - use the stored values exactly as shown
 - Do NOT modify or "improve" these paces
-- Do NOT calculate alternative paces
-- Use these EXACT values when prescribing training intensities
-- Training paces must be based on CURRENT VDOT, never goal VDOT
+- Training paces must be based on CURRENT VDOT {{ vdot_data.current_vdot }}, never goal VDOT
 - **CRITICAL:** Do NOT use any VDOT value mentioned in feedback logs, chat history, or anywhere else in this conversation - those may be outdated or incorrect. Always and only use the VDOT value provided above: **{{ vdot_data.current_vdot }}**
 
 {% if vdot_data.recent_rejections and vdot_data.recent_rejections|length > 0 %}

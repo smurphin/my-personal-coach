@@ -154,6 +154,7 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
                 )
 
                 # --- Repetition ---
+                # Try to get per-km and per-mile paces directly
                 rep_km = (
                     paces.get('Repetition Pace per km') or 
                     paces.get('Repetition per km')
@@ -162,6 +163,38 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
                     paces.get('Repetition Pace per Mile') or
                     paces.get('Repetition per Mile')
                 )
+                
+                # If not available, calculate from 400m pace
+                if not rep_km or not rep_mile:
+                    pace_400m = (
+                        paces.get('Repetition Pace 400m') or
+                        paces.get('Repetition_Pace_400m') or
+                        paces.get('Repetition 400m')
+                    )
+                    
+                    if pace_400m:
+                        try:
+                            # Parse MM:SS format
+                            parts = pace_400m.split(':')
+                            if len(parts) == 2:
+                                total_secs = (int(parts[0]) * 60) + int(parts[1])
+                                
+                                # Calculate per km: 400m * 2.5 = 1000m = 1km
+                                if not rep_km:
+                                    km_secs = int(total_secs * 2.5)
+                                    km_mins = km_secs // 60
+                                    km_secs_remainder = km_secs % 60
+                                    rep_km = f"{km_mins:02d}:{km_secs_remainder:02d}"
+                                
+                                # Calculate per mile: 400m * 4 = 1600m ≈ 1 mile
+                                if not rep_mile:
+                                    mile_secs = int(total_secs * 4)
+                                    mile_mins = mile_secs // 60
+                                    mile_secs_remainder = mile_secs % 60
+                                    rep_mile = f"{mile_mins:02d}:{mile_secs_remainder:02d}"
+                        except (ValueError, IndexError) as e:
+                            if debug:
+                                print(f"   ⚠️  Could not parse 400m repetition pace '{pace_400m}': {e}")
 
                 # Populate explicit unit-specific fields
                 vdot_context['easy_pace_km'] = easy_km or 'N/A'
@@ -211,6 +244,38 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
                     int_mile = paces.get('Interval Pace per Mile')
                     rep_km = paces.get('Repetition Pace per km')
                     rep_mile = paces.get('Repetition Pace per Mile')
+                    
+                    # If repetition paces not available, calculate from 400m
+                    if not rep_km or not rep_mile:
+                        pace_400m = (
+                            paces.get('Repetition Pace 400m') or
+                            paces.get('Repetition_Pace_400m') or
+                            paces.get('Repetition 400m')
+                        )
+                        
+                        if pace_400m:
+                            try:
+                                # Parse MM:SS format
+                                parts = pace_400m.split(':')
+                                if len(parts) == 2:
+                                    total_secs = (int(parts[0]) * 60) + int(parts[1])
+                                    
+                                    # Calculate per km: 400m * 2.5 = 1000m = 1km
+                                    if not rep_km:
+                                        km_secs = int(total_secs * 2.5)
+                                        km_mins = km_secs // 60
+                                        km_secs_remainder = km_secs % 60
+                                        rep_km = f"{km_mins:02d}:{km_secs_remainder:02d}"
+                                    
+                                    # Calculate per mile: 400m * 4 = 1600m ≈ 1 mile
+                                    if not rep_mile:
+                                        mile_secs = int(total_secs * 4)
+                                        mile_mins = mile_secs // 60
+                                        mile_secs_remainder = mile_secs % 60
+                                        rep_mile = f"{mile_mins:02d}:{mile_secs_remainder:02d}"
+                            except (ValueError, IndexError) as e:
+                                if debug:
+                                    print(f"   ⚠️  Could not parse 400m repetition pace '{pace_400m}': {e}")
 
                     vdot_context['easy_pace_km'] = easy_km or 'N/A'
                     vdot_context['easy_pace_mile'] = easy_mile or 'N/A'

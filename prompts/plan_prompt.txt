@@ -144,6 +144,8 @@ These paces will automatically update when you complete qualifying races or time
 
 {% else %}
 **VDOT Not Yet Established.** Complete a 5K time trial, Parkrun, or race (marked as "Race" in Strava) to establish your VDOT. Until then, use heart rate zones for intensity prescription. Once established, your training paces will be automatically calculated from Jack Daniels' tables.
+
+**CRITICAL: DO NOT calculate, estimate, or suggest a VDOT value.** The athlete has not yet completed a qualifying race. You must use heart rate zones (LTHR-based) for all intensity prescriptions. Do NOT create a VDOT table or mention specific VDOT paces - they do not exist yet.
 {% endif %}
 
 **Threshold Testing for LTHR/FTP:**

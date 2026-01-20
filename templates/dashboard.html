@@ -445,6 +445,22 @@
         // SLOW: Render UI and create Chart.js charts
         // Can run in parallel with weekly summary
         const container = document.getElementById('garmin-container');
+        
+        // Check if data is valid and has content
+        if (!data || data.error || !data.today) {
+            console.log('Garmin data invalid or missing:', data);
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                <div class="text-center py-4">
+                    <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
+                    <a href="${connectionsUrl}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                        Connect Account
+                    </a>
+                </div>
+            `;
+            return;
+        }
+        
         const today = data.today;
         const trendData = data.trend_data;
         const cachedAt = data.cached_at;
@@ -596,44 +612,95 @@
                                 <span class="text-2xl font-bold text-brand-blue">{{ vdot }}</span>
                             </div>
                             
+                            {% set run_unit = unit_prefs.run if unit_prefs else 'km' %}
+                            {% set unit_label = 'per mile' if run_unit == 'miles' else 'per km' %}
+                            
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-gray-400">Easy:</span>
-                                    <span class="text-white font-mono">{{ vdot_paces.get('Easy/Long Pace per km') or vdot_paces.get('Easy Long per km') or 'N/A' }}</span>
+                                    <span class="text-white font-mono">
+                                        {% if run_unit == 'miles' %}
+                                            {{ vdot_paces.get('Easy/Long Pace per Mile') or vdot_paces.get('Easy Long per Mile') or vdot_paces.get('Easy per Mile') or 'N/A' }}
+                                        {% else %}
+                                            {{ vdot_paces.get('Easy/Long Pace per km') or vdot_paces.get('Easy Long per km') or vdot_paces.get('Easy per km') or 'N/A' }}
+                                        {% endif %}
+                                        <span class="text-gray-500 text-xs ml-1">{{ unit_label }}</span>
+                                    </span>
                                 </div>
                                 
                                 <div class="flex justify-between">
                                     <span class="text-gray-400">Marathon:</span>
-                                    <span class="text-white font-mono">{{ vdot_paces.get('Marathon Pace per km') or vdot_paces.get('Marathon per km') or 'N/A' }}</span>
+                                    <span class="text-white font-mono">
+                                        {% if run_unit == 'miles' %}
+                                            {{ vdot_paces.get('Marathon Pace per Mile') or vdot_paces.get('Marathon per Mile') or 'N/A' }}
+                                        {% else %}
+                                            {{ vdot_paces.get('Marathon Pace per km') or vdot_paces.get('Marathon per km') or 'N/A' }}
+                                        {% endif %}
+                                        <span class="text-gray-500 text-xs ml-1">{{ unit_label }}</span>
+                                    </span>
                                 </div>
                                 
                                 <div class="flex justify-between">
                                     <span class="text-gray-400">Threshold:</span>
-                                    <span class="text-white font-mono">{{ vdot_paces.get('Threshold Pace per km') or vdot_paces.get('Threshold per km') or 'N/A' }}</span>
+                                    <span class="text-white font-mono">
+                                        {% if run_unit == 'miles' %}
+                                            {{ vdot_paces.get('Threshold Pace per Mile') or vdot_paces.get('Threshold per Mile') or 'N/A' }}
+                                        {% else %}
+                                            {{ vdot_paces.get('Threshold Pace per km') or vdot_paces.get('Threshold per km') or 'N/A' }}
+                                        {% endif %}
+                                        <span class="text-gray-500 text-xs ml-1">{{ unit_label }}</span>
+                                    </span>
                                 </div>
                                 
                                 <div class="flex justify-between">
                                     <span class="text-gray-400">Interval:</span>
-                                    <span class="text-white font-mono">{{ vdot_paces.get('Interval Pace per Mile') or vdot_paces.get('Interval per Mile') or 'N/A' }}</span>
+                                    <span class="text-white font-mono">
+                                        {% if run_unit == 'miles' %}
+                                            {{ vdot_paces.get('Interval Pace per Mile') or vdot_paces.get('Interval per Mile') or 'N/A' }}
+                                        {% else %}
+                                            {{ vdot_paces.get('Interval Pace per km') or vdot_paces.get('Interval per km') or 'N/A' }}
+                                        {% endif %}
+                                        <span class="text-gray-500 text-xs ml-1">{{ unit_label }}</span>
+                                    </span>
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <span class="text-gray-400">Repetition (/km):</span>
+                                    <span class="text-gray-400">Repetition:</span>
                                     <span class="text-white font-mono">
-                                    {% set rep_pace = vdot_paces.get('Repetition Pace per km') or vdot_paces.get('Repetition_Pace_per_km') %}
-                                    {% if not rep_pace %}
-                                        {% set pace_400m = vdot_paces.get('Repetition Pace 400m') or vdot_paces.get('Repetition_Pace_400m') %}
-                                        {% if pace_400m %}
-                                            {# Calculate per km from 400m: multiply by 2.5 #}
-                                            {% set parts = pace_400m.split(':') %}
-                                            {% set total_secs = (parts[0]|int * 60) + parts[1]|int %}
-                                            {% set km_secs = (total_secs * 2.5)|int %}
-                                            {% set km_mins = (km_secs // 60)|int %}
-                                            {% set km_secs_remainder = km_secs % 60 %}
-                                            {% set rep_pace = '%02d:%02d'|format(km_mins, km_secs_remainder) %}
+                                        {% set rep_pace = None %}
+                                        {% if run_unit == 'miles' %}
+                                            {# Try to get per-mile pace directly first #}
+                                            {% set rep_pace = vdot_paces.get('Repetition Pace per Mile') or vdot_paces.get('Repetition per Mile') %}
+                                            {% if not rep_pace %}
+                                                {# Calculate per mile from 400m: multiply by 4 (400m * 4 = 1600m ≈ 1 mile) #}
+                                                {% set pace_400m = vdot_paces.get('Repetition Pace 400m') or vdot_paces.get('Repetition_Pace_400m') or vdot_paces.get('Repetition 400m') %}
+                                                {% if pace_400m %}
+                                                    {% set parts = pace_400m.split(':') %}
+                                                    {% set total_secs = (parts[0]|int * 60) + parts[1]|int %}
+                                                    {% set mile_secs = (total_secs * 4)|int %}
+                                                    {% set mile_mins = (mile_secs // 60)|int %}
+                                                    {% set mile_secs_remainder = mile_secs % 60 %}
+                                                    {% set rep_pace = '%02d:%02d'|format(mile_mins, mile_secs_remainder) %}
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            {# Try to get per-km pace directly first #}
+                                            {% set rep_pace = vdot_paces.get('Repetition Pace per km') or vdot_paces.get('Repetition per km') %}
+                                            {% if not rep_pace %}
+                                                {# Calculate per km from 400m: multiply by 2.5 (400m * 2.5 = 1000m = 1km) #}
+                                                {% set pace_400m = vdot_paces.get('Repetition Pace 400m') or vdot_paces.get('Repetition_Pace_400m') or vdot_paces.get('Repetition 400m') %}
+                                                {% if pace_400m %}
+                                                    {% set parts = pace_400m.split(':') %}
+                                                    {% set total_secs = (parts[0]|int * 60) + parts[1]|int %}
+                                                    {% set km_secs = (total_secs * 2.5)|int %}
+                                                    {% set km_mins = (km_secs // 60)|int %}
+                                                    {% set km_secs_remainder = km_secs % 60 %}
+                                                    {% set rep_pace = '%02d:%02d'|format(km_mins, km_secs_remainder) %}
+                                                {% endif %}
+                                            {% endif %}
                                         {% endif %}
-                                    {% endif %}
-                                    {{ rep_pace or 'N/A' }}
+                                        {{ rep_pace or 'N/A' }}
+                                        <span class="text-gray-500 text-xs ml-1">{{ unit_label }}</span>
                                     </span>
                                 </div>
                             </div>
@@ -1374,6 +1441,20 @@ function getReadinessMessage(score) {
             
         } catch (error) {
             console.error('❌ Error loading dashboard:', error);
+            
+            // If Garmin error, show connection message
+            const garminContainer = document.getElementById('garmin-container');
+            if (garminContainer && (error.message.includes('Garmin') || error.message.includes('connection'))) {
+                garminContainer.innerHTML = `
+                    <h2 class="text-2xl font-bold text-brand-blue mb-4">Health & Recovery</h2>
+                    <div class="text-center py-4">
+                        <p class="text-brand-light-gray mb-4">Connect your Garmin account to see your daily health and recovery stats with trend analysis.</p>
+                        <a href="${connectionsUrl}" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                            Connect Account
+                        </a>
+                    </div>
+                `;
+            }
             
             // If Garmin fails, still try to load summary
             try {

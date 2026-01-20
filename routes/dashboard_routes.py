@@ -466,6 +466,13 @@ def dashboard():
                     pending_ftp = ftp_data.copy()
                     print(f"📋 Pending FTP detected: {pending_ftp.get('value')}W (needs user confirmation)")
     
+    # Get unit preferences for dashboard display
+    unit_prefs = user_data.get('unit_preferences', {
+        'run': 'km',
+        'ride': 'km',
+        'swim': 'meters'
+    })
+    
     # No chat display on dashboard - users can view full chat log separately
     return render_template(
         'dashboard.html',
@@ -486,7 +493,8 @@ def dashboard():
         ftp=ftp,
         pending_vdot=pending_vdot,
         pending_ftp=pending_ftp,
-        get_routine_link=get_routine_link
+        get_routine_link=get_routine_link,
+        unit_prefs=unit_prefs
     )
 
 @dashboard_bp.route("/chat", methods=['POST'])
@@ -1101,28 +1109,37 @@ def update_settings():
             try:
                 vdot_float = float(vdot_value)
                 vdot_int = int(vdot_float)  # Always round DOWN
-                
-                # Calculate training paces using VDOTCalculator
+
+                # Only update and flash if VDOT actually changed
+                existing_vdot = None
                 try:
-                    from utils.vdot_calculator import VDOTCalculator
-                    calc = VDOTCalculator()
-                    paces = calc.get_training_paces(vdot_int)
-                except Exception as e:
-                    print(f"Warning: Could not calculate VDOT paces: {e}")
-                    paces = None
-                
-                metrics_dict['vdot'] = {
-                    'value': vdot_int,
-                    'source': 'USER_OVERRIDE',
-                    'date_set': datetime.now().isoformat(),
-                    'user_confirmed': True,
-                    'pending_confirmation': False,
-                    'paces': paces  # Store ALL paces from Jack Daniels' tables
-                }
-                print(f"Updated VDOT: {vdot_float} → {vdot_int} (rounded down)")
-                if paces:
-                    print(f"  Stored {len(paces)} paces from Jack Daniels' tables")
-                flash(f'VDOT updated to {vdot_int}', 'success')
+                    if 'vdot' in metrics_dict and isinstance(metrics_dict['vdot'], dict):
+                        existing_vdot = int(metrics_dict['vdot'].get('value')) if metrics_dict['vdot'].get('value') is not None else None
+                except (ValueError, TypeError):
+                    existing_vdot = None
+
+                if existing_vdot != vdot_int:
+                    # Calculate training paces using VDOTCalculator
+                    try:
+                        from utils.vdot_calculator import VDOTCalculator
+                        calc = VDOTCalculator()
+                        paces = calc.get_training_paces(vdot_int)
+                    except Exception as e:
+                        print(f"Warning: Could not calculate VDOT paces: {e}")
+                        paces = None
+                    
+                    metrics_dict['vdot'] = {
+                        'value': vdot_int,
+                        'source': 'USER_OVERRIDE',
+                        'date_set': datetime.now().isoformat(),
+                        'user_confirmed': True,
+                        'pending_confirmation': False,
+                        'paces': paces  # Store ALL paces from Jack Daniels' tables
+                    }
+                    print(f"Updated VDOT: {vdot_float} → {vdot_int} (rounded down)")
+                    if paces:
+                        print(f"  Stored {len(paces)} paces from Jack Daniels' tables")
+                    flash(f'VDOT updated to {vdot_int}', 'success')
             except ValueError:
                 flash('Invalid VDOT value', 'error')
         
