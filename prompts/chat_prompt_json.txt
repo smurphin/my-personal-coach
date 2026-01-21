@@ -38,16 +38,13 @@ Your task is to provide a helpful response to the LATEST user message, using the
     -   **For minor issues** (e.g., "feeling a bit tired"): Provide a short paragraph of advice. Do NOT generate a new plan.
     -   **For major issues** (e.g., "I'm sick," "I'm injured," "I missed a whole week", "I need to adjust my schedule"): You MUST adapt the plan.
 
-**╔════════════════════════════════════════════════════════════════╗**
-**║ CRITICAL OUTPUT FORMAT - JSON-FIRST APPROACH                  ║**
-**╚════════════════════════════════════════════════════════════════╝**
+**CRITICAL OUTPUT FORMAT - READ THIS CAREFULLY:**
 
-**PREFERRED METHOD (when updating plan):**
-If you need to update the plan, return your response as **valid JSON** in this exact format:
+When you need to update the plan, you MUST return your response in this EXACT JSON format:
 
 ```json
 {
-  "response_text": "Your conversational response explaining the changes (2-4 sentences).",
+  "response_text": "Your conversational response to the athlete explaining the changes and why they were made. Keep this brief (2-4 sentences).",
   "plan_v2": {
     "version": 2,
     "athlete_id": "{{ training_plan_json.athlete_id if training_plan_json else 'unknown' }}",
@@ -60,7 +57,7 @@ If you need to update the plan, return your response as **valid JSON** in this e
         "week_number": 1,
         "start_date": "2026-01-01",
         "end_date": "2026-01-07",
-        "description": "Optional weekly focus",
+        "description": "Optional weekly focus description",
         "sessions": [
           {
             "id": "w1-s1",
@@ -69,8 +66,11 @@ If you need to update the plan, return your response as **valid JSON** in this e
             "date": "2026-01-01",
             "priority": "KEY",
             "duration_minutes": 60,
-            "description": "Full session description with workout details, zones, paces, etc.",
-            "zones": {"hr": "2", "pace": "5:30/km"},
+            "description": "Full session description including workout details, zones, paces, etc.",
+            "zones": {
+              "hr": "2",
+              "pace": "5:30/km"
+            },
             "scheduled": false,
             "completed": false
           }
@@ -78,58 +78,31 @@ If you need to update the plan, return your response as **valid JSON** in this e
       }
     ]
   },
-  "change_summary_markdown": "Brief summary of key changes (2-3 bullet points)"
+  "change_summary_markdown": "Brief summary of key changes for the athlete (2-3 bullet points)"
 }
 ```
 
-**JSON RULES:**
-- Return **ONLY valid JSON** - no markdown code blocks, no extra text
-- Include **ALL weeks** from original plan (preserve past weeks as historical records)
-- Session IDs: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
-- Session types: RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
-- Priorities: KEY, IMPORTANT, STRETCH (or null)
-- For S&C: Use focus areas only ("S&C: Core Focus, 30 mins") - no exercise lists
+**NON-NEGOTIABLE RULES:**
+1. **You MUST return valid JSON** - no markdown code blocks, no extra text before/after. Just pure JSON.
+2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
+3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
+4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
+5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
+6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null)
+7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 
-**If you do NOT need to update the plan**, return normal markdown text (no JSON needed).
+**If you do NOT need to update the plan**, return:
+```json
+{
+  "response_text": "Your conversational response here",
+  "change_summary_markdown": null
+}
+```
 
-**FALLBACK METHOD (if JSON fails):**
-If you cannot produce valid JSON, you may fall back to markdown format below, but JSON is STRONGLY preferred.
-
----
-
-**FALLBACK MARKDOWN FORMAT (use only if JSON is not possible):**
-    -   Your entire response must be in markdown.
-    -   If you provide an updated plan, it MUST follow the following formatting rules.
-**IMPORTANT FORMATTING RULE:**
-Each week's heading **MUST** follow this exact markdown format, including the dates: `### Week <plan Week Number>: <Month Name> <Day with suffix> - <Month Name> <Day with suffix>`
-- Example: `### Week 1: Sep 29th - Oct 5th`
-- Example: `### Week 2: Oct 6th - Oct 12th`
-This consistent format is critical for the application to read the plan.
-
-**CRITICAL SESSION FORMATTING:**
-Each session MUST use this EXACT format - the system depends on it:
-`*   **<Type>: <Description>** [<PRIORITY>]`
-
-Where:
-- <Type> is the activity type: Run, Ride, S&C, Swim
-- <Description> includes duration, zones, and details
-- <PRIORITY> is one of: KEY, IMPORTANT, STRETCH (at the END)
-
-Examples:
-`*   **Run: Social Club Run, 60 mins, Zone 2** [IMPORTANT]`
-`*   **Run: 5K Time Trial, 45 mins total** [KEY]`
-`*   **S&C: Core Focus, 30 mins** [IMPORTANT]`
-`*   **Ride: Easy Spin, 45 mins, Zone 2** [STRETCH]`
-
-**CRITICAL:** 
-- Use asterisk bullet points: `*   ` (asterisk, 3 spaces)
-- Activity type comes FIRST before colon
-- Priority marker [KEY]/[IMPORTANT]/[STRETCH] goes at the END after closing **
-- Stars go BEFORE the colon, not after
-
-No additional detail should exist within the week heading, this makes the plan unreadable
+**CRITICAL:** The system will REJECT your response if the JSON is invalid or if required fields are missing. Double-check your JSON before responding.
 
 ---
+
 {% if vdot_data and vdot_data.current_vdot %}
 
 ## ATHLETE'S CURRENT VDOT & TRAINING PACES
@@ -142,28 +115,18 @@ No additional detail should exist within the week heading, this makes the plan u
 {% endif %}
 
 **Training Paces (from Jack Daniels' tables - use these EXACTLY):**
-{% if athlete_profile and athlete_profile.unit_preferences and athlete_profile.unit_preferences.run == 'miles' %}
-{# User prefers miles for running - show miles first, km as reference #}
-- Easy: {{ vdot_data.easy_pace_mile or 'N/A' }} per mile{% if vdot_data.easy_pace_km %} ({{ vdot_data.easy_pace_km }} per km){% endif %}
-- Marathon: {{ vdot_data.marathon_pace_mile or 'N/A' }} per mile{% if vdot_data.marathon_pace_km %} ({{ vdot_data.marathon_pace_km }} per km){% endif %}
-- Threshold: {{ vdot_data.threshold_pace_mile or 'N/A' }} per mile{% if vdot_data.threshold_pace_km %} ({{ vdot_data.threshold_pace_km }} per km){% endif %}
-- Interval (VO2max): {{ vdot_data.interval_pace_mile or 'N/A' }} per mile{% if vdot_data.interval_pace_km %} ({{ vdot_data.interval_pace_km }} per km){% endif %}
-- Repetition: {{ vdot_data.repetition_pace_mile or 'N/A' }} per mile{% if vdot_data.repetition_pace_km %} ({{ vdot_data.repetition_pace_km }} per km){% endif %}
-{% else %}
-{# User prefers km (default) - show km first, miles as reference #}
-- Easy: {{ vdot_data.easy_pace_km or vdot_data.easy_pace or 'N/A' }} per km{% if vdot_data.easy_pace_mile %} ({{ vdot_data.easy_pace_mile }} per mile){% endif %}
-- Marathon: {{ vdot_data.marathon_pace_km or vdot_data.marathon_pace or 'N/A' }} per km{% if vdot_data.marathon_pace_mile %} ({{ vdot_data.marathon_pace_mile }} per mile){% endif %}
-- Threshold: {{ vdot_data.threshold_pace_km or vdot_data.threshold_pace or 'N/A' }} per km{% if vdot_data.threshold_pace_mile %} ({{ vdot_data.threshold_pace_mile }} per mile){% endif %}
-- Interval (VO2max): {{ vdot_data.interval_pace_km or 'N/A' }} per km{% if vdot_data.interval_pace_mile %} ({{ vdot_data.interval_pace_mile }} per mile){% endif %}
-- Repetition: {{ vdot_data.repetition_pace_km or 'N/A' }} per km{% if vdot_data.repetition_pace_mile %} ({{ vdot_data.repetition_pace_mile }} per mile){% endif %}
-{% endif %}
+- Easy: {{ vdot_data.easy_pace }}
+- Marathon: {{ vdot_data.marathon_pace }}
+- Threshold: {{ vdot_data.threshold_pace }}
+- Interval: {{ vdot_data.interval_pace }}
+- Repetition: {{ vdot_data.repetition_pace }}
 
-**CRITICAL PACE USAGE RULES:**
-- These paces are from authoritative Jack Daniels' VDOT tables - use the EXACT values shown above
-- **When answering questions about paces or prescribing running sessions, use the PRIMARY unit shown (before the parentheses)**
-- Do NOT calculate or convert paces yourself - use the stored values exactly as shown
+**IMPORTANT:**  
+- These paces are calculated from authoritative Jack Daniels' VDOT tables
 - Do NOT modify or "improve" these paces
-- Training paces must be based on CURRENT VDOT {{ vdot_data.current_vdot }}, never goal VDOT
+- Do NOT calculate alternative paces
+- Use these EXACT values when prescribing training intensities
+- Training paces must be based on CURRENT VDOT, never goal VDOT
 - **CRITICAL:** Do NOT use any VDOT value mentioned in feedback logs, chat history, or anywhere else in this conversation - those may be outdated or incorrect. Always and only use the VDOT value provided above: **{{ vdot_data.current_vdot }}**
 
 {% if vdot_data.recent_rejections and vdot_data.recent_rejections|length > 0 %}
@@ -173,32 +136,18 @@ The athlete has recently rejected VDOT updates. When discussing VDOT or prescrib
 - Be more cautious about pace prescriptions if recent rejections suggest detection issues
 - Consider prioritizing heart rate zones if multiple rejections occurred
 - Recent rejections: {% for rejection in vdot_data.recent_rejections %}VDOT {{ rejection.rejected_vdot }} from "{{ rejection.activity_name }}"{% if rejection.user_reason %} (reason: {{ rejection.user_reason }}){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}
-
 {% endif %}
-
-{% else %}
-
-## VDOT NOT YET ESTABLISHED
-
-- Athlete hasn't completed a qualifying race or time trial
-- Use heart rate zones for intensity prescription until VDOT is established
-- Recommend completing a 5K time trial or Parkrun to establish VDOT baseline
-
 {% endif %}
 
 ---
-**CONTEXT**
 
-**Athlete's Message:**
-"{{ user_message }}"
-
-**Current Training Plan (JSON format - use this for structured updates):**
+**Current Training Plan (JSON format for reference):**
 {% if training_plan_json %}
 ```json
 {{ training_plan_json }}
 ```
 {% else %}
-No structured plan available. Use markdown below for context.
+No structured plan available. Use markdown plan below for context.
 {% endif %}
 
 **Current Training Plan (Markdown for context):**
@@ -206,12 +155,9 @@ No structured plan available. Use markdown below for context.
 {{ training_plan }}
 ```
 
-**Recent Feedback Log (Newest First):**
-```json
+**Recent Feedback:**
 {{ feedback_log_json }}
-```
 
-**Chat History (Newest First):**
-```json
+**Conversation History:**
 {{ chat_history_json }}
-```
+

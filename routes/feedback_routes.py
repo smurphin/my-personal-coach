@@ -812,7 +812,8 @@ def get_feedback_api():
         print(f"   - Garmin data: {'Yes' if garmin_data_for_activity else 'No'}")
         print("="*70 + "\n")
         
-        feedback_markdown = ai_service.generate_feedback(
+        # Generate feedback (now returns tuple: feedback_text, plan_update_json, change_summary)
+        feedback_text, plan_update_json, change_summary = ai_service.generate_feedback(
             training_plan,
             feedback_log,
             analyzed_sessions,
@@ -826,14 +827,14 @@ def get_feedback_api():
         print("\n" + "="*70)
         print("AI RESPONSE - DEBUG LOG")
         print("="*70)
-        print(f"✅ AI response received ({len(feedback_markdown)} characters)")
+        print(f"✅ AI response received ({len(feedback_text)} characters)")
         
         # Check if AI mentioned VDOT
-        if 'VDOT' in feedback_markdown or 'vdot' in feedback_markdown.lower():
+        if 'VDOT' in feedback_text or 'vdot' in feedback_text.lower():
             print(f"\n🔍 AI mentioned VDOT in response")
             
             # Extract lines mentioning VDOT for debugging
-            vdot_lines = [line.strip() for line in feedback_markdown.split('\n') 
+            vdot_lines = [line.strip() for line in feedback_text.split('\n') 
                          if 'vdot' in line.lower() and line.strip()]
             
             if vdot_lines:
@@ -846,22 +847,22 @@ def get_feedback_api():
                     print(f"   ... and {len(vdot_lines) - 5} more")
             
             # Check for problematic patterns
-            if re.search(r'calculate.*vdot|vdot.*calculate', feedback_markdown, re.IGNORECASE):
+            if re.search(r'calculate.*vdot|vdot.*calculate', feedback_text, re.IGNORECASE):
                 print(f"\n⚠️  WARNING: AI used phrase 'calculate VDOT' - this should not happen!")
             
-            if re.search(r'based on this.*vdot|vdot.*based on', feedback_markdown, re.IGNORECASE):
+            if re.search(r'based on this.*vdot|vdot.*based on', feedback_text, re.IGNORECASE):
                 print(f"\n⚠️  WARNING: AI said 'based on this, VDOT...' - might be calculating!")
             
             # Check if AI used the correct VDOT value
             if vdot_data and vdot_data.get('current_vdot'):
                 expected_vdot = int(vdot_data['current_vdot'])
-                if f"VDOT {expected_vdot}" in feedback_markdown or f"VDOT of {expected_vdot}" in feedback_markdown:
+                if f"VDOT {expected_vdot}" in feedback_text or f"VDOT of {expected_vdot}" in feedback_text:
                     print(f"\n✅ AI correctly referenced VDOT {expected_vdot}")
                 else:
                     print(f"\n⚠️  WARNING: Expected VDOT {expected_vdot} not found in response")
                     
                     # Look for other VDOT numbers
-                    vdot_numbers = re.findall(r'VDOT[:\s]+(\d+)', feedback_markdown, re.IGNORECASE)
+                    vdot_numbers = re.findall(r'VDOT[:\s]+(\d+)', feedback_text, re.IGNORECASE)
                     if vdot_numbers:
                         print(f"   Found these VDOT values instead: {', '.join(set(vdot_numbers))}")
         else:
@@ -870,7 +871,7 @@ def get_feedback_api():
         print("="*70 + "\n")
         
         # === Parse AI response for session completion ===
-        session_match = re.search(r'\[COMPLETED:([^\]]+)\]', feedback_markdown)
+        session_match = re.search(r'\[COMPLETED:([^\]]+)\]', feedback_text)
         if session_match and 'plan_v2' in user_data:
             session_id = session_match.group(1).strip()
             print(f"\n🤖 AI identified completed session: {session_id}")
@@ -924,7 +925,7 @@ def get_feedback_api():
                             print(f"     - {sess['id']}")
                 
                 # Remove marker from feedback display
-                feedback_markdown = re.sub(r'\[COMPLETED:[^\]]+\]', '', feedback_markdown).strip()
+                feedback_text = re.sub(r'\[COMPLETED:[^\]]+\]', '', feedback_text).strip()
                 
             except Exception as e:
                 print(f"⚠️  Error marking session complete from AI: {e}")
@@ -949,17 +950,66 @@ def get_feedback_api():
             "activity_id": int(analyzed_sessions[0]['id']),
             "activity_name": descriptive_name,
             "activity_date": format_activity_date(analyzed_sessions[0].get('start_date', '')),
-            "feedback_markdown": feedback_markdown,
+            "feedback_markdown": feedback_text,  # Use feedback_text from tuple
             "logged_activity_ids": all_activity_ids
         }
         
         feedback_log.insert(0, new_log_entry)
 
         # === PLAN UPDATES FROM FEEDBACK ===
-        # Try to update plan_v2 with AI's changes
+        # NEW: Handle JSON-first plan updates (preferred method)
+        if plan_update_json:
+            print(f"✅ Found JSON plan update in feedback response!")
+            print(f"   Plan has {len(plan_update_json.get('weeks', []))} weeks")
+            
+            # Get current plan_v2 as backup for archiving
+            current_plan_v2_dict = user_data.get('plan_v2')
+            
+            # SAFEGUARD: Archive and restore past weeks
+            from utils.plan_utils import archive_and_restore_past_weeks
+            from models.training_plan import TrainingPlan
+            
+            try:
+                new_plan_v2_obj = TrainingPlan.from_dict(plan_update_json)
+                if current_plan_v2_dict:
+                    new_plan_v2_obj = archive_and_restore_past_weeks(current_plan_v2_dict, new_plan_v2_obj)
+                
+                # CRITICAL: Archive old plan BEFORE overwriting
+                if 'plan' in user_data and user_data.get('plan'):
+                    if 'archive' not in user_data:
+                        user_data['archive'] = []
+                    
+                    user_data['archive'].insert(0, {
+                        'plan': user_data['plan'],
+                        'plan_v2': user_data.get('plan_v2'),
+                        'completed_date': datetime.now().isoformat(),
+                        'reason': 'regenerated_via_feedback_json'
+                    })
+                    print(f"📦 Archived old plan before JSON regeneration (archive now has {len(user_data['archive'])} entries)")
+                
+                # Update plan_v2
+                user_data['plan_v2'] = new_plan_v2_obj.to_dict()
+                
+                # Also update markdown plan for backward compatibility
+                user_data['plan'] = new_plan_v2_obj.to_markdown()
+                
+                # Store change summary for display
+                if change_summary:
+                    user_data['last_plan_change_summary'] = change_summary
+                    print(f"   📋 Change summary: {change_summary[:100]}...")
+                
+                print(f"--- Plan updated via JSON! ---")
+                print(f"--- New plan has {len(new_plan_v2_obj.weeks)} weeks with {sum(len(w.sessions) for w in new_plan_v2_obj.weeks)} sessions ---")
+                
+            except Exception as e:
+                print(f"⚠️  Error processing JSON plan update: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fall through to markdown parsing as fallback
         
-        if '[PLAN_UPDATED]' in feedback_markdown:
-            match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+        # FALLBACK: Handle markdown plan updates (legacy support)
+        elif '[PLAN_UPDATED]' in feedback_text:
+            match = re.search(r"```markdown\n(.*?)```", feedback_text, re.DOTALL)
             if match:
                 new_plan_markdown = match.group(1).strip()
                 
@@ -1087,7 +1137,7 @@ def get_feedback_api():
         safe_save_user_data(athlete_id, user_data)
 
         # Process feedback to extract plan updates for display
-        processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
+        processed_markdown, plan_html = process_feedback_markdown(feedback_text)
         feedback_html = render_markdown_with_toc(processed_markdown)['content']
         
         # Append plan HTML if it exists
