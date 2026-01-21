@@ -691,82 +691,82 @@ def chat():
             user_data['plan'] = new_plan_markdown
             print(f"--- Plan updated via markdown (legacy)! ---")
             print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
-        
-        # Try to update plan_v2 with changes
-        try:
-            # Get current plan_v2 as backup
-            current_plan_v2 = user_data.get('plan_v2')
             
-            # CRITICAL: Extract completed sessions BEFORE parsing
-            existing_completed = {}  # session_id -> {completed, strava_activity_id, completed_at}
-            if current_plan_v2 and 'weeks' in current_plan_v2:
-                for week in current_plan_v2['weeks']:
-                    for sess in week.get('sessions', []):
-                        if sess.get('completed'):
-                            existing_completed[sess['id']] = {
-                                'completed': True,
-                                'strava_activity_id': sess.get('strava_activity_id'),
-                                'completed_at': sess.get('completed_at')
-                            }
-                if existing_completed:
-                    print(f"   📋 Preserving {len(existing_completed)} completed sessions")
+            # Try to update plan_v2 with changes (only if we found a markdown update)
+            try:
+                # Get current plan_v2 as backup
+                current_plan_v2 = user_data.get('plan_v2')
             
-            # Try parsing the updated markdown
-            from utils.migration import parse_ai_response_to_v2
-            
-            user_inputs = {
-                'goal': user_data.get('goal', ''),
-                'goal_date': user_data.get('goal_date'),
-                'plan_start_date': user_data.get('plan_start_date'),
-                'goal_distance': user_data.get('goal_distance')
-            }
-            
-            # Don't attach old plan_structure - let it parse fresh from markdown
-            plan_v2, _ = parse_ai_response_to_v2(
-                new_plan_markdown,
-                athlete_id,
-                user_inputs
-            )
-            
-            # Check if parsing was successful
-            if plan_v2 and plan_v2.weeks:
-                total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
+                # CRITICAL: Extract completed sessions BEFORE parsing
+                existing_completed = {}  # session_id -> {completed, strava_activity_id, completed_at}
+                if current_plan_v2 and 'weeks' in current_plan_v2:
+                    for week in current_plan_v2['weeks']:
+                        for sess in week.get('sessions', []):
+                            if sess.get('completed'):
+                                existing_completed[sess['id']] = {
+                                    'completed': True,
+                                    'strava_activity_id': sess.get('strava_activity_id'),
+                                    'completed_at': sess.get('completed_at')
+                                }
+                    if existing_completed:
+                        print(f"   📋 Preserving {len(existing_completed)} completed sessions")
                 
-                if total_sessions > 0:
-                    # SAFEGUARD: Archive and restore past weeks
-                    plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
+                # Try parsing the updated markdown
+                from utils.migration import parse_ai_response_to_v2
+                
+                user_inputs = {
+                    'goal': user_data.get('goal', ''),
+                    'goal_date': user_data.get('goal_date'),
+                    'plan_start_date': user_data.get('plan_start_date'),
+                    'goal_distance': user_data.get('goal_distance')
+                }
+                
+                # Don't attach old plan_structure - let it parse fresh from markdown
+                plan_v2, _ = parse_ai_response_to_v2(
+                    new_plan_markdown,
+                    athlete_id,
+                    user_inputs
+                )
+                
+                # Check if parsing was successful
+                if plan_v2 and plan_v2.weeks:
+                    total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
                     
-                    # CRITICAL: Restore completed status for matching sessions
-                    restored_count = 0
-                    for week in plan_v2.weeks:
-                        for sess in week.sessions:
-                            if sess.id in existing_completed:
-                                sess.completed = True
-                                sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
-                                sess.completed_at = existing_completed[sess.id]['completed_at']
-                                restored_count += 1
-                    
-                    if restored_count > 0:
-                        print(f"   ✅ Restored {restored_count} completed sessions")
-                    
-                    # Parsing worked! Update plan_v2
-                    user_data['plan_v2'] = plan_v2.to_dict()
-                    final_week_count = len(plan_v2.weeks)
-                    print(f"✅ plan_v2 updated with {final_week_count} weeks ({total_sessions} sessions)")
+                    if total_sessions > 0:
+                        # SAFEGUARD: Archive and restore past weeks
+                        plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
+                        
+                        # CRITICAL: Restore completed status for matching sessions
+                        restored_count = 0
+                        for week in plan_v2.weeks:
+                            for sess in week.sessions:
+                                if sess.id in existing_completed:
+                                    sess.completed = True
+                                    sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                                    sess.completed_at = existing_completed[sess.id]['completed_at']
+                                    restored_count += 1
+                        
+                        if restored_count > 0:
+                            print(f"   ✅ Restored {restored_count} completed sessions")
+                        
+                        # Parsing worked! Update plan_v2
+                        user_data['plan_v2'] = plan_v2.to_dict()
+                        final_week_count = len(plan_v2.weeks)
+                        print(f"✅ plan_v2 updated with {final_week_count} weeks ({total_sessions} sessions)")
+                    else:
+                        # Parsing failed - keep existing plan_v2
+                        print(f"⚠️  Parser extracted 0 sessions from updated markdown")
+                        print(f"   Keeping existing plan_v2 (likely AI update doesn't match session format)")
+                        print(f"   Markdown updated, plan_v2 preserved")
                 else:
-                    # Parsing failed - keep existing plan_v2
-                    print(f"⚠️  Parser extracted 0 sessions from updated markdown")
-                    print(f"   Keeping existing plan_v2 (likely AI update doesn't match session format)")
-                    print(f"   Markdown updated, plan_v2 preserved")
-            else:
-                print(f"⚠️  Failed to parse updated plan - keeping existing plan_v2")
-                
-        except Exception as e:
-            print(f"⚠️  Error parsing plan update: {e}")
-            print(f"   Keeping existing plan_v2")
-            # Keep existing plan_v2 - don't break session tracking
+                    print(f"⚠️  Failed to parse updated plan - keeping existing plan_v2")
+                    
+            except Exception as e:
+                print(f"⚠️  Error parsing plan update: {e}")
+                print(f"   Keeping existing plan_v2")
+                # Keep existing plan_v2 - don't break session tracking
 
-        # Invalidate weekly summary cache
+    # Invalidate weekly summary cache
         today = datetime.now()
         week_identifier = f"{today.year}-{today.isocalendar().week}"
         if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:

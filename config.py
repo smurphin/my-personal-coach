@@ -38,8 +38,8 @@ class Config:
         'prod': 'https://www.kaizencoach.training/callback',
         'demo': 'https://demo.kaizencoach.training/callback',
         'mark': 'https://mark.kaizencoach.training/callback',
-        'shane': 'https://shane.kaizencoach.training/callback'
-
+        'shane': 'https://shane.kaizencoach.training/callback',
+        'dom': 'https://dom.kaizencoach.training/callback'
     }
     
     # Allow override via environment variable (useful for demo instances)
@@ -52,7 +52,8 @@ class Config:
         'prod': 'kaizencoach-prod',
         'demo': 'kaizencoach-demo',
         'mark': 'kaizencoach-mark',
-        'shane': 'kaizencoach-shane'
+        'shane': 'kaizencoach-shane',
+        'dom': 'kaizencoach-dom'
     }
     
     GCP_PROJECT_ID = GCP_PROJECTS.get(ENVIRONMENT, 'kaizencoach-dev')
