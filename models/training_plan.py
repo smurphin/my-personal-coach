@@ -377,6 +377,7 @@ class TrainingPlan:
         # Only pass fields that are part of the dataclass definition
         known_fields = {
             'version': data_copy.get('version', 2),
+            # If created_at is missing or None, let the dataclass default_factory set it
             'created_at': data_copy.get('created_at'),
             'athlete_id': data_copy.get('athlete_id'),
             'athlete_goal': data_copy.get('athlete_goal', ''),
@@ -384,6 +385,10 @@ class TrainingPlan:
             'goal_distance': data_copy.get('goal_distance'),
             'plan_start_date': data_copy.get('plan_start_date')
         }
+        
+        # If created_at is explicitly None or empty, remove it so default_factory applies
+        if not known_fields['created_at']:
+            known_fields.pop('created_at')
         
         plan = cls(**known_fields)
         plan.weeks = [Week.from_dict(w) for w in weeks_data]
@@ -408,7 +413,9 @@ class TrainingPlan:
             lines.append(f"**Goal Date:** {self.goal_date}")
         if self.goal_distance:
             lines.append(f"**Goal Distance:** {self.goal_distance}")
-        lines.append(f"**Created:** {self.created_at[:10]}\n")
+        # Safeguard: handle missing created_at gracefully
+        created_at_value = self.created_at or datetime.now().isoformat()
+        lines.append(f"**Created:** {created_at_value[:10]}\n")
         
         for week in self.weeks:
             lines.append(week.to_markdown())

@@ -6,6 +6,7 @@ import json
 from config import Config
 from models.training_plan import TrainingPlan
 from utils.migration import parse_ai_response_to_v2
+from utils.plan_validator import extract_json_from_ai_response, validate_and_load_plan_v2
 
 
 class AIService:
@@ -201,18 +202,29 @@ class AIService:
     def generate_feedback(self, training_plan, feedback_log, completed_sessions, 
                           training_history=None, garmin_health_stats=None, incomplete_sessions=None,
                           vdot_data=None, athlete_profile=None):
-        """Generate feedback for completed training sessions"""
+        """
+        Generate feedback for completed training sessions.
+        
+        Returns:
+            Tuple of (feedback_text, plan_update_json, change_summary)
+            - feedback_text: The full AI feedback (markdown or extracted from JSON)
+            - plan_update_json: Updated plan_v2 JSON if plan was updated, None otherwise
+            - change_summary: Brief summary of changes for the athlete, None if no plan update
+        """
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
-        # If training_plan is a TrainingPlan object, convert to markdown
+        # If training_plan is a TrainingPlan object, pass it as JSON for structured updates
         if isinstance(training_plan, TrainingPlan):
-            training_plan_text = training_plan.to_markdown()
+            training_plan_json = training_plan.to_dict()
+            training_plan_text = training_plan.to_markdown()  # Keep markdown for context
         else:
+            training_plan_json = None
             training_plan_text = training_plan
         
         prompt = template.render(
             training_plan=training_plan_text,
+            training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
             feedback_log_json=json.dumps(feedback_log, indent=2),
             completed_sessions=json.dumps(completed_sessions, indent=2),
             training_history=training_history,
@@ -222,28 +234,104 @@ class AIService:
             athlete_profile=athlete_profile
         )
         
-        return self.generate_content(prompt)
+        ai_response = self.generate_content(prompt)
+        
+        # Try to extract JSON plan update from response
+        plan_update_json = None
+        change_summary = None
+        feedback_text = ai_response
+        
+        extracted_json = extract_json_from_ai_response(ai_response)
+        if extracted_json:
+            # Check if this is a plan update response
+            if 'plan_v2' in extracted_json:
+                plan_data = extracted_json['plan_v2']
+                validated_plan, error = validate_and_load_plan_v2(plan_data)
+                
+                if validated_plan:
+                    plan_update_json = validated_plan.to_dict()
+                    change_summary = extracted_json.get('change_summary_markdown', 
+                                                       extracted_json.get('change_summary', None))
+                    # Extract feedback_text from JSON if present, otherwise use full response
+                    feedback_text = extracted_json.get('feedback_text', ai_response)
+                    print(f"✅ Extracted valid plan_v2 update from feedback response ({len(validated_plan.weeks)} weeks)")
+                else:
+                    print(f"⚠️  Extracted plan_v2 JSON but validation failed: {error}")
+            elif 'change_summary' in extracted_json or 'change_summary_markdown' in extracted_json:
+                # Just a summary, no plan update
+                change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
+                feedback_text = extracted_json.get('feedback_text', ai_response)
+        
+        return feedback_text, plan_update_json, change_summary
     
     def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None, athlete_profile=None):
-        """Generate a chat response from the coach"""
+        """
+        Generate a chat response from the coach.
+        
+        Returns:
+            Tuple of (response_text, plan_update_json, change_summary)
+            - response_text: The full AI response (markdown or JSON string)
+            - plan_update_json: Updated plan_v2 JSON if plan was updated, None otherwise
+            - change_summary: Brief summary of changes for the athlete, None if no plan update
+        """
         with open('prompts/chat_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
-        # If training_plan is a TrainingPlan object, convert to markdown
+        # If training_plan is a TrainingPlan object, pass it as JSON for structured updates
         if isinstance(training_plan, TrainingPlan):
-            training_plan_text = training_plan.to_markdown()
+            training_plan_json = training_plan.to_dict()
+            training_plan_text = training_plan.to_markdown()  # Keep markdown for context
         else:
+            training_plan_json = None
             training_plan_text = training_plan
         
+        # Get user message from chat history (last user message)
+        user_message = ""
+        if chat_history:
+            for msg in reversed(chat_history):
+                if msg.get('role') == 'user':
+                    user_message = msg.get('content', '')
+                    break
+        
         prompt = template.render(
+            user_message=user_message,
             training_plan=training_plan_text,
+            training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
             feedback_log_json=json.dumps(feedback_log, indent=2),
             chat_history_json=json.dumps(chat_history, indent=2),
             vdot_data=vdot_data,
             athlete_profile=athlete_profile
         )
         
-        return self.generate_content(prompt)
+        ai_response = self.generate_content(prompt)
+        
+        # Try to extract JSON plan update from response
+        plan_update_json = None
+        change_summary = None
+        response_text = ai_response
+        
+        extracted_json = extract_json_from_ai_response(ai_response)
+        if extracted_json:
+            # Check if this is a plan update response
+            if 'plan_v2' in extracted_json:
+                plan_data = extracted_json['plan_v2']
+                validated_plan, error = validate_and_load_plan_v2(plan_data)
+                
+                if validated_plan:
+                    plan_update_json = validated_plan.to_dict()
+                    change_summary = extracted_json.get('change_summary_markdown', 
+                                                       extracted_json.get('change_summary', None))
+                    # Extract response_text from JSON if present, otherwise use full response
+                    response_text = extracted_json.get('response_text', ai_response)
+                    print(f"✅ Extracted valid plan_v2 update from chat response ({len(validated_plan.weeks)} weeks)")
+                else:
+                    print(f"⚠️  Extracted plan_v2 JSON but validation failed: {error}")
+            elif 'change_summary' in extracted_json or 'change_summary_markdown' in extracted_json:
+                # Just a summary, no plan update
+                change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
+                response_text = extracted_json.get('response_text', ai_response)
+        
+        return response_text, plan_update_json, change_summary
     
     def generate_weekly_summary(self, current_week_text, athlete_goal, latest_feedback=None, 
                                 chat_history=None, garmin_health_stats=None, vdot_data=None):

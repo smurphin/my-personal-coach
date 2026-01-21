@@ -555,58 +555,142 @@ def chat():
     if isinstance(athlete_profile, dict):
         athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
 
-    ai_response_markdown = ai_service.generate_chat_response(
+    ai_response_markdown, plan_update_json, change_summary = ai_service.generate_chat_response(
         training_plan,
         feedback_log,
         chat_history,
         vdot_data=vdot_data,
         athlete_profile=athlete_profile  # Includes lifestyle, type, and unit preferences
     )
+
+    # If we have a structured change summary from the AI, prepend it to the response
+    # so the athlete clearly sees what changed in their plan.
+    # Format response with change summary AFTER the message if available
+    if change_summary:
+        summary_section = "\n\n---\n\n### Plan Update Summary\n\n" + change_summary.strip()
+        combined_response = ai_response_markdown + summary_section
+    else:
+        combined_response = ai_response_markdown
     
     # CRITICAL: Convert escape sequences to actual characters
     # The AI sometimes returns literal \n\n instead of actual newlines
     # This happens when the response is serialized/deserialized or contains raw escape sequences
-    if isinstance(ai_response_markdown, str):
+    if isinstance(combined_response, str):
         # Handle Python-style escape sequences (e.g., \n, \t)
         # First, try to decode unicode escapes safely
         try:
             # Replace common escape sequences
-            ai_response_markdown = ai_response_markdown.replace('\\n', '\n')
-            ai_response_markdown = ai_response_markdown.replace('\\t', '\t')
-            ai_response_markdown = ai_response_markdown.replace('\\r', '\r')
+            combined_response = combined_response.replace('\\n', '\n')
+            combined_response = combined_response.replace('\\t', '\t')
+            combined_response = combined_response.replace('\\r', '\r')
             # Handle escaped backslashes (\\ becomes \)
-            ai_response_markdown = ai_response_markdown.replace('\\\\', '\\')
+            combined_response = combined_response.replace('\\\\', '\\')
         except Exception as e:
             print(f"⚠️  Error processing escape sequences: {e}")
 
     # Add AI response
     chat_history.append({
         'role': 'model',
-        'content': ai_response_markdown,
+        'content': combined_response,
         'timestamp': datetime.now().isoformat()
     })
     user_data['chat_log'] = chat_history
 
-    # Check for plan update in response
-    # Try multiple patterns to handle different code block formats
-    # Pattern 1: ```markdown\n...``` (standard format)
-    # Pattern 2: ```markdown...``` (no newline after markdown keyword)
-    # Pattern 3: ```\nmarkdown\n...``` (newline before markdown)
-    print(f"🔍 Checking for plan update in chat response (length: {len(ai_response_markdown)} chars)")
-    match = re.search(r"```\s*markdown\s*\n(.*?)```", ai_response_markdown, re.DOTALL)
-    if not match:
-        # Try without requiring newline after markdown keyword
-        match = re.search(r"```\s*markdown\s+(.*?)```", ai_response_markdown, re.DOTALL)
-    if not match:
-        # Try with any whitespace
-        match = re.search(r"```\s*markdown\s*(.*?)```", ai_response_markdown, re.DOTALL)
+    # NEW: Handle JSON-first plan updates (preferred method)
+    if plan_update_json:
+        print(f"✅ Found JSON plan update in chat response!")
+        print(f"   Plan has {len(plan_update_json.get('weeks', []))} weeks")
+        
+        # Get current plan_v2 as backup for archiving
+        current_plan_v2_dict = user_data.get('plan_v2')
+        
+        # SAFEGUARD: Archive and restore past weeks
+        try:
+            # #region agent log
+            try:
+                import json as _json
+                _log_entry = {
+                    "sessionId": "debug-session",
+                    "runId": "chat-json-update",
+                    "hypothesisId": "H1",
+                    "location": "routes/dashboard_routes.py:chat:before_archive",
+                    "message": "Processing JSON plan update from chat",
+                    "data": {
+                        "has_current_plan_v2": bool(current_plan_v2_dict),
+                        "new_weeks": len(plan_update_json.get("weeks", []))
+                    },
+                    "timestamp": int(datetime.now().timestamp() * 1000),
+                }
+                with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+                    _f.write(_json.dumps(_log_entry) + "\n")
+            except Exception:
+                pass
+            # #endregion agent log
+
+            new_plan_v2_obj = TrainingPlan.from_dict(plan_update_json)
+            if current_plan_v2_dict:
+                # current_plan_v2_dict is the raw dict; archive_and_restore_past_weeks
+                # expects the dict and will construct its own TrainingPlan object
+                new_plan_v2_obj = archive_and_restore_past_weeks(current_plan_v2_dict, new_plan_v2_obj)
+            
+            # Update plan_v2
+            user_data['plan_v2'] = new_plan_v2_obj.to_dict()
+            
+            # Also update markdown plan for backward compatibility
+            user_data['plan'] = new_plan_v2_obj.to_markdown()
+            
+            # Store change summary for display
+            if change_summary:
+                user_data['last_plan_change_summary'] = change_summary
+                print(f"   📋 Change summary: {change_summary[:100]}...")
+           
+            # #region agent log
+            try:
+                import json as _json
+                _log_entry = {
+                    "sessionId": "debug-session",
+                    "runId": "chat-json-update",
+                    "hypothesisId": "H1",
+                    "location": "routes/dashboard_routes.py:chat:after_archive",
+                    "message": "Applied JSON plan update from chat",
+                    "data": {
+                        "final_weeks": len(new_plan_v2_obj.weeks),
+                        "final_sessions": sum(len(w.sessions) for w in new_plan_v2_obj.weeks),
+                    },
+                    "timestamp": int(datetime.now().timestamp() * 1000),
+                }
+                with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+                    _f.write(_json.dumps(_log_entry) + "\n")
+            except Exception:
+                pass
+            # #endregion agent log
+
+            print(f"--- Plan updated via JSON! ---")
+            print(f"--- New plan has {len(new_plan_v2_obj.weeks)} weeks with {sum(len(w.sessions) for w in new_plan_v2_obj.weeks)} sessions ---")
+            
+        except Exception as e:
+            print(f"⚠️  Error processing JSON plan update: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fall through to markdown parsing as fallback
     
-    if match:
-        print(f"✅ Found plan update in chat response!")
-        new_plan_markdown = match.group(1).strip()
-        user_data['plan'] = new_plan_markdown
-        print(f"--- Plan updated via chat! ---")
-        print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
+    # FALLBACK: Check for markdown plan update in response (legacy support)
+    if not plan_update_json:
+        print(f"🔍 Checking for markdown plan update in chat response (length: {len(combined_response)} chars)")
+        match = re.search(r"```\s*markdown\s*\n(.*?)```", combined_response, re.DOTALL)
+        if not match:
+            # Try without requiring newline after markdown keyword
+            match = re.search(r"```\s*markdown\s+(.*?)```", combined_response, re.DOTALL)
+        if not match:
+            # Try with any whitespace
+            match = re.search(r"```\s*markdown\s*(.*?)```", combined_response, re.DOTALL)
+        
+        if match:
+            print(f"✅ Found markdown plan update in chat response!")
+            new_plan_markdown = match.group(1).strip()
+            user_data['plan'] = new_plan_markdown
+            print(f"--- Plan updated via markdown (legacy)! ---")
+            print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
         
         # Try to update plan_v2 with changes
         try:

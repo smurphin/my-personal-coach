@@ -1116,6 +1116,11 @@ def parse_ai_response_to_v2(ai_response: str, athlete_id: str,
                             user_inputs: Dict[str, Any]) -> Tuple[TrainingPlan, str]:
     """Parse AI response into TrainingPlan v2 format
     
+    Tries multiple parsing strategies in order:
+    1. JSON-first (extract plan_v2 directly from JSON)
+    2. Simple format-agnostic parser (content-focused)
+    3. Complex markdown parser (legacy, format-specific)
+    
     Used by ai_service.py when generating new plans from AI.
     
     Args:
@@ -1127,20 +1132,52 @@ def parse_ai_response_to_v2(ai_response: str, athlete_id: str,
         Tuple of (TrainingPlan, markdown_text)
     """
     import json
+    from utils.plan_validator import extract_json_from_ai_response, validate_and_load_plan_v2
+    from utils.simple_plan_parser import parse_plan_simple
     
-    # Extract JSON metadata if present
-    plan_data = None
+    # STRATEGY 1: Try JSON-first extraction
+    extracted_json = extract_json_from_ai_response(ai_response)
+    if extracted_json and 'plan_v2' in extracted_json:
+        plan_data = extracted_json['plan_v2']
+        validated_plan, error = validate_and_load_plan_v2(plan_data)
+        
+        if validated_plan:
+            print(f"✅ Parsed plan using JSON-first method ({len(validated_plan.weeks)} weeks)")
+            # Generate markdown from structured plan for backward compatibility
+            markdown_text = validated_plan.to_markdown()
+            return validated_plan, markdown_text
+        else:
+            print(f"⚠️  JSON extraction failed validation: {error}")
+            print(f"   Falling back to simple parser...")
+    
+    # STRATEGY 2: Try simple format-agnostic parser
+    # Extract markdown plan (remove JSON blocks if present)
     plan_markdown = ai_response
+    json_match = re.search(r'```json\s*\n(.*?)\n```', ai_response, re.DOTALL)
+    if json_match:
+        plan_markdown = ai_response[:json_match.start()].strip()
     
+    # Extract JSON metadata if present (for week dates)
+    plan_data = None
     json_match = re.search(r'```json\s*\n(.*?)\n```', ai_response, re.DOTALL)
     if json_match:
         try:
             plan_data = json.loads(json_match.group(1).strip())
-            plan_markdown = ai_response[:json_match.start()].strip()
-        except json.JSONDecodeError as e:
-            print(f"⚠️  Failed to parse plan JSON: {e}")
+        except json.JSONDecodeError:
+            pass
     
-    # Convert to structured format
+    # Try simple parser first (faster, more resilient)
+    try:
+        simple_plan = parse_plan_simple(plan_markdown, plan_data, athlete_id, user_inputs)
+        if simple_plan.weeks and sum(len(w.sessions) for w in simple_plan.weeks) > 0:
+            print(f"✅ Parsed plan using simple format-agnostic parser ({len(simple_plan.weeks)} weeks)")
+            return simple_plan, plan_markdown
+    except Exception as e:
+        print(f"⚠️  Simple parser failed: {e}")
+        print(f"   Falling back to complex parser...")
+    
+    # STRATEGY 3: Fall back to complex markdown parser (legacy)
+    print(f"ℹ️  Using complex markdown parser (legacy method)")
     plan_v2 = migrate_plan_to_v2(
         plan_markdown=plan_markdown,
         plan_data={'weeks': plan_data['weeks']} if plan_data and 'weeks' in plan_data else None,

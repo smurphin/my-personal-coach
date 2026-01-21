@@ -483,8 +483,8 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     training_plan = user_data.get('plan')
     feedback_log = user_data.get('feedback_log', [])
     
-    # Generate feedback
-    feedback_markdown = ai_service.generate_feedback(
+    # Generate feedback (now returns tuple: feedback_text, plan_update_json, change_summary)
+    feedback_text, plan_update_json, change_summary = ai_service.generate_feedback(
         training_plan,
         feedback_log,
         analyzed_sessions,
@@ -494,7 +494,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         vdot_data=vdot_data
     )
     
-    print(f"\n✅ AI feedback generated ({len(feedback_markdown)} characters)")
+    print(f"\n✅ AI feedback generated ({len(feedback_text)} characters)")
     
     # Create feedback log entry
     activity_names = [session['name'] for session in analyzed_sessions]
@@ -511,7 +511,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         "activity_id": int(analyzed_sessions[0]['id']),
         "activity_name": descriptive_name,
         "activity_date": format_activity_date(analyzed_sessions[0].get('start_date', '')),
-        "feedback_markdown": feedback_markdown,
+        "feedback_markdown": feedback_text,  # Use feedback_text from tuple
         "logged_activity_ids": all_activity_ids
     }
     
@@ -573,9 +573,59 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             import traceback
             traceback.print_exc()
     
-    # Handle plan updates - ARCHIVE OLD PLAN FIRST
-    if '[PLAN_UPDATED]' in feedback_markdown:
-        match = re.search(r"```markdown\n(.*?)```", feedback_markdown, re.DOTALL)
+    # NEW: Handle JSON-first plan updates (preferred method)
+    if plan_update_json:
+        print(f"✅ Found JSON plan update in feedback response!")
+        print(f"   Plan has {len(plan_update_json.get('weeks', []))} weeks")
+        
+        # Get current plan_v2 as backup for archiving
+        current_plan_v2_dict = user_data.get('plan_v2')
+        
+        # SAFEGUARD: Archive and restore past weeks
+        from utils.plan_utils import archive_and_restore_past_weeks
+        from models.training_plan import TrainingPlan
+        
+        try:
+            new_plan_v2_obj = TrainingPlan.from_dict(plan_update_json)
+            if current_plan_v2_dict:
+                new_plan_v2_obj = archive_and_restore_past_weeks(current_plan_v2_dict, new_plan_v2_obj)
+            
+            # CRITICAL: Archive old plan BEFORE overwriting
+            if 'plan' in user_data and user_data.get('plan'):
+                if 'archive' not in user_data:
+                    user_data['archive'] = []
+                
+                user_data['archive'].insert(0, {
+                    'plan': user_data['plan'],
+                    'plan_v2': user_data.get('plan_v2'),
+                    'completed_date': datetime.now().isoformat(),
+                    'reason': 'regenerated_via_feedback_json'
+                })
+                print(f"📦 Archived old plan before JSON regeneration (archive now has {len(user_data['archive'])} entries)")
+            
+            # Update plan_v2
+            user_data['plan_v2'] = new_plan_v2_obj.to_dict()
+            
+            # Also update markdown plan for backward compatibility
+            user_data['plan'] = new_plan_v2_obj.to_markdown()
+            
+            # Store change summary for display
+            if change_summary:
+                user_data['last_plan_change_summary'] = change_summary
+                print(f"   📋 Change summary: {change_summary[:100]}...")
+            
+            print(f"--- Plan updated via JSON! ---")
+            print(f"--- New plan has {len(new_plan_v2_obj.weeks)} weeks with {sum(len(w.sessions) for w in new_plan_v2_obj.weeks)} sessions ---")
+            
+        except Exception as e:
+            print(f"⚠️  Error processing JSON plan update: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fall through to markdown parsing as fallback
+    
+    # FALLBACK: Handle markdown plan updates (legacy support)
+    elif '[PLAN_UPDATED]' in feedback_text:
+        match = re.search(r"```markdown\n(.*?)```", feedback_text, re.DOTALL)
         if match:
             new_plan_markdown = match.group(1).strip()
             
