@@ -154,7 +154,7 @@ gcloud billing accounts list
 Output looks like:
 ```
 ACCOUNT_ID            NAME                OPEN  MASTER_ACCOUNT_ID
-01A234-567B89-CDEF01  My Billing Account  True
+01234-56789-CDEF01  My Billing Account  True
 ```
 
 **Then link billing to each project:**
