@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from datetime import datetime
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from datetime import datetime, timedelta
 import os
 from data_manager import data_manager
 from services.garmin_service import garmin_service
+from services.strava_service import strava_service
 from utils.decorators import login_required
 
 # Import S3 manager
@@ -16,7 +17,7 @@ except ImportError:
 # IMPORTANT: Only use S3 in production
 USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 
-admin_bp = Blueprint('admin', __name__)
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 @admin_bp.route("/connections")
 @login_required
@@ -263,3 +264,111 @@ def restore_feedback_log_from_archive():
         flash("No feedback_log entries found to restore.")
     
     return redirect(url_for('feedback.coaching_log'))
+
+@admin_bp.route("/trigger_feedback", methods=['POST'])
+@login_required
+def trigger_feedback():
+    """Admin endpoint to manually trigger feedback generation for recent activities"""
+    athlete_id = session['athlete_id']
+    
+    # Import the webhook processing function
+    from routes.api_routes import _trigger_webhook_processing
+    
+    try:
+        # Trigger the webhook processing which will find and process new activities
+        _trigger_webhook_processing(athlete_id)
+        flash("Feedback generation triggered! Check logs for details.", 'info')
+    except Exception as e:
+        print(f"❌ Error triggering feedback: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f"Error triggering feedback: {str(e)}", 'error')
+    
+    return redirect(url_for('feedback.coaching_log'))
+
+@admin_bp.route("/api/trigger_feedback", methods=['GET', 'POST'])
+def trigger_feedback_api():
+    """
+    API endpoint to trigger feedback generation for a specific athlete.
+    Can be called without session cookie using athlete_id and secret query params.
+    
+    Usage:
+        GET /admin/api/trigger_feedback?athlete_id=5258947&secret=YOUR_SECRET
+    """
+    from flask import request, jsonify
+    from routes.api_routes import _trigger_webhook_processing
+    import os
+    
+    athlete_id = request.args.get('athlete_id', type=int)
+    secret = request.args.get('secret')
+    
+    # Get secret from environment variable (set in AWS AppRunner or config)
+    expected_secret = os.getenv('FEEDBACK_TRIGGER_SECRET', 'change-me-in-production')
+    
+    # #region agent log
+    import json
+    import time
+    log_entry = {
+        'timestamp': time.time() * 1000,
+        'location': 'admin_routes.py:303',
+        'message': 'Secret validation debug',
+        'data': {
+            'athlete_id': athlete_id,
+            'secret_received': secret,
+            'secret_received_length': len(secret) if secret else 0,
+            'secret_received_repr': repr(secret) if secret else None,
+            'expected_secret_set': 'FEEDBACK_TRIGGER_SECRET' in os.environ,
+            'expected_secret_length': len(expected_secret) if expected_secret else 0,
+            'expected_secret_repr': repr(expected_secret) if expected_secret else None,
+            'secrets_match': secret == expected_secret if secret and expected_secret else False
+        },
+        'sessionId': 'debug-session',
+        'runId': 'secret-debug',
+        'hypothesisId': 'A'
+    }
+    print(f"🔍 DEBUG: {json.dumps(log_entry)}")
+    # #endregion
+    
+    if not athlete_id:
+        return jsonify({'error': 'athlete_id parameter required'}), 400
+    
+    if not secret or secret != expected_secret:
+        # #region agent log
+        import time
+        log_entry = {
+            'timestamp': time.time() * 1000,
+            'location': 'admin_routes.py:331',
+            'message': 'Secret validation failed',
+            'data': {
+                'secret_provided': bool(secret),
+                'secret_matches': secret == expected_secret if secret and expected_secret else False,
+                'secret_received_repr': repr(secret) if secret else None,
+                'expected_secret_repr': repr(expected_secret) if expected_secret else None,
+                'expected_secret_set': 'FEEDBACK_TRIGGER_SECRET' in os.environ
+            },
+            'sessionId': 'debug-session',
+            'runId': 'secret-debug',
+            'hypothesisId': 'A'
+        }
+        print(f"🔍 DEBUG: {json.dumps(log_entry)}")
+        # #endregion
+        return jsonify({'error': 'Invalid or missing secret parameter'}), 401
+    
+    try:
+        print(f"\n🔄 API: Triggering feedback generation for athlete {athlete_id}...")
+        _trigger_webhook_processing(athlete_id)
+        print(f"✅ API: Feedback generation triggered successfully for athlete {athlete_id}")
+        return jsonify({
+            'success': True,
+            'message': f'Feedback generation triggered for athlete {athlete_id}',
+            'athlete_id': athlete_id
+        }), 200
+    except Exception as e:
+        print(f"❌ API: Error triggering feedback for athlete {athlete_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'athlete_id': athlete_id
+        }), 500

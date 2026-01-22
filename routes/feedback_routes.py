@@ -955,6 +955,10 @@ def get_feedback_api():
         }
         
         feedback_log.insert(0, new_log_entry)
+        user_data['feedback_log'] = feedback_log  # CRITICAL: Ensure user_data is updated
+        print(f"📝 Added feedback entry for {len(analyzed_sessions)} activities to feedback_log")
+        print(f"   📋 feedback_log now has {len(feedback_log)} entries")
+        print(f"   🔍 New entry activity_id: {new_log_entry.get('activity_id')}, name: {new_log_entry.get('activity_name', '')[:50]}")
 
         # === PLAN UPDATES FROM FEEDBACK ===
         # NEW: Handle JSON-first plan updates (preferred method)
@@ -1123,9 +1127,16 @@ def get_feedback_api():
                 if 'weeks' not in plan_check or not plan_check['weeks']:
                     print(f"❌ CRITICAL: plan_v2 corrupted before final save!")
                     print(f"   plan_v2 has no weeks - RELOADING user_data to prevent corruption")
+                    # CRITICAL: Preserve feedback_log entry before reloading
+                    preserved_feedback_log = user_data.get('feedback_log', [])
                     # Reload to get fresh copy
                     user_data = data_manager.load_user_data(athlete_id)
-                    print(f"   ✅ Reloaded user_data")
+                    # Restore the feedback_log entry that was just added
+                    if preserved_feedback_log and preserved_feedback_log[0].get('activity_id') == new_log_entry.get('activity_id'):
+                        user_data['feedback_log'] = preserved_feedback_log
+                        print(f"   ✅ Reloaded user_data and preserved feedback_log entry")
+                    else:
+                        print(f"   ✅ Reloaded user_data")
                 else:
                     # Check if weeks have sessions
                     try:

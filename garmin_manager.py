@@ -186,9 +186,9 @@ class GarminManager:
                 print(f"DEBUG - Training Status for {stats.get('fetch_date')}")
                 print(f"{'='*60}")
             
-            ts_data = stats["training_status"]
-            most_recent = ts_data.get("mostRecentTrainingStatus", {})
-            latest_data = most_recent.get("latestTrainingStatusData", {})
+            ts_data = stats.get("training_status") or {}
+            most_recent = ts_data.get("mostRecentTrainingStatus") or {}
+            latest_data = most_recent.get("latestTrainingStatusData", {}) if most_recent else {}
             
             # Get first device's data (usually only one primary device)
             device_data = next(iter(latest_data.values()), {})

@@ -123,33 +123,24 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
         
         # Debug logging for weeks with 0 sessions (especially Week 2 and Week 6)
         if week_num in [2, 6]:
-            try:
-                import os
-                import json
-                debug_log_path = '/home/darrenmurphy/git/.cursor/debug.log'
-                # Create directory if it doesn't exist
-                os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
-                with open(debug_log_path, 'a') as f:
-                    log_entry = {
-                        'timestamp': datetime.now().isoformat(),
-                        'location': 'migration.py:parse_week',
-                        'message': f'Week {week_num} parsing - week_text sample',
-                        'data': {
-                            'week_num': week_num,
-                            'week_text_length': len(week_text),
-                            'week_text_preview': week_text[:500] if len(week_text) > 500 else week_text,
-                            'week_text_full': week_text if len(week_text) < 2000 else week_text[:2000] + '...[truncated]',
-                            'has_asterisks': '*' in week_text,
-                            'line_count': len(week_text.split('\n'))
-                        },
-                        'sessionId': 'debug-session',
-                        'runId': 'plan-parse-debug',
-                        'hypothesisId': 'A'
-                    }
-                    f.write(json.dumps(log_entry) + '\n')
-            except Exception as e:
-                # Gracefully handle debug log failures - don't crash the app
-                print(f"   ⚠️  Debug logging failed for Week {week_num}: {e}")
+            import json
+            log_entry = {
+                'timestamp': datetime.now().isoformat(),
+                'location': 'migration.py:parse_week',
+                'message': f'Week {week_num} parsing - week_text sample',
+                'data': {
+                    'week_num': week_num,
+                    'week_text_length': len(week_text),
+                    'week_text_preview': week_text[:500] if len(week_text) > 500 else week_text,
+                    'week_text_full': week_text if len(week_text) < 2000 else week_text[:2000] + '...[truncated]',
+                    'has_asterisks': '*' in week_text,
+                    'line_count': len(week_text.split('\n'))
+                },
+                'sessionId': 'debug-session',
+                'runId': 'plan-parse-debug',
+                'hypothesisId': 'A'
+            }
+            print(f"🔍 DEBUG: {json.dumps(log_entry)}")
         
         # Format with priority BEFORE colon: **Type Number [PRIORITY]: Description**
         # Example: *   **Run 1 [KEY]: Threshold Run** (Completed 14/01)
@@ -1046,55 +1037,46 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
             print(f"   Week {week_num}: ⚠️  No sessions matched any format")
             # Debug logging for weeks with 0 sessions
             if week_num in [2, 6] or len(sessions) == 0:
-                try:
-                    import os
-                    import json
-                    debug_log_path = '/home/darrenmurphy/git/.cursor/debug.log'
-                    # Create directory if it doesn't exist
-                    os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
-                    with open(debug_log_path, 'a') as f:
-                        # Count matches for each pattern
-                        pattern_counts = {
-                            'priority_before': len(matches_priority_before),
-                            'sc_focus': len(list(re.finditer(session_pattern_sc_focus, week_text, re.MULTILINE))),
-                            'new_format': len(matches_new),
-                            'current': len(matches_current),
-                            'pattern_1': len(matches_1),
-                            'pattern_2': len(matches_2),
-                            'pattern_3': len(matches_3),
-                            'pattern_4': len(matches_4)
-                        }
-                        # Get sample lines with asterisks
-                        lines_with_asterisks = [line.strip() for line in week_text.split('\n') if '*' in line][:10]
-                        log_entry = {
-                            'timestamp': datetime.now().isoformat(),
-                            'location': 'migration.py:no_sessions_found',
-                            'message': f'Week {week_num} - no sessions matched',
-                            'data': {
-                                'week_num': week_num,
-                                'pattern_match_counts': pattern_counts,
-                                'week_text_length': len(week_text),
-                                'sample_lines_with_asterisks': lines_with_asterisks,
-                                'week_text_preview': week_text[:1000] if len(week_text) > 1000 else week_text
-                            },
-                            'sessionId': 'debug-session',
-                            'runId': 'plan-parse-debug',
-                            'hypothesisId': 'A'
-                        }
-                        f.write(json.dumps(log_entry) + '\n')
-                except Exception as e:
-                    # Gracefully handle debug log failures - don't crash the app
-                    print(f"   ⚠️  Debug logging failed for Week {week_num}: {e}")
-                    # Still print useful info to console
-                    print(f"   📋 Week {week_num} text length: {len(week_text)} chars")
-                    lines_with_asterisks = [l for l in week_text.split('\n') if '*' in l]
-                    print(f"   📋 Week {week_num} lines with asterisks: {len(lines_with_asterisks)}")
-                    if week_text.strip():
-                        sample_lines = [line.strip() for line in week_text.split('\n') if line.strip() and '*' in line][:5]
-                        if sample_lines:
-                            print(f"   📋 Sample lines:")
-                            for line in sample_lines:
-                                print(f"      → {line[:100]}")
+                import json
+                # Count matches for each pattern
+                pattern_counts = {
+                    'priority_before': len(matches_priority_before),
+                    'sc_focus': len(list(re.finditer(session_pattern_sc_focus, week_text, re.MULTILINE))),
+                    'new_format': len(matches_new),
+                    'current': len(matches_current),
+                    'pattern_1': len(matches_1),
+                    'pattern_2': len(matches_2),
+                    'pattern_3': len(matches_3),
+                    'pattern_4': len(matches_4)
+                }
+                # Get sample lines with asterisks
+                lines_with_asterisks = [line.strip() for line in week_text.split('\n') if '*' in line][:10]
+                log_entry = {
+                    'timestamp': datetime.now().isoformat(),
+                    'location': 'migration.py:no_sessions_found',
+                    'message': f'Week {week_num} - no sessions matched',
+                    'data': {
+                        'week_num': week_num,
+                        'pattern_match_counts': pattern_counts,
+                        'week_text_length': len(week_text),
+                        'sample_lines_with_asterisks': lines_with_asterisks,
+                        'week_text_preview': week_text[:1000] if len(week_text) > 1000 else week_text
+                    },
+                    'sessionId': 'debug-session',
+                    'runId': 'plan-parse-debug',
+                    'hypothesisId': 'A'
+                }
+                print(f"🔍 DEBUG: {json.dumps(log_entry)}")
+                # Still print useful info to console
+                print(f"   📋 Week {week_num} text length: {len(week_text)} chars")
+                lines_with_asterisks = [l for l in week_text.split('\n') if '*' in l]
+                print(f"   📋 Week {week_num} lines with asterisks: {len(lines_with_asterisks)}")
+                if week_text.strip():
+                    sample_lines = [line.strip() for line in week_text.split('\n') if line.strip() and '*' in line][:5]
+                    if sample_lines:
+                        print(f"   📋 Sample lines:")
+                        for line in sample_lines:
+                            print(f"      → {line[:100]}")
         
         # Create week object
         week = Week(
