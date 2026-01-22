@@ -529,6 +529,11 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     else:
         print(f"   ✅ Verified: feedback_log[0] has correct activity_id {user_data['feedback_log'][0].get('activity_id')}")
     
+    # DEBUG: Store the activity_id for tracking through plan updates
+    # Store it in user_data so it persists through plan updates
+    user_data['_debug_last_feedback_activity_id'] = new_log_entry.get('activity_id')
+    print(f"   🔍 DEBUG: Tracking activity_id {user_data['_debug_last_feedback_activity_id']} through plan updates")
+    
     # === SESSION MATCHING ===
     # Match activities to plan sessions and mark them complete
     if 'plan_v2' in user_data and user_data['plan_v2']:
@@ -613,6 +618,17 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             if change_summary:
                 user_data['last_plan_change_summary'] = change_summary
                 print(f"   📋 Change summary: {change_summary[:100]}...")
+            
+            # DEBUG: Verify feedback_log entry is still present after plan update
+            expected_id = user_data.get('_debug_last_feedback_activity_id')
+            if 'feedback_log' in user_data and user_data['feedback_log']:
+                first_id = user_data['feedback_log'][0].get('activity_id')
+                if expected_id and first_id != expected_id:
+                    print(f"❌ CRITICAL: feedback_log[0] lost during plan update! Expected {expected_id}, got {first_id}")
+                else:
+                    print(f"   ✅ DEBUG: feedback_log[0] still present after plan update: {first_id}")
+            else:
+                print(f"❌ CRITICAL: feedback_log missing or empty after plan update!")
             
             print(f"--- Plan updated via JSON! ---")
             print(f"--- New plan has {len(new_plan_v2_obj.weeks)} weeks with {sum(len(w.sessions) for w in new_plan_v2_obj.weeks)} sessions ---")
@@ -908,11 +924,20 @@ def strava_webhook():
 @login_required
 def garmin_summary_api():
     """API endpoint for Garmin health data with trends"""
-    athlete_id = session['athlete_id']
-    user_data = data_manager.load_user_data(athlete_id)
+    try:
+        athlete_id = session['athlete_id']
+        print(f"🔍 DEBUG: garmin_summary_api called for athlete {athlete_id}")
+        user_data = data_manager.load_user_data(athlete_id)
+        print(f"🔍 DEBUG: user_data keys: {list(user_data.keys())[:10]}")
 
-    if 'garmin_credentials' not in user_data:
-        return jsonify({"error": "No Garmin connection found"}), 404
+        if 'garmin_credentials' not in user_data:
+            print(f"🔍 DEBUG: No Garmin credentials found for athlete {athlete_id}")
+            return jsonify({"error": "No Garmin connection found"}), 404
+    except Exception as e:
+        print(f"🔍 DEBUG: Error in garmin_summary_api: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
     today_iso = date.today().isoformat()
     
@@ -923,9 +948,9 @@ def garmin_summary_api():
     if cache_date == today_iso and 'metrics_timeline' in garmin_cache:
         print(f"GARMIN CACHE: Using cached data from {cache_date}")
         return jsonify({
-            "today": garmin_cache['today_metrics'],
-            "trend_data": garmin_cache['metrics_timeline'],
-            "readiness_score": garmin_cache['readiness_score'],
+            "today": garmin_cache.get('today_metrics'),
+            "trend_data": garmin_cache.get('metrics_timeline', []),
+            "readiness_score": garmin_cache.get('readiness_score'),
             "readiness_metadata": garmin_cache.get('readiness_metadata'),
             "cached_at": garmin_cache.get('cached_at'),
             "status": "success",
@@ -936,14 +961,17 @@ def garmin_summary_api():
     print(f"GARMIN CACHE: Fetching fresh data (last fetch: {cache_date})")
     
     try:
+        print(f"🔍 DEBUG: Calling garmin_service.fetch_date_range for athlete {athlete_id}")
         # Fetch 14 days of data
         stats_range = garmin_service.fetch_date_range(
             user_data['garmin_credentials']['email'],
             user_data['garmin_credentials']['password'],
             days=14
         )
+        print(f"🔍 DEBUG: fetch_date_range returned: {stats_range is not None}, type: {type(stats_range)}")
         
         if not stats_range:
+            print(f"🔍 DEBUG: stats_range is None or empty")
             return jsonify({"error": "Could not fetch Garmin data"}), 500
 
         # Extract metrics
@@ -1025,7 +1053,7 @@ def garmin_summary_api():
         })
 
     except Exception as e:
-        print(f"Error fetching Garmin data: {e}")
+        print(f"🔍 DEBUG: Exception in garmin_summary_api: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Error fetching Garmin data: {str(e)}"}), 500

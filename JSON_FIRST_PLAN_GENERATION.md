@@ -142,4 +142,3 @@ Watch for these log messages:
 2. **Incremental Updates**: Update specific weeks/sessions only
 3. **Validation Rules**: Add business logic validation (e.g., don't spike ACWR)
 4. **Self-Check Prompts**: AI validates its own JSON before returning
-

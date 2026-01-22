@@ -160,4 +160,3 @@ No structured plan available. Use markdown plan below for context.
 
 **Conversation History:**
 {{ chat_history_json }}
-

@@ -362,4 +362,3 @@ def parse_plan_simple(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
     print(f"✓ Parsed {total_sessions} sessions using simple parser")
     
     return plan
-

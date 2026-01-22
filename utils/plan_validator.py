@@ -174,4 +174,3 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
         return json.loads(response_text.strip())
     except json.JSONDecodeError:
         return None
-

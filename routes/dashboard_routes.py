@@ -621,8 +621,7 @@ def chat():
                     },
                     "timestamp": int(datetime.now().timestamp() * 1000),
                 }
-                with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
-                    _f.write(_json.dumps(_log_entry) + "\n")
+                print(f"🔍 DEBUG: {_json.dumps(_log_entry)}")
             except Exception:
                 pass
             # #endregion agent log
@@ -659,8 +658,7 @@ def chat():
                     },
                     "timestamp": int(datetime.now().timestamp() * 1000),
                 }
-                with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
-                    _f.write(_json.dumps(_log_entry) + "\n")
+                print(f"🔍 DEBUG: {_json.dumps(_log_entry)}")
             except Exception:
                 pass
             # #endregion agent log
