@@ -93,15 +93,25 @@ You have been given a list of one or more recently completed sessions. Your task
 4.  **If an adjustment IS needed:**
     -   Clearly state the **reason** for the change (e.g., "Based on your notes about fatigue and the high heart rate in today's session, it's clear we need to prioritize recovery.").
     -   Provide a **specific, actionable change** to the upcoming week's plan (e.g., "I am swapping tomorrow's [KEY] Interval Run for a 45-minute Zone 2 Easy Run.").
-    -   **CRITICAL OUTPUT FORMAT - JSON-FIRST APPROACH:**
-    
-    **PREFERRED METHOD (when updating plan):**
-    You MUST return your response as **valid JSON** in this exact format:
 
-    ```json
-    {
-      "feedback_text": "Your full feedback text here (all sections: Recent Activity Summary, Session Analysis, Plan Adaptation).",
-      "plan_v2": {
+---
+
+## **CRITICAL: OUTPUT FORMAT REQUIREMENT**
+
+**YOU MUST ALWAYS RETURN YOUR ENTIRE RESPONSE AS VALID JSON. NO EXCEPTIONS.**
+
+**⚠️ CRITICAL: DO NOT wrap your JSON response in markdown code blocks (no ```json markers).**
+**Return ONLY the raw JSON object - start with `{` and end with `}`.**
+
+**This applies whether you are updating the plan or not. Always use JSON format.**
+
+**Your response MUST be valid JSON in one of these formats:**
+
+**Format 1: When updating the plan (plan_v2 changes):**
+
+{
+  "feedback_text": "Your full feedback text here (all sections: Recent Activity Summary, Session Analysis, Plan Adaptation).",
+  "plan_v2": {
         "version": 2,
         "athlete_id": "{{ training_plan_json.athlete_id if training_plan_json else 'unknown' }}",
         "athlete_goal": "{{ training_plan_json.athlete_goal if training_plan_json else 'Unknown goal' }}",
@@ -132,11 +142,10 @@ You have been given a list of one or more recently completed sessions. Your task
         ]
       },
       "change_summary_markdown": "Brief summary of key changes (2-3 bullet points)"
-    }
-    ```
+}
 
-    **NON-NEGOTIABLE RULES:**
-    1. **You MUST return valid JSON** - no markdown code blocks, no extra text before/after. Just pure JSON.
+**NON-NEGOTIABLE RULES:**
+1. **You MUST return valid JSON** - no markdown code blocks (no ```json markers), no extra text before/after. Just pure JSON starting with `{` and ending with `}`.
     2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
     3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
     4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
@@ -144,23 +153,27 @@ You have been given a list of one or more recently completed sessions. Your task
     6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null)
     7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 
-    **If you do NOT need to update the plan**, return:
-    ```json
-    {
-      "feedback_text": "Your full feedback text here.",
-      "change_summary_markdown": null
-    }
-    ```
+**Format 2: When NOT updating the plan (no plan changes needed):**
+{
+  "feedback_text": "Your full feedback text here (all sections: Recent Activity Summary, Session Analysis, Plan Adaptation).",
+  "change_summary_markdown": null
+}
 
-    **CRITICAL:** The system will REJECT your response if the JSON is invalid or if required fields are missing. Double-check your JSON before responding.
+**NON-NEGOTIABLE RULES:**
+1. **You MUST return valid JSON** - no markdown code blocks, no extra text before/after, no explanations outside the JSON. Just pure JSON.
+2. **The entire response must be parseable as JSON** - start with `{` and end with `}`
+3. **Always include `feedback_text`** - this contains your full feedback in markdown format (the markdown goes INSIDE the JSON string, not as the response format)
+4. **If updating the plan, include `plan_v2`** with the complete updated plan structure
+5. **If updating the plan, include `change_summary_markdown`** with a brief summary (2-3 bullet points)
+6. **If NOT updating the plan, set `change_summary_markdown` to `null`**
+7. **Double-check your JSON is valid** - invalid JSON will cause the system to fail
+8. **DO NOT return plain markdown** - always wrap your feedback in JSON format, even if no plan update is needed
 
-    **FALLBACK METHOD (if JSON fails):**
-    If you cannot produce valid JSON, you may fall back to the legacy format:
-    - Include the marker \`[PLAN_UPDATED]\` on its own line
-    - Follow with the **COMPLETE, UPDATED training plan** enclosed in a markdown code block starting with \`\`\`markdown
-    - But JSON is STRONGLY preferred for reliability.
+**CRITICAL:** The system will REJECT your response if the JSON is invalid or if required fields are missing. Always validate your JSON before responding.
 
-**IMPORTANT REMINDER**: Only include the \`[PLAN_UPDATED]\` marker and the markdown code block if you are making an actual change to the plan. If no change is needed, simply state that and end the Plan Adaptation section.
+**DO NOT use markdown code blocks around the JSON. Return ONLY the raw JSON object.**
+
+**REMEMBER:** Your `feedback_text` field should contain markdown-formatted text (with headings, tables, etc.), but the overall response structure MUST be JSON. Think of it as: JSON wrapper, markdown content inside.
 
 ---
 {% if vdot_data and vdot_data.current_vdot %}

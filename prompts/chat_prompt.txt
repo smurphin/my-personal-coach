@@ -42,10 +42,12 @@ Your task is to provide a helpful response to the LATEST user message, using the
 **║ CRITICAL OUTPUT FORMAT - JSON-FIRST APPROACH                  ║**
 **╚════════════════════════════════════════════════════════════════╝**
 
+**⚠️ IMPORTANT: DO NOT wrap your JSON response in markdown code blocks.**
+**Return ONLY the raw JSON object - no ```json markers, no explanations before/after.**
+
 **PREFERRED METHOD (when updating plan):**
 If you need to update the plan, return your response as **valid JSON** in this exact format:
 
-```json
 {
   "response_text": "Your conversational response explaining the changes (2-4 sentences).",
   "plan_v2": {
@@ -80,10 +82,11 @@ If you need to update the plan, return your response as **valid JSON** in this e
   },
   "change_summary_markdown": "Brief summary of key changes (2-3 bullet points)"
 }
-```
 
 **JSON RULES:**
-- Return **ONLY valid JSON** - no markdown code blocks, no extra text
+- Return **ONLY valid JSON** - no markdown code blocks (no ```json markers), no extra text before/after
+- Start your response with `{` and end with `}`
+- The entire response must be parseable as JSON
 - Include **ALL weeks** from original plan (preserve past weeks as historical records)
 - Session IDs: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
 - Session types: RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN

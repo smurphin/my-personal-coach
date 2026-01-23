@@ -10,8 +10,112 @@ from markdown_manager import render_markdown_with_toc
 from utils.decorators import login_required
 from utils.formatters import format_seconds, format_activity_date
 from utils.session_matcher import match_sessions_batch
+import json
 
 feedback_bp = Blueprint('feedback', __name__)
+
+def extract_feedback_text_from_json(feedback_markdown):
+    """
+    Extract feedback_text from JSON if feedback_markdown contains raw JSON.
+    This handles cases where the AI response was stored as raw JSON instead of just the text.
+    
+    Args:
+        feedback_markdown: The feedback_markdown field from the database
+        
+    Returns:
+        The actual feedback text (extracted from JSON if needed)
+    """
+    print(f"🔧 extract_feedback_text_from_json called with type: {type(feedback_markdown)}")
+    
+    if not feedback_markdown:
+        print(f"   ⚠️  feedback_markdown is empty/None")
+        return feedback_markdown
+    
+    # Convert to string if it's not already (handles cases where it might be a dict)
+    if isinstance(feedback_markdown, dict):
+        # If it's already a dict, check if it has feedback_text
+        if 'feedback_text' in feedback_markdown:
+            return feedback_markdown.get('feedback_text', '')
+        # Otherwise, try to convert to JSON string
+        feedback_markdown = json.dumps(feedback_markdown)
+    
+    feedback_str = str(feedback_markdown).strip()
+    
+    # Check if it's wrapped in markdown code blocks (```json ... ```)
+    if feedback_str.startswith('```'):
+        print(f"🔍 Detected markdown code block wrapper")
+        # Extract JSON from markdown code block - use greedy match to get full JSON
+        # First try to match the code block pattern
+        json_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', feedback_str, re.DOTALL)
+        if json_match:
+            feedback_str = json_match.group(1).strip()
+            print(f"   Extracted JSON from code block (length: {len(feedback_str)})")
+        else:
+            # Try to find JSON object by finding first { and matching to last }
+            start_idx = feedback_str.find('{')
+            if start_idx != -1:
+                # Find the matching closing brace
+                brace_count = 0
+                end_idx = start_idx
+                for i in range(start_idx, len(feedback_str)):
+                    if feedback_str[i] == '{':
+                        brace_count += 1
+                    elif feedback_str[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end_idx = i
+                            break
+                if brace_count == 0 and end_idx > start_idx:
+                    feedback_str = feedback_str[start_idx:end_idx + 1].strip()
+                    print(f"   Extracted JSON using brace matching (length: {len(feedback_str)})")
+    
+    # Check if it looks like JSON (starts with { and contains feedback_text)
+    if feedback_str.startswith('{') and 'feedback_text' in feedback_str:
+        print(f"🔍 Detected JSON in feedback_markdown (length: {len(feedback_str)})")
+        print(f"   First 200 chars: {feedback_str[:200]}...")
+        try:
+            parsed = json.loads(feedback_str)
+            if isinstance(parsed, dict) and 'feedback_text' in parsed:
+                extracted_text = parsed.get('feedback_text', feedback_str)
+                print(f"✅ Successfully extracted feedback_text (length: {len(extracted_text)})")
+                print(f"   First 200 chars of extracted: {extracted_text[:200]}...")
+                return extracted_text
+            else:
+                print(f"⚠️  Parsed JSON but 'feedback_text' key not found. Keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'N/A'}")
+        except json.JSONDecodeError as e:
+            print(f"⚠️  JSON decode error: {e}")
+            print(f"   Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}")
+            print(f"   Attempting to extract feedback_text using regex fallback...")
+            # Fallback: try to extract using regex - handle multiline strings with escaped characters
+            try:
+                # More robust pattern that handles multiline strings with escaped quotes and newlines
+                # Look for "feedback_text": "..." or "feedback_text": """..."""
+                pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n|\\r|\\t)*)"'
+                match = re.search(pattern, feedback_str, re.DOTALL)
+                if match:
+                    # The matched string will have escaped sequences - decode them properly
+                    extracted = match.group(1)
+                    # Replace escaped sequences
+                    extracted = extracted.replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t')
+                    extracted = extracted.replace('\\"', '"').replace("\\'", "'")
+                    extracted = extracted.replace('\\\\', '\\')
+                    print(f"✅ Extracted feedback_text using regex fallback (length: {len(extracted)})")
+                    return extracted
+            except Exception as regex_error:
+                print(f"⚠️  Regex fallback also failed: {regex_error}")
+                import traceback
+                traceback.print_exc()
+        except Exception as e:
+            print(f"⚠️  Unexpected error extracting JSON: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        # Log why we're not treating it as JSON
+        print(f"ℹ️  Not treating as JSON - starts with '{feedback_str[:50] if len(feedback_str) > 50 else feedback_str}'")
+        if 'feedback_text' not in feedback_str:
+            print(f"   (doesn't contain 'feedback_text')")
+    
+    return feedback_markdown
 
 def safe_save_user_data(athlete_id, user_data):
     """
@@ -128,8 +232,11 @@ def view_specific_feedback(activity_id):
         if entry_activity_id == activity_id or activity_id in logged_ids:
             print(f"--- MATCH FOUND at index {idx} ---")
             
+            # Extract feedback_text from JSON if needed
+            feedback_markdown = extract_feedback_text_from_json(entry['feedback_markdown'])
+            
             # Process feedback to extract plan updates
-            processed_markdown, plan_html = process_feedback_markdown(entry['feedback_markdown'])
+            processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
             feedback_html = render_markdown_with_toc(processed_markdown)['content']
             
             # Append plan HTML if it exists
@@ -242,9 +349,24 @@ def get_feedback_api():
                 logged_ids = entry.get('logged_activity_ids', [])
                 
                 if entry_activity_id == requested_activity_id or requested_activity_id in logged_ids:
+                    print(f"🔍 Processing feedback for activity_id {requested_activity_id}")
+                    print(f"   Raw feedback_markdown type: {type(entry['feedback_markdown'])}")
+                    print(f"   Raw feedback_markdown length: {len(str(entry['feedback_markdown']))}")
+                    print(f"   Raw feedback_markdown preview: {str(entry['feedback_markdown'])[:200]}...")
+                    
+                    # Extract feedback_text from JSON if needed
+                    feedback_markdown = extract_feedback_text_from_json(entry['feedback_markdown'])
+                    
+                    print(f"   After extraction - feedback_markdown type: {type(feedback_markdown)}")
+                    print(f"   After extraction - feedback_markdown length: {len(str(feedback_markdown))}")
+                    print(f"   After extraction - feedback_markdown preview: {str(feedback_markdown)[:200]}...")
+                    
                     # Process feedback to extract plan updates
-                    processed_markdown, plan_html = process_feedback_markdown(entry['feedback_markdown'])
+                    processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                     feedback_html = render_markdown_with_toc(processed_markdown)['content']
+                    
+                    print(f"   Final feedback_html length: {len(feedback_html)}")
+                    print(f"   Final feedback_html preview: {feedback_html[:200]}...")
                     
                     # Append plan HTML if it exists
                     if plan_html:
@@ -262,8 +384,11 @@ def get_feedback_api():
         if not training_plan and not has_plan_v2:
             # Allow viewing existing feedback, but not generating new
             if feedback_log:
+                # Extract feedback_text from JSON if needed
+                feedback_markdown = extract_feedback_text_from_json(feedback_log[0]['feedback_markdown'])
+                
                 # Show most recent existing feedback instead of blocking
-                processed_markdown, plan_html = process_feedback_markdown(feedback_log[0]['feedback_markdown'])
+                processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                 feedback_html = render_markdown_with_toc(processed_markdown)['content']
                 
                 if plan_html:
@@ -305,8 +430,11 @@ def get_feedback_api():
 
         if not new_activities_to_process:
             if feedback_log:
+                # Extract feedback_text from JSON if needed
+                feedback_markdown = extract_feedback_text_from_json(feedback_log[0]['feedback_markdown'])
+                
                 # Process feedback to extract plan updates
-                processed_markdown, plan_html = process_feedback_markdown(feedback_log[0]['feedback_markdown'])
+                processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                 feedback_html = render_markdown_with_toc(processed_markdown)['content']
                 
                 # Append plan HTML if it exists
@@ -973,6 +1101,47 @@ def get_feedback_api():
                 new_plan_v2_obj = TrainingPlan.from_dict(plan_update_json)
                 if current_plan_v2_dict:
                     new_plan_v2_obj = archive_and_restore_past_weeks(current_plan_v2_dict, new_plan_v2_obj)
+                    
+                    # CRITICAL: Preserve completed sessions from current plan
+                    # Only preserve from past and current weeks (not future weeks)
+                    from datetime import date
+                    today = date.today()
+                    current_plan_v2_obj = TrainingPlan.from_dict(current_plan_v2_dict)
+                    existing_completed = {}
+                    
+                    for week in current_plan_v2_obj.weeks:
+                        # Only preserve from weeks that have ended (past) or are current (includes today)
+                        week_is_past_or_current = False
+                        if week.end_date:
+                            try:
+                                week_end = datetime.strptime(week.end_date, '%Y-%m-%d').date()
+                                week_is_past_or_current = week_end <= today  # Past or current week
+                            except (ValueError, TypeError):
+                                # If we can't parse the date, skip this week
+                                continue
+                        
+                        # Only preserve completed sessions from past/current weeks
+                        if week_is_past_or_current:
+                            for sess in week.sessions:
+                                if sess.completed:
+                                    existing_completed[sess.id] = {
+                                        'completed': True,
+                                        'strava_activity_id': sess.strava_activity_id,
+                                        'completed_at': sess.completed_at
+                                    }
+                    
+                    # Restore completed sessions in new plan (match by session ID)
+                    restored_count = 0
+                    for week in new_plan_v2_obj.weeks:
+                        for sess in week.sessions:
+                            if sess.id in existing_completed:
+                                sess.completed = True
+                                sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                                sess.completed_at = existing_completed[sess.id]['completed_at']
+                                restored_count += 1
+                    
+                    if restored_count > 0:
+                        print(f"   ✅ Preserved {restored_count} completed sessions from past/current weeks")
                 
                 # CRITICAL: Archive old plan BEFORE overwriting
                 if 'plan' in user_data and user_data.get('plan'):

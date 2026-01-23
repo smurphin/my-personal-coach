@@ -9,6 +9,103 @@ from utils.migration import parse_ai_response_to_v2
 from utils.plan_validator import extract_json_from_ai_response, validate_and_load_plan_v2
 
 
+def sanitize_feedback_log_for_ai(feedback_log):
+    """
+    Sanitize feedback_log before passing to AI to prevent format contamination.
+    Extracts actual feedback text from any JSON that might be stored.
+    
+    Args:
+        feedback_log: List of feedback log entries
+        
+    Returns:
+        Sanitized feedback_log with extracted text (not raw JSON)
+    """
+    sanitized = []
+    for entry in feedback_log:
+        sanitized_entry = entry.copy()
+        if 'feedback_markdown' in sanitized_entry:
+            feedback_markdown = sanitized_entry['feedback_markdown']
+            
+            # Extract feedback_text from JSON if needed (same logic as extract_feedback_text_from_json)
+            if isinstance(feedback_markdown, dict):
+                if 'feedback_text' in feedback_markdown:
+                    sanitized_entry['feedback_markdown'] = feedback_markdown.get('feedback_text', '')
+                    continue
+                feedback_markdown = json.dumps(feedback_markdown)
+            
+            feedback_str = str(feedback_markdown).strip()
+            
+            # Check if it's wrapped in markdown code blocks
+            if feedback_str.startswith('```'):
+                import re
+                json_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', feedback_str, re.DOTALL)
+                if json_match:
+                    try:
+                        parsed = json.loads(json_match.group(1))
+                        if isinstance(parsed, dict) and 'feedback_text' in parsed:
+                            sanitized_entry['feedback_markdown'] = parsed.get('feedback_text', feedback_str)
+                            continue
+                    except json.JSONDecodeError:
+                        pass
+            
+            # Check if it's plain JSON
+            if feedback_str.startswith('{') and 'feedback_text' in feedback_str:
+                try:
+                    parsed = json.loads(feedback_str)
+                    if isinstance(parsed, dict) and 'feedback_text' in parsed:
+                        sanitized_entry['feedback_markdown'] = parsed.get('feedback_text', feedback_str)
+                        continue
+                except json.JSONDecodeError:
+                    pass
+            
+            # If no extraction needed, keep as-is
+            sanitized_entry['feedback_markdown'] = feedback_markdown
+        
+        sanitized.append(sanitized_entry)
+    return sanitized
+
+
+def sanitize_chat_history_for_ai(chat_history):
+    """
+    Sanitize chat_history before passing to AI to prevent format contamination.
+    Extracts actual response text from any JSON that might be stored.
+    
+    Args:
+        chat_history: List of chat messages
+        
+    Returns:
+        Sanitized chat_history with extracted text (not raw JSON)
+    """
+    sanitized = []
+    for message in chat_history:
+        sanitized_message = message.copy()
+        if message.get('role') == 'model' and 'content' in sanitized_message:
+            content = sanitized_message['content']
+            # Check if content is JSON wrapped in markdown code blocks
+            if isinstance(content, str):
+                content_str = content.strip()
+                if (content_str.startswith('```') or content_str.startswith('{')) and 'response_text' in content_str:
+                    try:
+                        import re
+                        # Extract from markdown code block or direct JSON
+                        if content_str.startswith('```'):
+                            json_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', content_str, re.DOTALL)
+                            if json_match:
+                                parsed = json.loads(json_match.group(1))
+                                if isinstance(parsed, dict) and 'response_text' in parsed:
+                                    sanitized_message['content'] = parsed.get('response_text', content)
+                                    print(f"🧹 Sanitized chat history: extracted response_text from JSON")
+                        else:
+                            parsed = json.loads(content_str)
+                            if isinstance(parsed, dict) and 'response_text' in parsed:
+                                sanitized_message['content'] = parsed.get('response_text', content)
+                                print(f"🧹 Sanitized chat history: extracted response_text from JSON")
+                    except Exception as e:
+                        print(f"⚠️  Failed to sanitize chat message: {e}")
+        sanitized.append(sanitized_message)
+    return sanitized
+
+
 class AIService:
     """Service for AI/LLM interactions using Google's Gemini"""
     
@@ -222,10 +319,14 @@ class AIService:
             training_plan_json = None
             training_plan_text = training_plan
         
+        # CRITICAL: Sanitize feedback_log before passing to AI to prevent format contamination
+        # If feedback_log contains JSON wrapped in markdown, the AI might copy that format
+        sanitized_feedback_log = sanitize_feedback_log_for_ai(feedback_log)
+        
         prompt = template.render(
             training_plan=training_plan_text,
             training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
-            feedback_log_json=json.dumps(feedback_log, indent=2),
+            feedback_log_json=json.dumps(sanitized_feedback_log, indent=2),
             completed_sessions=json.dumps(completed_sessions, indent=2),
             training_history=training_history,
             garmin_health_stats=garmin_health_stats,
@@ -236,13 +337,31 @@ class AIService:
         
         ai_response = self.generate_content(prompt)
         
+        # EXTRACTION STRATEGY:
+        # The AI may return responses in multiple formats:
+        # 1. Pure JSON: {"feedback_text": "...", "plan_v2": {...}, "change_summary_markdown": "..."}
+        # 2. JSON in markdown code blocks: ```json\n{...}\n```
+        # 3. Plain markdown (no JSON) - when no plan update is needed
+        # 4. Mixed formats (JSON with extra text)
+        # 
+        # We need to handle ALL formats robustly to ensure we always extract the actual feedback text,
+        # not the raw JSON structure. This prevents the "JSON rendered directly" bug.
+        
         # Try to extract JSON plan update from response
         plan_update_json = None
         change_summary = None
         feedback_text = ai_response
         
+        print(f"🔍 AI response length: {len(ai_response)} characters")
+        print(f"🔍 AI response starts with: {ai_response[:100]}...")
+        print(f"🔍 AI response ends with: ...{ai_response[-100:]}")
+        
+        # STEP 1: Try to extract JSON (handles JSON responses)
         extracted_json = extract_json_from_ai_response(ai_response)
         if extracted_json:
+            print(f"✅ Successfully extracted JSON from AI response")
+            print(f"   Keys in extracted JSON: {list(extracted_json.keys())}")
+            
             # Check if this is a plan update response
             if 'plan_v2' in extracted_json:
                 plan_data = extracted_json['plan_v2']
@@ -257,10 +376,77 @@ class AIService:
                     print(f"✅ Extracted valid plan_v2 update from feedback response ({len(validated_plan.weeks)} weeks)")
                 else:
                     print(f"⚠️  Extracted plan_v2 JSON but validation failed: {error}")
+                    # Still try to extract feedback_text even if plan validation failed
+                    feedback_text = extracted_json.get('feedback_text', ai_response)
+                    change_summary = extracted_json.get('change_summary_markdown', 
+                                                       extracted_json.get('change_summary', None))
             elif 'change_summary' in extracted_json or 'change_summary_markdown' in extracted_json:
                 # Just a summary, no plan update
                 change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
                 feedback_text = extracted_json.get('feedback_text', ai_response)
+            elif 'feedback_text' in extracted_json:
+                # JSON response with just feedback_text (no plan update or change summary)
+                feedback_text = extracted_json.get('feedback_text', ai_response)
+                change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
+        else:
+            print(f"⚠️  Failed to extract JSON from AI response - treating as plain markdown")
+        
+        # STEP 2: Fallback - if feedback_text is still the raw response, try direct JSON parse
+        # This handles cases where the entire response IS valid JSON
+        if feedback_text == ai_response:
+            if feedback_text.strip().startswith('{') and 'feedback_text' in feedback_text:
+                try:
+                    fallback_json = json.loads(feedback_text.strip())
+                    if isinstance(fallback_json, dict) and 'feedback_text' in fallback_json:
+                        feedback_text = fallback_json.get('feedback_text', feedback_text)
+                        change_summary = fallback_json.get('change_summary_markdown') or fallback_json.get('change_summary')
+                        plan_update_json = fallback_json.get('plan_v2')  # Also check for plan_v2
+                        print(f"✅ Extracted feedback_text from JSON response (direct parse fallback)")
+                except (json.JSONDecodeError, AttributeError) as e:
+                    print(f"⚠️  Direct JSON parse fallback failed: {e}")
+                    # If it's not JSON, assume it's plain markdown (which is fine)
+                    print(f"✅ Treating response as plain markdown (no JSON extraction needed)")
+        
+        # STEP 3: Final validation - ensure we have actual text, not raw JSON
+        # This is a safety net in case all extraction methods failed
+        if feedback_text == ai_response and feedback_text.strip().startswith('{'):
+            # Still looks like JSON - try one more time with more aggressive extraction
+            try:
+                # Try to find and extract just the feedback_text value from the JSON string
+                import re
+                # Look for "feedback_text": "..." pattern
+                feedback_match = re.search(r'"feedback_text"\s*:\s*"([^"\\]*(\\.[^"\\]*)*)"', feedback_text, re.DOTALL)
+                if not feedback_match:
+                    # Try with triple quotes or escaped quotes
+                    feedback_match = re.search(r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n)*)"', feedback_text, re.DOTALL)
+                
+                if feedback_match:
+                    # Unescape the string
+                    import json as json_module
+                    extracted_text = json_module.loads(f'"' + feedback_match.group(1) + '"')
+                    if extracted_text and len(extracted_text) > 50:  # Sanity check
+                        feedback_text = extracted_text
+                        print(f"✅ Extracted feedback_text using regex fallback")
+            except Exception as e:
+                print(f"⚠️  Regex extraction fallback failed: {e}")
+        
+        # STEP 4: Clean up the feedback_text - remove any remaining JSON artifacts
+        # If feedback_text still contains JSON structure, it means extraction partially failed
+        if feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text:
+            print(f"⚠️  WARNING: feedback_text still appears to be JSON - extraction may have failed")
+            print(f"   Attempting one final extraction...")
+            # Last resort: try to parse and extract
+            try:
+                import json
+                final_attempt = json.loads(feedback_text.strip())
+                if isinstance(final_attempt, dict) and 'feedback_text' in final_attempt:
+                    feedback_text = final_attempt['feedback_text']
+                    print(f"✅ Final extraction attempt succeeded")
+            except:
+                print(f"⚠️  Final extraction attempt failed - storing as-is (will be handled by display-time extraction)")
+        
+        print(f"✅ Final feedback_text length: {len(feedback_text)} characters")
+        print(f"✅ Final feedback_text preview: {feedback_text[:200]}...")
         
         return feedback_text, plan_update_json, change_summary
     
@@ -293,17 +479,25 @@ class AIService:
                     user_message = msg.get('content', '')
                     break
         
+        # CRITICAL: Sanitize feedback_log and chat_history before passing to AI to prevent format contamination
+        # If these contain JSON wrapped in markdown, the AI might copy that format
+        sanitized_feedback_log = sanitize_feedback_log_for_ai(feedback_log)
+        sanitized_chat_history = sanitize_chat_history_for_ai(chat_history)
+        
         prompt = template.render(
             user_message=user_message,
             training_plan=training_plan_text,
             training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
-            feedback_log_json=json.dumps(feedback_log, indent=2),
-            chat_history_json=json.dumps(chat_history, indent=2),
+            feedback_log_json=json.dumps(sanitized_feedback_log, indent=2),
+            chat_history_json=json.dumps(sanitized_chat_history, indent=2),
             vdot_data=vdot_data,
             athlete_profile=athlete_profile
         )
         
         ai_response = self.generate_content(prompt)
+        
+        print(f"🔍 Chat AI response length: {len(ai_response)} characters")
+        print(f"🔍 Chat AI response starts with: {ai_response[:100]}...")
         
         # Try to extract JSON plan update from response
         plan_update_json = None
@@ -312,6 +506,9 @@ class AIService:
         
         extracted_json = extract_json_from_ai_response(ai_response)
         if extracted_json:
+            print(f"✅ Successfully extracted JSON from chat response")
+            print(f"   Keys in extracted JSON: {list(extracted_json.keys())}")
+            
             # Check if this is a plan update response
             if 'plan_v2' in extracted_json:
                 plan_data = extracted_json['plan_v2']
@@ -324,12 +521,67 @@ class AIService:
                     # Extract response_text from JSON if present, otherwise use full response
                     response_text = extracted_json.get('response_text', ai_response)
                     print(f"✅ Extracted valid plan_v2 update from chat response ({len(validated_plan.weeks)} weeks)")
+                    print(f"   Response text length: {len(response_text)}")
                 else:
                     print(f"⚠️  Extracted plan_v2 JSON but validation failed: {error}")
+                    # Still try to extract response_text even if plan validation failed
+                    response_text = extracted_json.get('response_text', ai_response)
+                    change_summary = extracted_json.get('change_summary_markdown', 
+                                                       extracted_json.get('change_summary', None))
             elif 'change_summary' in extracted_json or 'change_summary_markdown' in extracted_json:
                 # Just a summary, no plan update
                 change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
                 response_text = extracted_json.get('response_text', ai_response)
+            elif 'response_text' in extracted_json:
+                # JSON response with just response_text (no plan update or change summary)
+                response_text = extracted_json.get('response_text', ai_response)
+                change_summary = extracted_json.get('change_summary_markdown') or extracted_json.get('change_summary')
+        else:
+            print(f"⚠️  Failed to extract JSON from chat response - treating as plain markdown")
+        
+        # Fallback: if response_text is still the raw response, try direct JSON parse
+        if response_text == ai_response:
+            if response_text.strip().startswith('{') and 'response_text' in response_text:
+                try:
+                    fallback_json = json.loads(response_text.strip())
+                    if isinstance(fallback_json, dict) and 'response_text' in fallback_json:
+                        response_text = fallback_json.get('response_text', response_text)
+                        change_summary = fallback_json.get('change_summary_markdown') or fallback_json.get('change_summary')
+                        plan_update_json = fallback_json.get('plan_v2')  # Also check for plan_v2
+                        print(f"✅ Extracted response_text from JSON response (direct parse fallback)")
+                except (json.JSONDecodeError, AttributeError) as e:
+                    print(f"⚠️  Direct JSON parse fallback failed: {e}")
+            elif response_text.strip().startswith('```') and 'response_text' in response_text:
+                # Handle markdown code block wrapper
+                print(f"🔍 Chat response wrapped in markdown code block")
+                import re
+                json_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        fallback_json = json.loads(json_match.group(1).strip())
+                        if isinstance(fallback_json, dict) and 'response_text' in fallback_json:
+                            response_text = fallback_json.get('response_text', response_text)
+                            change_summary = fallback_json.get('change_summary_markdown') or fallback_json.get('change_summary')
+                            plan_update_json = fallback_json.get('plan_v2')
+                            print(f"✅ Extracted response_text from markdown-wrapped JSON")
+                    except (json.JSONDecodeError, AttributeError) as e:
+                        print(f"⚠️  Failed to parse JSON from markdown code block: {e}")
+        
+        # Final validation - ensure we have actual text, not raw JSON
+        if response_text == ai_response and (response_text.strip().startswith('{') or response_text.strip().startswith('```')):
+            print(f"⚠️  WARNING: response_text still appears to be JSON/markdown - extraction may have failed")
+            print(f"   Attempting one final extraction...")
+            try:
+                # Last resort: try to parse and extract
+                final_attempt = json.loads(response_text.strip().lstrip('```json').rstrip('```').strip())
+                if isinstance(final_attempt, dict) and 'response_text' in final_attempt:
+                    response_text = final_attempt['response_text']
+                    print(f"✅ Final extraction attempt succeeded")
+            except:
+                print(f"⚠️  Final extraction attempt failed - storing as-is")
+        
+        print(f"✅ Final chat response_text length: {len(response_text)} characters")
+        print(f"✅ Final chat response_text preview: {response_text[:200]}...")
         
         return response_text, plan_update_json, change_summary
     

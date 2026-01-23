@@ -141,8 +141,17 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
     import json
     import re
     
-    # Try to find JSON in markdown code blocks first
-    json_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+    # First: try parsing the entire response as JSON (prompt says "no markdown code blocks")
+    try:
+        parsed = json.loads(response_text.strip())
+        if isinstance(parsed, dict) and ('plan_v2' in parsed or 'weeks' in parsed or 'feedback_text' in parsed or 'response_text' in parsed):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    
+    # Second: try to find JSON in markdown code blocks
+    # Use greedy match to capture full multiline JSON
+    json_block_pattern = r'```(?:json)?\s*(\{.*\})\s*```'
     match = re.search(json_block_pattern, response_text, re.DOTALL)
     if match:
         try:
@@ -150,16 +159,39 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
         except json.JSONDecodeError:
             pass
     
-    # Try to find JSON object directly (look for { ... } that spans multiple lines)
+    # Third: try to find JSON object by finding the first { and matching to the last }
+    # This is more reliable than regex for nested structures
+    start_idx = response_text.find('{')
+    if start_idx != -1:
+        # Find the matching closing brace by counting braces
+        brace_count = 0
+        end_idx = start_idx
+        for i in range(start_idx, len(response_text)):
+            if response_text[i] == '{':
+                brace_count += 1
+            elif response_text[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_idx = i
+                    break
+        
+        if brace_count == 0 and end_idx > start_idx:
+            try:
+                candidate = json.loads(response_text[start_idx:end_idx + 1])
+                if isinstance(candidate, dict) and ('plan_v2' in candidate or 'weeks' in candidate or 'feedback_text' in candidate or 'response_text' in candidate):
+                    return candidate
+            except json.JSONDecodeError:
+                pass
+    
+    # Last resort: try regex pattern (less reliable for nested JSON)
     json_object_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
     matches = re.finditer(json_object_pattern, response_text, re.DOTALL)
     
-    # Try each potential JSON object, starting with the largest
     json_candidates = []
     for match in matches:
         try:
             candidate = json.loads(match.group(0))
-            if isinstance(candidate, dict) and ('plan_v2' in candidate or 'weeks' in candidate):
+            if isinstance(candidate, dict) and ('plan_v2' in candidate or 'weeks' in candidate or 'feedback_text' in candidate or 'response_text' in candidate):
                 json_candidates.append((len(match.group(0)), candidate))
         except json.JSONDecodeError:
             continue
@@ -169,9 +201,5 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
         json_candidates.sort(key=lambda x: x[0], reverse=True)
         return json_candidates[0][1]
     
-    # Last resort: try parsing the entire response as JSON
-    try:
-        return json.loads(response_text.strip())
-    except json.JSONDecodeError:
-        return None
+    return None
 
