@@ -589,6 +589,47 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             new_plan_v2_obj = TrainingPlan.from_dict(plan_update_json)
             if current_plan_v2_dict:
                 new_plan_v2_obj = archive_and_restore_past_weeks(current_plan_v2_dict, new_plan_v2_obj)
+                
+                # CRITICAL: Preserve completed sessions from current plan
+                # Only preserve from past and current weeks (not future weeks)
+                from datetime import date
+                today = date.today()
+                current_plan_v2_obj = TrainingPlan.from_dict(current_plan_v2_dict)
+                existing_completed = {}
+                
+                for week in current_plan_v2_obj.weeks:
+                    # Only preserve from weeks that have ended (past) or are current (includes today)
+                    week_is_past_or_current = False
+                    if week.end_date:
+                        try:
+                            week_end = datetime.strptime(week.end_date, '%Y-%m-%d').date()
+                            week_is_past_or_current = week_end <= today  # Past or current week
+                        except (ValueError, TypeError):
+                            # If we can't parse the date, skip this week
+                            continue
+                    
+                    # Only preserve completed sessions from past/current weeks
+                    if week_is_past_or_current:
+                        for sess in week.sessions:
+                            if sess.completed:
+                                existing_completed[sess.id] = {
+                                    'completed': True,
+                                    'strava_activity_id': sess.strava_activity_id,
+                                    'completed_at': sess.completed_at
+                                }
+                
+                # Restore completed sessions in new plan (match by session ID)
+                restored_count = 0
+                for week in new_plan_v2_obj.weeks:
+                    for sess in week.sessions:
+                        if sess.id in existing_completed:
+                            sess.completed = True
+                            sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
+                            sess.completed_at = existing_completed[sess.id]['completed_at']
+                            restored_count += 1
+                
+                if restored_count > 0:
+                    print(f"   ✅ Preserved {restored_count} completed sessions from past/current weeks")
             
             # CRITICAL: Archive old plan BEFORE overwriting
             if 'plan' in user_data and user_data.get('plan'):
@@ -672,7 +713,6 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
                 
                 plan_structure = user_data.get('plan_structure')
                 if plan_structure and 'weeks' in plan_structure:
-                    import json
                     json_block = f"\n\n```json\n{json.dumps(plan_structure)}\n```"
                     ai_response_with_structure = new_plan_markdown + json_block
                     plan_v2, _ = parse_ai_response_to_v2(
