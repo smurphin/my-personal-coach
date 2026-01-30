@@ -150,13 +150,34 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
         pass
     
     # Second: try to find JSON in markdown code blocks
-    # Use greedy match to capture full multiline JSON
-    json_block_pattern = r'```(?:json)?\s*(\{.*\})\s*```'
+    # Use non-greedy match first, then fallback to greedy for large JSON
+    # Try non-greedy first (more reliable for well-formed JSON)
+    json_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
     match = re.search(json_block_pattern, response_text, re.DOTALL)
+    if not match:
+        # Fallback to greedy match for very large JSON objects
+        json_block_pattern = r'```(?:json)?\s*(\{.*\})\s*```'
+        match = re.search(json_block_pattern, response_text, re.DOTALL)
+    
     if match:
         try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
+            json_str = match.group(1)
+            # Try parsing - if it fails due to size, try to extract just the feedback_text field
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                # If JSON is too large or malformed, try to extract just feedback_text using regex
+                # This is a fallback for very large responses that might have parsing issues
+                feedback_text_match = re.search(r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n|\\r|\\t)*)"', json_str, re.DOTALL)
+                if feedback_text_match:
+                    # We found feedback_text but couldn't parse full JSON
+                    # Return a minimal dict with just feedback_text
+                    extracted_text = feedback_text_match.group(1)
+                    # Unescape common sequences
+                    extracted_text = extracted_text.replace('\\"', '"').replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t').replace('\\\\', '\\')
+                    return {'feedback_text': extracted_text}
+                raise e
+        except Exception:
             pass
     
     # Third: try to find JSON object by finding the first { and matching to the last }

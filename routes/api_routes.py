@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, date, timedelta
 import json
+import time
 import os
 import jinja2
 import re
@@ -483,16 +484,68 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     training_plan = user_data.get('plan')
     feedback_log = user_data.get('feedback_log', [])
     
+    # Log all activities being passed to feedback generation
+    print(f"\n📊 Preparing feedback generation for {len(analyzed_sessions)} activities:")
+    for idx, sess in enumerate(analyzed_sessions, 1):
+        print(f"   {idx}. {sess.get('name', 'Unknown')} (ID: {sess.get('id')}, Type: {sess.get('type', 'Unknown')}, Date: {sess.get('start_date', 'Unknown')[:10]})")
+    
+    # region agent log
+    try:
+        import json as _json
+        _log_entry = {
+            "sessionId": "debug-session",
+            "runId": "pre-fix",
+            "hypothesisId": "H1",
+            "location": "routes/api_routes.py:486",
+            "message": "Before generate_feedback in _process_webhook_activities",
+            "data": {
+                "athlete_id": athlete_id,
+                "has_training_plan": bool(training_plan),
+                "feedback_log_len": len(feedback_log),
+                "analyzed_sessions_len": len(analyzed_sessions),
+                "has_garmin_data": bool(garmin_data_for_activity),
+            },
+            "timestamp": int(time.time() * 1000),
+        }
+        with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+            _f.write(_json.dumps(_log_entry) + "\n")
+    except Exception:
+        pass
+    # endregion
+    
     # Generate feedback (now returns tuple: feedback_text, plan_update_json, change_summary)
-    feedback_text, plan_update_json, change_summary = ai_service.generate_feedback(
-        training_plan,
-        feedback_log,
-        analyzed_sessions,
-        user_data.get('training_history'),
-        garmin_data_for_activity,
-        incomplete_sessions=None,
-        vdot_data=vdot_data
-    )
+    try:
+        feedback_text, plan_update_json, change_summary = ai_service.generate_feedback(
+            training_plan,
+            feedback_log,
+            analyzed_sessions,
+            user_data.get('training_history'),
+            garmin_data_for_activity,
+            incomplete_sessions=None,
+            vdot_data=vdot_data
+        )
+    except Exception as e:
+        # region agent log
+        try:
+            import json as _json
+            _log_entry = {
+                "sessionId": "debug-session",
+                "runId": "pre-fix",
+                "hypothesisId": "H2",
+                "location": "routes/api_routes.py:492",
+                "message": "Exception in generate_feedback in _process_webhook_activities",
+                "data": {
+                    "athlete_id": athlete_id,
+                    "error": str(e),
+                },
+                "timestamp": int(time.time() * 1000),
+            }
+            with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+                _f.write(_json.dumps(_log_entry) + "\n")
+        except Exception:
+            pass
+        # endregion
+        raise
     
     print(f"\n✅ AI feedback generated ({len(feedback_text)} characters)")
     
@@ -555,8 +608,8 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
                     activity_id = activity_data.get('id')
                     activity_date = datetime.fromisoformat(activity_data['start_date'].replace('Z', '')).date().isoformat()
                     
-                    # Mark session complete
-                    session.mark_complete(activity_id, activity_data.get('start_date'))
+                    # NOTE: Session is already marked complete in match_sessions_batch
+                    # to prevent duplicate matches. Just log the match here.
                     print(f"   ✓ Matched {session.id} ({session.type}) to activity {activity_id} on {activity_date}")
                 
                 # Save updated plan_v2

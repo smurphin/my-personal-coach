@@ -293,6 +293,9 @@ def match_sessions_batch(plan_v2, analyzed_sessions: List[Dict[str, Any]], athle
     """
     Match multiple activities to their sessions.
     
+    CRITICAL: Sessions are marked complete immediately after matching to prevent
+    the same session from being matched multiple times in the same batch.
+    
     Returns:
         List of (session, activity_data) tuples for matched pairs
     """
@@ -301,6 +304,11 @@ def match_sessions_batch(plan_v2, analyzed_sessions: List[Dict[str, Any]], athle
     for activity_data in analyzed_sessions:
         session = match_session_to_activity(plan_v2, activity_data, athlete_type)
         if session:
+            # CRITICAL: Mark session complete immediately so it's excluded from future matches
+            # This prevents multiple activities from matching the same session
+            activity_id = activity_data.get('id')
+            activity_start_date = activity_data.get('start_date')
+            session.mark_complete(activity_id, activity_start_date)
             matches.append((session, activity_data))
     
     return matches

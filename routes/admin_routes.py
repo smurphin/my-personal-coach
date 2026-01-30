@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime
 import os
 from data_manager import data_manager
@@ -16,7 +16,8 @@ except ImportError:
 # IMPORTANT: Only use S3 in production
 USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 
-admin_bp = Blueprint('admin', __name__)
+# NOTE: url_prefix='/admin' so all routes live under /admin/...
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 @admin_bp.route("/connections")
 @login_required
@@ -263,3 +264,35 @@ def restore_feedback_log_from_archive():
         flash("No feedback_log entries found to restore.")
     
     return redirect(url_for('feedback.coaching_log'))
+
+
+@admin_bp.route("/api/trigger_feedback", methods=["POST"])
+def trigger_feedback_api():
+    """
+    Remote trigger to process Strava activities and generate feedback for a given athlete.
+    
+    This is intended for admin/ops use (e.g. from AppRunner) and is protected by a shared secret.
+    """
+    athlete_id = request.args.get("athlete_id", type=int)
+    secret = request.args.get("secret", type=str)
+    expected_secret = os.getenv("FEEDBACK_TRIGGER_SECRET")
+
+    if not athlete_id:
+        return jsonify({"error": "Missing athlete_id parameter"}), 400
+
+    if not secret or not expected_secret or secret != expected_secret:
+        print(f"⚠️  Invalid or missing secret for trigger_feedback_api (athlete_id={athlete_id})")
+        return jsonify({"error": "Invalid or missing secret parameter"}), 403
+
+    try:
+        # Import here to avoid circular imports at module load time
+        from routes.api_routes import _trigger_webhook_processing
+
+        print(f"🚀 Triggering feedback processing for athlete {athlete_id} via admin API")
+        _trigger_webhook_processing(athlete_id)
+        return jsonify({"status": "ok", "message": f"Feedback processing triggered for athlete {athlete_id}"}), 200
+    except Exception as e:
+        print(f"❌ Error in trigger_feedback_api for athlete {athlete_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to trigger feedback: {e}"}), 500

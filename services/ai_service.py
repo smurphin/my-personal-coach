@@ -435,18 +435,64 @@ class AIService:
         if feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text:
             print(f"⚠️  WARNING: feedback_text still appears to be JSON - extraction may have failed")
             print(f"   Attempting one final extraction...")
-            # Last resort: try to parse and extract
+            # Last resort: try to parse and extract using the globally imported json module
             try:
-                import json
                 final_attempt = json.loads(feedback_text.strip())
                 if isinstance(final_attempt, dict) and 'feedback_text' in final_attempt:
                     feedback_text = final_attempt['feedback_text']
                     print(f"✅ Final extraction attempt succeeded")
-            except:
+            except Exception:
                 print(f"⚠️  Final extraction attempt failed - storing as-is (will be handled by display-time extraction)")
+        
+        # FINAL SAFETY CHECK: Ensure feedback_text is NOT JSON-wrapped before returning
+        # This prevents storing markdown-wrapped JSON in the database
+        if feedback_text.strip().startswith('```') or (feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text):
+            print(f"⚠️  CRITICAL: feedback_text still contains JSON wrapper - forcing extraction")
+            # Try one more aggressive extraction
+            try:
+                # Remove markdown code blocks if present
+                cleaned = feedback_text.strip()
+                if cleaned.startswith('```'):
+                    # Extract content between ```json and ```
+                    import re
+                    match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', cleaned, re.DOTALL)
+                    if match:
+                        cleaned = match.group(1)
+                
+                # Parse JSON and extract feedback_text
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, dict) and 'feedback_text' in parsed:
+                    feedback_text = parsed['feedback_text']
+                    print(f"✅ CRITICAL FIX: Extracted feedback_text from JSON wrapper (length: {len(feedback_text)})")
+                elif isinstance(parsed, dict) and 'response_text' in parsed:
+                    feedback_text = parsed['response_text']
+                    print(f"✅ CRITICAL FIX: Extracted response_text from JSON wrapper (length: {len(feedback_text)})")
+            except Exception as e:
+                print(f"❌ CRITICAL: Final extraction failed: {e}")
+                # Last resort: try to extract just the text content using regex
+                try:
+                    import re
+                    # Look for "feedback_text": "..." and extract the value
+                    pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n)*)"'
+                    match = re.search(pattern, feedback_text, re.DOTALL)
+                    if match:
+                        # Unescape the string
+                        extracted = match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        if len(extracted) > 100:  # Sanity check
+                            feedback_text = extracted
+                            print(f"✅ CRITICAL FIX: Extracted via regex fallback (length: {len(feedback_text)})")
+                except Exception as regex_error:
+                    print(f"❌ CRITICAL: Regex fallback also failed: {regex_error}")
+                    # At this point, we've failed all extraction attempts
+                    # Log the issue but don't crash - the display-time extraction will handle it
         
         print(f"✅ Final feedback_text length: {len(feedback_text)} characters")
         print(f"✅ Final feedback_text preview: {feedback_text[:200]}...")
+        
+        # VERIFY: Ensure we're not returning JSON-wrapped content
+        if feedback_text.strip().startswith('```') or (feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text[:500]):
+            print(f"❌ WARNING: feedback_text STILL contains JSON wrapper after all extraction attempts!")
+            print(f"   First 500 chars: {feedback_text[:500]}")
         
         return feedback_text, plan_update_json, change_summary
     

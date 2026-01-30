@@ -291,6 +291,7 @@ def coaching_log():
 def get_feedback_api():
     """API endpoint to generate or retrieve feedback"""
     try:
+        request_started_at = datetime.now()
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         
@@ -1083,6 +1084,18 @@ def get_feedback_api():
         }
         
         feedback_log.insert(0, new_log_entry)
+        # CRITICAL: Explicitly re-attach feedback_log in case it was replaced earlier
+        # (and to make persistence intent unambiguous)
+        user_data['feedback_log'] = feedback_log
+        try:
+            print(f"📝 Added feedback entry for {len(analyzed_sessions)} activities to feedback_log")
+            print(f"   📋 feedback_log now has {len(feedback_log)} entries")
+            print(f"   🔍 New entry activity_id: {new_log_entry.get('activity_id')}, logged_ids_count: {len(new_log_entry.get('logged_activity_ids', []))}")
+        except Exception:
+            pass
+
+        # Keep a copy of the newly added entry in case we have to reload user_data later
+        _new_feedback_entry = new_log_entry.copy()
 
         # === PLAN UPDATES FROM FEEDBACK ===
         # NEW: Handle JSON-first plan updates (preferred method)
@@ -1295,6 +1308,16 @@ def get_feedback_api():
                     # Reload to get fresh copy
                     user_data = data_manager.load_user_data(athlete_id)
                     print(f"   ✅ Reloaded user_data")
+                    # CRITICAL: Preserve the new feedback entry across reload
+                    try:
+                        reloaded_log = user_data.get('feedback_log', []) or []
+                        reloaded_ids = {entry.get('activity_id') for entry in reloaded_log}
+                        if _new_feedback_entry.get('activity_id') not in reloaded_ids:
+                            reloaded_log.insert(0, _new_feedback_entry)
+                            user_data['feedback_log'] = reloaded_log
+                            print(f"   ✅ Restored newly added feedback entry after reload (activity_id={_new_feedback_entry.get('activity_id')})")
+                    except Exception as e:
+                        print(f"⚠️  Failed to restore feedback entry after reload: {e}")
                 else:
                     # Check if weeks have sessions
                     try:
@@ -1303,7 +1326,28 @@ def get_feedback_api():
                     except Exception as e:
                         print(f"   ⚠️  Error checking sessions: {e}")
         
-        safe_save_user_data(athlete_id, user_data)
+        # Final persistence step (this must include the new feedback entry)
+        try:
+            elapsed_s = (datetime.now() - request_started_at).total_seconds()
+            fb0 = (user_data.get('feedback_log') or [{}])[0]
+            print(f"🔍 Before final save: elapsed={elapsed_s:.1f}s, feedback_log_len={len(user_data.get('feedback_log', []) or [])}, feedback_log[0].activity_id={fb0.get('activity_id')}")
+        except Exception:
+            pass
+
+        try:
+            safe_save_user_data(athlete_id, user_data)
+        except Exception as e:
+            print(f"❌ Final save failed in get_feedback_api for athlete {athlete_id}: {e}")
+            raise
+
+        # Verify persistence by reloading immediately (best-effort)
+        try:
+            reloaded = data_manager.load_user_data(athlete_id) or {}
+            reloaded_log = reloaded.get('feedback_log', []) or []
+            reloaded0 = reloaded_log[0] if reloaded_log else {}
+            print(f"✅ After save: Reloaded feedback_log_len={len(reloaded_log)}, feedback_log[0].activity_id={reloaded0.get('activity_id')}")
+        except Exception as e:
+            print(f"⚠️  Post-save reload verification failed: {e}")
 
         # Process feedback to extract plan updates for display
         processed_markdown, plan_html = process_feedback_markdown(feedback_text)
