@@ -137,6 +137,9 @@ class Config:
             os.environ['FLASK_SECRET_KEY'] = secrets.get('FLASK_SECRET_KEY')
             os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'] = secrets.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
             os.environ['GARMIN_ENCRYPTION_KEY'] = secrets.get('GARMIN_ENCRYPTION_KEY')
+            # Secret used by /admin/api/trigger_feedback to authorize remote triggers
+            if secrets.get('FEEDBACK_TRIGGER_SECRET'):
+                os.environ['FEEDBACK_TRIGGER_SECRET'] = secrets.get('FEEDBACK_TRIGGER_SECRET')
             
             # Optional: For demo instances with custom Strava apps
             if secrets.get('STRAVA_REDIRECT_URI'):

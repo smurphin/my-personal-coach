@@ -33,8 +33,10 @@ You have been given a list of one or more recently completed sessions. Your task
 ### Recent Activity Summary
 - **If there is only one session:** Provide a detailed analysis of this single session.
 - **If there are multiple sessions:**
-    - Briefly summarize **each session** in a separate paragraph. Note its type and duration.
-    - Speculate if these sessions appear to be part of a single event (like a triathlon with its swim, bike, run, and transition components) or just separate workouts done on the same day.
+    - **CRITICAL: You MUST analyze ALL sessions in the `completed_sessions` array. Do not skip any.**
+    - Briefly summarize **each and every session** in a separate paragraph. Note its type, duration, and date.
+    - **Count the sessions:** If `completed_sessions` has 4 activities, you must mention all 4. If it has 3, mention all 3. Never summarize or consolidate in a way that omits any activity.
+    - Speculate if these sessions appear to be part of a single event (like a triathlon with its swim, bike, run, and transition components) or just separate workouts done on different days.
 
 ### Session Analysis
 
@@ -44,7 +46,11 @@ You have been given a list of one or more recently completed sessions. Your task
 - **DO NOT analyze splits for interval sessions - you will get wrong results**
 
 1.  Acknowledge the athlete's \`private_note\` if provided.
-2.  Analyze the \`completed_sessions\` data. Provide a **consolidated critique** of the sessions combined if it appears to be 1 activity, i.e a triathlon, otherwise analyse each session individually but pay attention to the time between sessions to understand how this contributes to overall load. How did this block of training align with the \`training_plan\`? Show a table comparing goal times in zones versus actual time in zones, including the percentage of the whole activity in each zone.  If the focus of the session was pace based, use this as the primary factor in critiquing the session, provide a table showing target pace zones and actual time in those pace zones, do this only if the session was targetting pace in it's structure.  Heart rate zones are still important in these pace focused sessions, so continue to include this data, but it's more for information and to show how particular paces relate to HR to help the athlete understand the feeling of training at this pace, if HR drifts outside the ideal zone for the session when it's pace focused then it's a secondary concern, the goal is to hit (or be within a reasonable ~5% range of the pace.)  For HR target sessions focus on the athlete's adherance to prescribed HR zones, pace is not relevant if the prescribed session is HR based, include it for information but don't be critical if the pace is different than expected if they have hit HR targets, if HR targets hae not been met and it's clear from the pace the reason is due to poor pacing, i.e target HR Z2, but was mostly in Z3 and pace was closer to Threshold than Easy, then the reason for high HR is most likely running too fast, guide the athlete to consider slowing down to achieve the target HR zone, give example of what pace would be expected, but remember the if the session is HR targetted pace is just a guide.
+2.  Analyze the \`completed_sessions\` data. 
+    - **CRITICAL: You MUST analyze EVERY session in the `completed_sessions` array. Count them first - if there are 4 sessions, analyze all 4. If there are 3, analyze all 3. Never skip any.**
+    - If it appears to be a single multi-sport event (like a triathlon with swim/bike/run), provide a **consolidated critique** of the combined effort.
+    - Otherwise, **analyse each session individually** in separate sections or paragraphs, paying attention to the time between sessions to understand how this contributes to overall load.
+    - **For each session, include:** type, duration, distance, key metrics (HR zones, pace zones if applicable), and how it relates to the training plan. How did this block of training align with the \`training_plan\`? Show a table comparing goal times in zones versus actual time in zones, including the percentage of the whole activity in each zone.  If the focus of the session was pace based, use this as the primary factor in critiquing the session, provide a table showing target pace zones and actual time in those pace zones, do this only if the session was targetting pace in it's structure.  Heart rate zones are still important in these pace focused sessions, so continue to include this data, but it's more for information and to show how particular paces relate to HR to help the athlete understand the feeling of training at this pace, if HR drifts outside the ideal zone for the session when it's pace focused then it's a secondary concern, the goal is to hit (or be within a reasonable ~5% range of the pace.)  For HR target sessions focus on the athlete's adherance to prescribed HR zones, pace is not relevant if the prescribed session is HR based, include it for information but don't be critical if the pace is different than expected if they have hit HR targets, if HR targets hae not been met and it's clear from the pace the reason is due to poor pacing, i.e target HR Z2, but was mostly in Z3 and pace was closer to Threshold than Easy, then the reason for high HR is most likely running too fast, guide the athlete to consider slowing down to achieve the target HR zone, give example of what pace would be expected, but remember the if the session is HR targetted pace is just a guide.
     - **🚨 CRITICAL - LAPS vs SPLITS for Interval Sessions - YOU MUST FOLLOW THIS:**
         
         **STEP 1: Check for intervals:**
@@ -150,7 +156,7 @@ You have been given a list of one or more recently completed sessions. Your task
     3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
     4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
     5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
-    6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null)
+    6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null) - **NEVER use "SOCIAL", "OPTIONAL", or any other value. ONLY use KEY, IMPORTANT, STRETCH, or null.**
     7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 
 **Format 2: When NOT updating the plan (no plan changes needed):**
