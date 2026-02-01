@@ -27,17 +27,41 @@
         <p class="text-brand-light-gray mb-4">
             Connect your Garmin account to get a more holistic view of your health and training.
         </p>
+
+        {% if garmin_mfa_pending %}
+        <div class="max-w-md mb-6 p-4 bg-brand-dark border border-brand-blue rounded-lg">
+            <p class="text-white mb-2">Verification code sent to your email or phone.</p>
+            <p class="text-brand-light-gray text-sm mb-4">Enter the code below to complete connecting your Garmin account{% if garmin_mfa_email %} for {{ garmin_mfa_email }}{% endif %}.</p>
+            <form action="{{ url_for('admin.garmin_otp') }}" method="post" class="inline">
+                <div class="mb-4">
+                    <label for="garmin_otp" class="block text-white mb-1">Verification code</label>
+                    <input type="text" name="garmin_otp" id="garmin_otp" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="10" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
+                        Verify and connect
+                    </button>
+                </div>
+            </form>
+            <form action="{{ url_for('admin.garmin_mfa_cancel') }}" method="post" class="inline mt-2">
+                <button type="submit" class="text-brand-light-gray hover:text-white py-2 px-4 transition">
+                    Cancel
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
         <form action="{{ url_for('admin.garmin_login') }}" method="post" class="max-w-md">
             <div class="mb-4">
                 <label for="garmin_email" class="block text-white mb-1">Garmin Email</label>
-                <input type="email" name="garmin_email" id="garmin_email" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+                <input type="email" name="garmin_email" id="garmin_email" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" {% if garmin_mfa_pending and garmin_mfa_email %}value="{{ garmin_mfa_email }}" readonly{% endif %}>
             </div>
             <div class="mb-4">
                 <label for="garmin_password" class="block text-white mb-1">Garmin Password</label>
-                <input type="password" name="garmin_password" id="garmin_password" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
+                <input type="password" name="garmin_password" id="garmin_password" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" {% if garmin_mfa_pending %}placeholder="Re-enter password if starting over"{% endif %}>
             </div>
             <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition">
-                Connect with Garmin
+                {% if garmin_mfa_pending %}Retry connect with Garmin{% else %}Connect with Garmin{% endif %}
             </button>
         </form>
     {% endif %}

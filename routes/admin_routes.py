@@ -4,6 +4,7 @@ import os
 from data_manager import data_manager
 from services.garmin_service import garmin_service
 from utils.decorators import login_required
+from crypto_manager import encrypt, decrypt
 
 # Import S3 manager
 try:
@@ -19,6 +20,23 @@ USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 # NOTE: url_prefix='/admin' so all routes live under /admin/...
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+# Key in user_data for 2FA flow (cleared after OTP step or cancel). Stored in DB, not session,
+# so the session cookie stays under 4KB (pickled MFA state is ~34KB).
+GARMIN_MFA_FLOW_KEY = "_garmin_mfa_flow"
+
+
+def _get_garmin_mfa_flow(user_data):
+    """Return the pending MFA flow dict or None."""
+    return user_data.get(GARMIN_MFA_FLOW_KEY)
+
+
+def _clear_garmin_mfa_flow(athlete_id, user_data):
+    """Remove 2FA flow from user_data and save."""
+    if GARMIN_MFA_FLOW_KEY in user_data:
+        del user_data[GARMIN_MFA_FLOW_KEY]
+        data_manager.save_user_data(athlete_id, user_data)
+
+
 @admin_bp.route("/connections")
 @login_required
 def connections():
@@ -26,40 +44,153 @@ def connections():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     garmin_connected = 'garmin_credentials' in user_data
-    
-    return render_template('connections.html', garmin_connected=garmin_connected)
+    mfa_flow = _get_garmin_mfa_flow(user_data)
+    garmin_mfa_pending = bool(mfa_flow)
+    garmin_mfa_email = (mfa_flow or {}).get("email", "")
+
+    return render_template(
+        'connections.html',
+        garmin_connected=garmin_connected,
+        garmin_mfa_pending=garmin_mfa_pending,
+        garmin_mfa_email=garmin_mfa_email,
+    )
+
 
 @admin_bp.route("/garmin_login", methods=['POST'])
 @login_required
 def garmin_login():
-    """Connect Garmin account"""
+    """Connect Garmin account. Supports 2FA: if MFA is required, stores state and shows OTP form."""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
 
     email = request.form.get('garmin_email')
     password = request.form.get('garmin_password')
 
-    # Test login
-    from garmin_manager import GarminManager
-    garmin_manager = GarminManager(email, password)
-    
-    if garmin_manager.login():
-        # Store encrypted credentials
-        user_data['garmin_credentials'] = garmin_service.store_credentials(email, password)
-        
-        # Invalidate weekly summary cache
+    if not email or not password:
+        flash("Email and password are required.", "error")
+        return redirect(url_for('admin.connections'))
+
+    from garmin_manager import GarminManager, serialize_mfa_state
+
+    # Try 2FA-aware login first: if account has 2FA we get back state and show OTP form
+    garmin_manager = GarminManager(email, password, return_on_mfa=True)
+    success, mfa_state = garmin_manager.login_step1_mfa()
+
+    if success and mfa_state is None:
+        # No 2FA or already fully logged in
+        tokenstore = garmin_manager.get_tokenstore()
+        user_data['garmin_credentials'] = garmin_service.store_credentials(email, password, tokenstore=tokenstore)
         today = datetime.now()
         week_identifier = f"{today.year}-{today.isocalendar().week}"
         if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
             del user_data['weekly_summaries'][week_identifier]
             print(f"--- Invalidated weekly summary cache for {week_identifier} due to new Garmin connection. ---")
-            
         data_manager.save_user_data(athlete_id, user_data)
         flash("Successfully connected to Garmin!", "success")
-    else:
-        flash("Could not connect to Garmin. Please check your credentials.", "error")
+        return redirect(url_for('admin.connections'))
+
+    if mfa_state is not None:
+        # 2FA required: store state in user_data (not session) so cookie stays under 4KB
+        encoded = serialize_mfa_state(mfa_state)
+        if encoded:
+            user_data[GARMIN_MFA_FLOW_KEY] = {
+                "email": email,
+                "password_encrypted": encrypt(password),
+                "state_encrypted": encrypt(encoded),
+            }
+            data_manager.save_user_data(athlete_id, user_data)
+            flash("Enter the verification code sent to your email or phone.", "info")
+            return redirect(url_for('admin.connections'))
+        # Serialization failed
+        flash("Could not continue with 2FA. Please try again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    # login_step1_mfa returned (False, None) – login failed (e.g. bad credentials)
+    flash("Could not connect to Garmin. Please check your credentials.", "error")
+    return redirect(url_for('admin.connections'))
+
+
+@admin_bp.route("/garmin_otp", methods=['POST'])
+@login_required
+def garmin_otp():
+    """Complete Garmin connection with 2FA OTP."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    mfa_flow = _get_garmin_mfa_flow(user_data)
+
+    otp = request.form.get('garmin_otp')
+    if not otp or not mfa_flow:
+        _clear_garmin_mfa_flow(athlete_id, user_data)
+        flash("Session expired or missing OTP. Please try connecting again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    email = mfa_flow.get("email")
+    encrypted_password = mfa_flow.get("password_encrypted")
+    encrypted_state = mfa_flow.get("state_encrypted")
+    if not email or not encrypted_password or not encrypted_state:
+        _clear_garmin_mfa_flow(athlete_id, user_data)
+        flash("Invalid session state. Please try connecting again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    try:
+        password = decrypt(encrypted_password)
+        encoded_state = decrypt(encrypted_state)
+    except Exception as e:
+        print(f"Garmin 2FA decrypt error: {e}")
+        _clear_garmin_mfa_flow(athlete_id, user_data)
+        flash("Session invalid. Please try connecting again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    if not password or not encoded_state:
+        _clear_garmin_mfa_flow(athlete_id, user_data)
+        flash("Session invalid. Please try connecting again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    from garmin_manager import GarminManager, deserialize_mfa_state
+
+    mfa_state = deserialize_mfa_state(encoded_state)
+    if not mfa_state:
+        _clear_garmin_mfa_flow(athlete_id, user_data)
+        flash("Session expired. Please start the Garmin connection again.", "error")
+        return redirect(url_for('admin.connections'))
+
+    # Clear MFA flow before proceeding so a repeat submit doesn't reuse it
+    _clear_garmin_mfa_flow(athlete_id, user_data)
+    user_data = data_manager.load_user_data(athlete_id)
+
+    try:
+        garmin_manager = GarminManager(email, password)
+        if garmin_manager.resume_login(mfa_state, otp):
+            tokenstore = garmin_manager.get_tokenstore()
+            user_data['garmin_credentials'] = garmin_service.store_credentials(email, password, tokenstore=tokenstore)
+            today = datetime.now()
+            week_identifier = f"{today.year}-{today.isocalendar().week}"
+            if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+                del user_data['weekly_summaries'][week_identifier]
+                print(f"--- Invalidated weekly summary cache for {week_identifier} due to new Garmin connection. ---")
+            data_manager.save_user_data(athlete_id, user_data)
+            flash("Successfully connected to Garmin!", "success")
+        else:
+            flash("Invalid verification code or session expired. Please try connecting again.", "error")
+    except (TypeError, ValueError, KeyError) as e:
+        print(f"Garmin 2FA error: {e}")
+        import traceback
+        traceback.print_exc()
+        flash("Something went wrong during verification. Please try connecting again from the start.", "error")
 
     return redirect(url_for('admin.connections'))
+
+
+@admin_bp.route("/garmin_mfa_cancel", methods=['POST'])
+@login_required
+def garmin_mfa_cancel():
+    """Cancel 2FA flow and clear stored state."""
+    athlete_id = session['athlete_id']
+    user_data = data_manager.load_user_data(athlete_id)
+    _clear_garmin_mfa_flow(athlete_id, user_data)
+    flash("Garmin connection cancelled.", "info")
+    return redirect(url_for('admin.connections'))
+
 
 @admin_bp.route("/garmin_disconnect", methods=['POST'])
 @login_required
@@ -67,7 +198,8 @@ def garmin_disconnect():
     """Disconnect Garmin account"""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
-    
+    _clear_garmin_mfa_flow(athlete_id, user_data)
+
     # Remove Garmin credentials and all related data
     user_data.pop('garmin_credentials', None)
     user_data.pop('garmin_data', None)

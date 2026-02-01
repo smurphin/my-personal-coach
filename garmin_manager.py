@@ -7,16 +7,140 @@ from garminconnect import (
 )
 from datetime import date, timedelta
 
-class GarminManager:
-    def __init__(self, email, password):
-        self.garmin = Garmin(email, password)
 
-    def login(self):
+def serialize_mfa_state(state):
+    """
+    Serialize MFA state for session storage. State from garminconnect is
+    (client_state_dict, token2); the dict has a "client" key used by garth.resume_login.
+    Use pickle so the full structure (including non-JSON objects) round-trips.
+    """
+    if state is None:
+        return None
+    if isinstance(state, (list, tuple)) and len(state) >= 2 and state[0] is None and state[1] is None:
+        return None
+    import base64
+    import pickle
+    try:
+        return base64.b64encode(pickle.dumps(state)).decode()
+    except Exception:
+        return None
+
+
+def deserialize_mfa_state(encoded):
+    """Deserialize MFA state from session (pickle format from serialize_mfa_state)."""
+    if not encoded:
+        return None
+    import base64
+    import pickle
+    try:
+        return pickle.loads(base64.b64decode(encoded))
+    except Exception:
+        return None
+
+
+def _extract_client_state(mfa_state):
+    """
+    Extract the client_state dict that garth.resume_login() expects.
+    garth expects client_state to be a dict with key "client".
+    garminconnect may return (client_state_dict, token2) or (token2, client_state_dict)
+    depending on version; or mfa_state might be the dict itself.
+    Returns the dict with "client" key, or None if not found.
+    """
+    if not mfa_state:
+        return None
+    if isinstance(mfa_state, dict) and "client" in mfa_state:
+        return mfa_state
+    if isinstance(mfa_state, (list, tuple)):
+        for item in mfa_state:
+            if isinstance(item, dict) and "client" in item:
+                return item
+    return None
+
+
+class GarminManager:
+    def __init__(self, email, password, return_on_mfa=False):
+        """
+        Create Garmin manager. If return_on_mfa=True, login() may return
+        (True, mfa_state) when 2FA is required; caller should then use
+        resume_login(mfa_state, otp).
+        """
+        self.garmin = Garmin(email, password, return_on_mfa=return_on_mfa)
+        self._email = email
+        self._password = password
+
+    def login(self, tokenstore=None):
+        """
+        Login with email/password, or with tokenstore (saved session) if provided.
+        Returns True if fully logged in. When tokenstore is provided, credentials
+        are not used (avoids re-triggering 2FA for users who connected with OTP).
+        """
         try:
-            self.garmin.login()
+            self.garmin.login(tokenstore=tokenstore)
             return True
         except (GarminConnectConnectionError, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError) as e:
             print(f"Error logging into Garmin: {e}")
+            return False
+
+    def get_tokenstore(self):
+        """
+        Return serialized tokenstore from the current garth client, if available.
+        Used after successful login (or resume_login) so 2FA users can reuse
+        the session without entering OTP again. Returns None if not supported.
+        """
+        try:
+            garth = getattr(self.garmin, "garth", None)
+            if garth is None:
+                return None
+            # garth may expose dumps() to serialize session (see garth docs)
+            dumps = getattr(garth, "dumps", None)
+            if callable(dumps):
+                return dumps()
+            return None
+        except Exception:
+            return None
+
+    def login_step1_mfa(self):
+        """
+        First step for 2FA: start login with return_on_mfa=True.
+        Returns (success, mfa_state).
+        - If success is True, mfa_state is None and we are fully logged in (no 2FA).
+        - If success is False and mfa_state is not None, caller must show OTP form
+          and then call resume_login(mfa_state, otp).
+        """
+        try:
+            token1, token2 = self.garmin.login()
+            # With return_on_mfa=True, login returns early. Check if we already
+            # have a valid session (no 2FA) by fetching user settings.
+            try:
+                self.garmin.connectapi(self.garmin.garmin_connect_user_settings_url)
+                return True, None
+            except Exception:
+                pass
+            return False, (token1, token2)
+        except (GarminConnectConnectionError, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError) as e:
+            print(f"Error in Garmin login (step1 MFA): {e}")
+            return False, None
+
+    def resume_login(self, mfa_state, mfa_code):
+        """
+        Complete login after user entered OTP. mfa_state is whatever
+        login_step1_mfa() returned (tuple or dict from garminconnect/garth).
+        Garth's resume_login expects a client_state dict with "client" key.
+        """
+        if not mfa_state or mfa_code is None or mfa_code.strip() == "":
+            return False
+        client_state = _extract_client_state(mfa_state)
+        if not client_state:
+            print("Garmin 2FA: could not find client_state dict (with 'client' key) in mfa_state")
+            return False
+        try:
+            self.garmin.resume_login(client_state, mfa_code.strip())
+            return True
+        except (GarminConnectConnectionError, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError) as e:
+            print(f"Error in Garmin resume_login (2FA): {e}")
+            return False
+        except TypeError as e:
+            print(f"Garmin 2FA TypeError (wrong client_state type): {e}")
             return False
 
     def get_health_stats(self, target_date_iso):

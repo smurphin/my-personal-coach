@@ -5,19 +5,26 @@ from datetime import date, timedelta
 class GarminService:
     """Service for Garmin Connect integration"""
     
-    def authenticate_and_fetch(self, email, encrypted_password, target_date_iso):
+    def authenticate_and_fetch(self, email, encrypted_password, target_date_iso, encrypted_tokenstore=None):
         """
         Authenticate with Garmin and fetch health stats for a specific date.
+        Prefers tokenstore (saved session) when present so 2FA users don't re-enter OTP.
         Returns health stats dict or None on failure.
         """
         try:
-            password = decrypt(encrypted_password)
-            if not password:
-                print("Could not decrypt Garmin password. Aborting fetch.")
-                return None
+            tokenstore = None
+            if encrypted_tokenstore:
+                tokenstore = decrypt(encrypted_tokenstore)
+            if not tokenstore:
+                password = decrypt(encrypted_password)
+                if not password:
+                    print("Could not decrypt Garmin password. Aborting fetch.")
+                    return None
+            else:
+                password = ""  # tokenstore login doesn't use password
 
             garmin_manager = GarminManager(email, password)
-            if garmin_manager.login():
+            if garmin_manager.login(tokenstore=tokenstore):
                 health_stats = garmin_manager.get_health_stats(target_date_iso)
                 if health_stats:
                     print(f"--- Successfully fetched Garmin data for {target_date_iso}. ---")
@@ -42,24 +49,32 @@ class GarminService:
 
         yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
         
+        creds = user_data['garmin_credentials']
         return self.authenticate_and_fetch(
-            user_data['garmin_credentials']['email'],
-            user_data['garmin_credentials']['password'],
-            yesterday_iso
+            creds['email'],
+            creds['password'],
+            yesterday_iso,
+            encrypted_tokenstore=creds.get('tokenstore'),
         )
     
-    def fetch_date_range(self, email, encrypted_password, days=14):
+    def fetch_date_range(self, email, encrypted_password, days=14, encrypted_tokenstore=None):
         """
         Fetch health stats for a range of days.
-        Returns list of daily stats or None on failure.
+        Prefers tokenstore when present (2FA users). Returns list of daily stats or None on failure.
         """
         try:
-            password = decrypt(encrypted_password)
-            if not password:
-                return None
+            tokenstore = None
+            if encrypted_tokenstore:
+                tokenstore = decrypt(encrypted_tokenstore)
+            if not tokenstore:
+                password = decrypt(encrypted_password)
+                if not password:
+                    return None
+            else:
+                password = ""
 
             garmin_manager = GarminManager(email, password)
-            if not garmin_manager.login():
+            if not garmin_manager.login(tokenstore=tokenstore):
                 return None
 
             stats_range = garmin_manager.get_health_stats_range(days=days)
@@ -132,12 +147,15 @@ class GarminService:
             'change_14d_avg': change_14d_avg
         }
     
-    def store_credentials(self, email, password):
-        """Encrypt and prepare credentials for storage"""
-        return {
+    def store_credentials(self, email, password, tokenstore=None):
+        """Encrypt and prepare credentials for storage. tokenstore (if provided) is used for 2FA users so they don't re-enter OTP on each fetch."""
+        creds = {
             'email': email,
             'password': encrypt(password)
         }
+        if tokenstore:
+            creds['tokenstore'] = encrypt(tokenstore)
+        return creds
 
 # Create singleton instance
 garmin_service = GarminService()
