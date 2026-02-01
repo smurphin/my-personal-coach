@@ -612,10 +612,12 @@ def get_feedback_api():
                 garmin_data_for_activity = user_data['garmin_history'][first_activity_date_iso]
             else:
                 print(f"--- No stored Garmin data for {first_activity_date_iso}. Fetching now. ---")
+                creds = user_data['garmin_credentials']
                 garmin_data_for_activity = garmin_service.authenticate_and_fetch(
-                    user_data['garmin_credentials']['email'],
-                    user_data['garmin_credentials']['password'],
-                    first_activity_date_iso
+                    creds['email'],
+                    creds['password'],
+                    first_activity_date_iso,
+                    encrypted_tokenstore=creds.get('tokenstore'),
                 )
                 
                 if garmin_data_for_activity:

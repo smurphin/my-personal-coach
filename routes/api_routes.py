@@ -212,10 +212,12 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     
     garmin_data_for_activity = None
     if 'garmin_credentials' in user_data:
+        creds = user_data['garmin_credentials']
         garmin_data_for_activity = garmin_service.authenticate_and_fetch(
-            user_data['garmin_credentials']['email'],
-            user_data['garmin_credentials']['password'],
-            first_activity_date_iso
+            creds['email'],
+            creds['password'],
+            first_activity_date_iso,
+            encrypted_tokenstore=creds.get('tokenstore'),
         )
     
     # VDOT DETECTION - Check ALL activities, but ONLY running activities (fix for issue #87)
@@ -1030,10 +1032,12 @@ def garmin_summary_api():
     
     try:
         # Fetch 14 days of data
+        creds = user_data['garmin_credentials']
         stats_range = garmin_service.fetch_date_range(
-            user_data['garmin_credentials']['email'],
-            user_data['garmin_credentials']['password'],
-            days=14
+            creds['email'],
+            creds['password'],
+            days=14,
+            encrypted_tokenstore=creds.get('tokenstore'),
         )
         
         if not stats_range:
@@ -1118,6 +1122,19 @@ def garmin_summary_api():
         })
 
     except Exception as e:
+        err_msg = str(e).lower()
+        # Garth can raise AssertionError "OAuth1 token is required for OAuth2 refresh"
+        # when tokenstore is invalid/expired or 2FA user has no persisted session
+        if "oauth1 token" in err_msg or "oauth2 refresh" in err_msg:
+            print(f"Garmin session expired or invalid (OAuth): {e}")
+            # Clear tokenstore so next connect uses password (and 2FA if needed)
+            if 'garmin_credentials' in user_data and user_data['garmin_credentials'].get('tokenstore'):
+                user_data['garmin_credentials'].pop('tokenstore', None)
+                safe_save_user_data(athlete_id, user_data)
+            return jsonify({
+                "error": "Garmin session expired. Please reconnect your Garmin account in Settings.",
+                "code": "garmin_session_expired"
+            }), 401
         print(f"Error fetching Garmin data: {e}")
         import traceback
         traceback.print_exc()
