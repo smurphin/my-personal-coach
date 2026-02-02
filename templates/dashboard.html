@@ -344,10 +344,10 @@
             <p class="text-sm sm:text-base text-brand-light-gray mb-4">
                 Need to adjust your plan? Feeling tired? Have a question? Let your coach know.
             </p>
-            <form action="{{ url_for('dashboard.chat') }}" method="post">
+            <form action="{{ url_for('dashboard.chat') }}" method="post" onsubmit="var btn = this.querySelector('button[type=submit]'); btn.disabled = true; btn.innerHTML = '<span class=\'inline-flex items-center gap-2\'><span class=\'loader loader--sm\'></span> Coach is thinking...</span>'; return true;">
                 <textarea name="user_message" rows="3" required class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition" placeholder="e.g., 'I had a really busy week and missed my long run. What should I do?'"></textarea>
                 <div class="mt-4">
-                    <button type="submit" class="w-full sm:w-auto bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out">
+                    <button type="submit" class="w-full sm:w-auto bg-brand-blue text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-brand-blue-hover transition-transform transform hover:scale-105 duration-300 ease-in-out inline-flex items-center justify-center gap-2">
                         Send Message
                     </button>
                 </div>

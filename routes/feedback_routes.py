@@ -527,71 +527,28 @@ def get_feedback_api():
             return jsonify({"message": "Found new activities, but could not analyze their details. Please try again."})
 
         # === AI-Assisted Session Completion Tracking ===
+        # Same helper as webhook (get_candidate_sessions_text) so both routes use same logic
         incomplete_sessions_text = None
-        
         if 'plan_v2' in user_data:
             try:
+                from models.training_plan import TrainingPlan
+                from utils.session_matcher import get_candidate_sessions_text
                 activity_date = datetime.fromisoformat(
                     analyzed_sessions[0]['start_date'].replace('Z', '')
                 ).date()
-                
                 print(f"\n=== AI-Assisted Session Matching ===")
                 print(f"Activity: {analyzed_sessions[0].get('name')}")
                 print(f"Activity date: {activity_date}")
                 print(f"Activity type: {analyzed_sessions[0].get('type')}")
-                
-                # Find week containing this activity date
-                plan = user_data['plan_v2']
-                matched_week = None
-                
-                for week in plan['weeks']:
-                    week_start = datetime.fromisoformat(week['start_date']).date()
-                    week_end = datetime.fromisoformat(week['end_date']).date()
-                    
-                    if week_start <= activity_date <= week_end:
-                        matched_week = week
-                        print(f"✅ Found week {week['week_number']}: {week_start} to {week_end}")
-                        break
-                
-                if matched_week:
-                    # Get incomplete sessions of matching type in this week
-                    activity_type_map = {
-                        'Run': 'RUN',
-                        'VirtualRun': 'RUN',
-                        'Ride': 'BIKE',
-                        'VirtualRide': 'BIKE',
-                        'Swim': 'SWIM'
-                    }
-                    expected_type = activity_type_map.get(analyzed_sessions[0].get('type'))
-                    
-                    incomplete_sessions = [
-                        s for s in matched_week['sessions'] 
-                        if not s.get('completed', False) 
-                        and s.get('type') != 'REST'
-                        and (not expected_type or s.get('type') == expected_type)
-                    ]
-                    
-                    if incomplete_sessions:
-                        print(f"Found {len(incomplete_sessions)} incomplete {expected_type or 'ANY'} sessions")
-                        
-                        # Prepare text for AI prompt
-                        session_list = []
-                        for s in incomplete_sessions:
-                            session_list.append(
-                                f"[{s['id']}] {s.get('type', 'UNKNOWN')}: {s.get('description', 'No description')}"
-                            )
-                        incomplete_sessions_text = "\n".join(session_list)
-                        print(f"Sessions to match:\n{incomplete_sessions_text}")
-                    else:
-                        print(f"ℹ️  No incomplete {expected_type or 'ANY'} sessions in week {matched_week['week_number']}")
+                plan_v2_obj = TrainingPlan.from_dict(user_data['plan_v2'])
+                incomplete_sessions_text = get_candidate_sessions_text(
+                    plan_v2_obj, activity_date.isoformat(), analyzed_sessions[0].get('type')
+                )
+                if incomplete_sessions_text:
+                    print(f"Sessions to match:\n{incomplete_sessions_text}")
                 else:
-                    print(f"⚠️  Activity {activity_date} doesn't fall within any plan week")
-                    print(f"   Available weeks:")
-                    for week in plan['weeks']:
-                        print(f"     Week {week['week_number']}: {week['start_date']} to {week['end_date']}")
-                
+                    print(f"ℹ️  No candidate sessions in plan week for this activity")
                 print("=" * 70)
-                
             except Exception as e:
                 print(f"⚠️  Error preparing session data for AI: {e}")
                 import traceback

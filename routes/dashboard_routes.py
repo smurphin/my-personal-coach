@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, session, jsonify, url_for, flash
 from datetime import datetime, date, timedelta
 import hashlib
+import os
 import re
 import json
 from data_manager import data_manager
@@ -852,20 +853,49 @@ def chat():
             del user_data['weekly_summaries'][week_identifier]
             print(f"--- Invalidated weekly summary cache for {week_identifier}. ---")
 
-    data_manager.save_user_data(athlete_id, user_data)
+    from routes.api_routes import safe_save_user_data
+    safe_save_user_data(athlete_id, user_data)
 
     # Don't store in session/flash - chat is already saved in DynamoDB
     # Redirect to chat log to see the response
     return redirect('/chat_log')
 
+def _get_timestamp(msg):
+    """Sort key for chat messages (oldest first)."""
+    return msg.get('timestamp') or ''
+
+
 @dashboard_bp.route("/chat_log")
 @login_required
 def chat_log_list():
-    """Display all chat conversations"""
+    """Display all chat conversations. Merges DynamoDB (recent) with S3 (older) when archived."""
     try:
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
-        chat_history = user_data.get('chat_log', [])
+        recent = user_data.get('chat_log', [])
+
+        # Load older messages from S3 if archived (load whenever key is set, so staging works too)
+        older_from_s3 = []
+        s3_key = user_data.get('chat_log_s3_key')
+        if s3_key:
+            try:
+                from s3_manager import s3_manager, S3_AVAILABLE
+                if S3_AVAILABLE:
+                    older_from_s3 = s3_manager.load_large_data(s3_key) or []
+            except Exception as e:
+                print(f"⚠️  Error loading chat archive from S3: {e}")
+
+        # Merge: older (S3) + recent (DynamoDB), sort by timestamp
+        all_messages = list(older_from_s3) + list(recent)
+        all_messages.sort(key=_get_timestamp)
+
+        # Pagination: ?older=N means show last (30+N) messages
+        older_offset = request.args.get('older', 0, type=int)
+        older_offset = max(0, min(older_offset, max(0, len(all_messages) - 30)))
+        show_count = 30 + older_offset
+        chat_history = all_messages[-show_count:] if all_messages else []
+        has_older = len(all_messages) > len(chat_history)
+        next_older_offset = older_offset + 30 if has_older else older_offset
 
         # Convert markdown to HTML
         for message in chat_history:
@@ -909,7 +939,12 @@ def chat_log_list():
                 except Exception as e:
                     print(f"Error rendering markdown for message: {e}")
 
-        return render_template('chat_log.html', chat_history=chat_history)
+        return render_template(
+            'chat_log.html',
+            chat_history=chat_history,
+            has_older=has_older,
+            next_older_offset=next_older_offset,
+        )
     except Exception as e:
         print(f"Error in chat_log route: {e}")
         import traceback
@@ -919,19 +954,27 @@ def chat_log_list():
 @dashboard_bp.route("/clear_chat", methods=['POST'])
 @login_required
 def clear_chat():
-    """Permanently delete all chat history"""
+    """Permanently delete all chat history (DynamoDB and S3 archive)."""
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
-    
+
     if 'chat_log' in user_data:
         del user_data['chat_log']
     if 'chat_archive' in user_data:
         del user_data['chat_archive']
-        
-    data_manager.save_user_data(athlete_id, user_data)
-    
+    if 'chat_log_s3_key' in user_data:
+        try:
+            from s3_manager import s3_manager, S3_AVAILABLE
+            if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+                s3_manager.delete_large_data(user_data['chat_log_s3_key'])
+        except Exception as e:
+            print(f"⚠️  Error deleting chat archive from S3: {e}")
+        del user_data['chat_log_s3_key']
+
+    from routes.api_routes import safe_save_user_data
+    safe_save_user_data(athlete_id, user_data)
+
     flash("Your chat history has been permanently deleted.")
-        
     return redirect(request.referrer or url_for('dashboard.dashboard'))
 
 @dashboard_bp.route("/api/weekly-summary")

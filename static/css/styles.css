@@ -1920,6 +1920,14 @@ video {
   }
 }
 
+.loader--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 .hover\:scale-105:hover {
   --tw-scale-x: 1.05;
   --tw-scale-y: 1.05;

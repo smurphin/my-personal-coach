@@ -1,0 +1,22 @@
+You are matching a completed activity to a planned training session. Use the same reasoning as when giving feedback: match by intent and purpose, not by exact duration.
+
+MATCHING RULES (same as feedback):
+- Match when the activity aligns with the session's purpose (easy/recovery, threshold, long, intervals, etc.).
+- Duration does NOT need to be exact. Examples: a 45 min easy spin can match a 30 min easy spin; a 60 min Zone 2 run can match a 45 min aerobic run; going a bit longer on an easy session is fine.
+- Use activity name, private note, and time in zones to infer intent (e.g. "Easy spin" + mostly Zone 2 = easy/aerobic session).
+- Prefer matching when type and purpose align, even if the athlete went longer or slightly shorter than prescribed.
+- Only omit the marker if the activity was clearly unplanned (e.g. different type, race when no race was planned) or you're genuinely unsure.
+
+ACTIVITY (completed):
+{{ activity_summary }}
+
+PLANNED SESSIONS (incomplete, same week, same type):
+{{ incomplete_sessions }}
+
+Which planned session (if any) does this activity correspond to?
+
+RULES:
+- Return EXACTLY one marker if the activity aligns with a session: [COMPLETED:session_id]
+- Use the session_id from the list above (e.g. w1-s1, w0-s2).
+- If the activity was unplanned or you're unsure, return nothing.
+- Return ONLY the marker or nothing. No other text.
