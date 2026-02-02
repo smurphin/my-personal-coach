@@ -584,37 +584,47 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     else:
         print(f"   ✅ Verified: feedback_log[0] has correct activity_id {user_data['feedback_log'][0].get('activity_id')}")
     
-    # === SESSION MATCHING ===
-    # Match activities to plan sessions and mark them complete
+    # === SESSION MATCHING (AI-assisted, same as feedback flow) ===
+    # Uses same helper and AI call as feedback so both routes match the same way
     if 'plan_v2' in user_data and user_data['plan_v2']:
         try:
             from models.training_plan import TrainingPlan
-            from utils.session_matcher import match_sessions_batch
+            from utils.session_matcher import get_candidate_sessions_text
             
             plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
-            # Get athlete_type from plan_data (where it's stored)
-            plan_data = user_data.get('plan_data', {})
-            athlete_type = plan_data.get('athlete_type', 'Improviser')  # Default to Improviser if not set
             
             print(f"\n{'='*70}")
-            print(f"SESSION MATCHING - WEBHOOK PROCESSING")
+            print(f"SESSION MATCHING - WEBHOOK (AI-assisted, same as feedback)")
             print(f"{'='*70}")
-            print(f"Athlete type: {athlete_type}")
             print(f"Activities to match: {len(analyzed_sessions)}")
             
-            matches = match_sessions_batch(plan_v2, analyzed_sessions, athlete_type)
+            matches = []
+            for activity_data in analyzed_sessions:
+                activity_date = datetime.fromisoformat(activity_data['start_date'].replace('Z', '')).date()
+                activity_date_str = activity_date.isoformat()
+                
+                incomplete_sessions_text = get_candidate_sessions_text(
+                    plan_v2, activity_date_str, activity_data.get('type')
+                )
+                if not incomplete_sessions_text:
+                    print(f"   ℹ️  No candidate sessions for activity {activity_date_str}, skipping")
+                    continue
+                
+                session_id = ai_service.match_activity_to_session(activity_data, incomplete_sessions_text)
+                if not session_id:
+                    continue
+                
+                session = plan_v2.get_session_by_id(session_id)
+                if session:
+                    activity_id = int(activity_data.get('id')) if activity_data.get('id') is not None else None
+                    session.mark_complete(activity_id, activity_data.get('start_date'))
+                    matches.append((session, activity_data))
+                    print(f"   ✓ AI matched {session.id} ({session.type}) to activity {activity_id} on {activity_date_str}")
+                else:
+                    print(f"   ⚠️  AI returned session_id {session_id} but not found in plan")
             
             if matches:
-                print(f"\n✅ Found {len(matches)} session matches:")
-                for session, activity_data in matches:
-                    activity_id = activity_data.get('id')
-                    activity_date = datetime.fromisoformat(activity_data['start_date'].replace('Z', '')).date().isoformat()
-                    
-                    # NOTE: Session is already marked complete in match_sessions_batch
-                    # to prevent duplicate matches. Just log the match here.
-                    print(f"   ✓ Matched {session.id} ({session.type}) to activity {activity_id} on {activity_date}")
-                
-                # Save updated plan_v2
+                print(f"\n✅ Found {len(matches)} session matches (AI-assisted)")
                 user_data['plan_v2'] = plan_v2.to_dict()
                 print(f"\n💾 Saving plan_v2 with {len(matches)} newly completed sessions")
             else:
@@ -858,9 +868,6 @@ def safe_save_user_data(athlete_id, user_data):
         
         # Save trimmed entries to S3 for permanent storage
         try:
-            from s3_manager import s3_manager, S3_AVAILABLE
-            import os
-            
             if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
                 # Load existing S3 feedback_log and merge
                 s3_key = f"athletes/{athlete_id}/feedback_log.json.gz"
@@ -892,20 +899,90 @@ def safe_save_user_data(athlete_id, user_data):
         print(f"   ✅ Trimmed feedback_log to {len(user_data['feedback_log'])} entries in memory")
         print(f"   📋 Remaining entries activity_ids: {[e.get('activity_id') for e in user_data['feedback_log'][:5]]}")
     
-    # Trim chat_log
+    # Trim chat_log and archive older messages to S3 (so they can be loaded via "Load older")
     if 'chat_log' in user_data and len(user_data['chat_log']) > 30:
-        print(f"⚠️  Trimming chat_log from {len(user_data['chat_log'])} to 30 messages")
-        user_data['chat_log'] = user_data['chat_log'][-30:]
+        chat_log = user_data['chat_log']
+        keep_count = 30
+        to_keep = chat_log[-keep_count:]
+        trimmed_older = chat_log[:-keep_count]
+        print(f"⚠️  Trimming chat_log from {len(chat_log)} to {keep_count} messages")
+        try:
+            if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+                s3_key = f"athletes/{athlete_id}/chat_log.json.gz"
+                existing_s3 = s3_manager.load_large_data(s3_key) or []
+                # Older messages first: existing_s3 (oldest) + trimmed_older (newer)
+                merged = list(existing_s3) + list(trimmed_older)
+                s3_manager.save_large_data(athlete_id, 'chat_log', merged)
+                user_data['chat_log_s3_key'] = s3_key
+                print(f"✅ Archived {len(trimmed_older)} older chat messages to S3")
+        except Exception as e:
+            print(f"⚠️  Error archiving chat_log to S3: {e}")
+        user_data['chat_log'] = to_keep
     
-    # Remove analyzed_activities if present
+    # Remove analyzed_activities if present at root level
     if 'analyzed_activities' in user_data:
-        print(f"⚠️  Removing analyzed_activities from DynamoDB")
+        print(f"⚠️  Removing analyzed_activities from DynamoDB (root-level)")
         del user_data['analyzed_activities']
+    
+    # Trim heavy fields inside plan_data (keep only metadata needed by the app)
+    if 'plan_data' in user_data:
+        plan_data = user_data['plan_data']
+        if isinstance(plan_data, dict):
+            allowed_keys = {
+                'athlete_goal',
+                'sessions_per_week',
+                'hours_per_week',
+                'lifestyle_context',
+                'athlete_type',
+                'friel_hr_zones',
+                'friel_power_zones',
+                'goal_includes_cycling',
+                'weeks_until_goal',
+                'goal_date',
+                'plan_start_date',
+                'has_partial_week',
+                'days_in_partial_week',
+                'goal_distance',
+                'maintenance_weeks',
+                'vdot_data',
+                'weeks',
+            }
+            trimmed_plan_data = {k: v for k, v in plan_data.items() if k in allowed_keys}
+            removed_keys = sorted(set(plan_data.keys()) - set(trimmed_plan_data.keys()))
+            if removed_keys:
+                print(f"⚠️  Trimming plan_data keys from DynamoDB (removed: {removed_keys})")
+            user_data['plan_data'] = trimmed_plan_data
     
     # Remove duplicate garmin_history if metadata exists
     if 'garmin_history_metadata' in user_data and 'garmin_history' in user_data:
         print(f"⚠️  Removing duplicate garmin_history (already in S3)")
         del user_data['garmin_history']
+    
+    # Move all plan archive to S3 (used only for historical reference and rollback)
+    if 'archive' in user_data and isinstance(user_data['archive'], list) and len(user_data['archive']) > 0:
+        archive_entries = user_data['archive']
+        try:
+            from utils.archive_loader import save_user_archive_to_s3
+
+            if S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production':
+                # Load any existing archive from S3 (older entries)
+                existing = []
+                s3_key = user_data.get('archive_s3_key')
+                if s3_key:
+                    existing = s3_manager.load_large_data(s3_key) or []
+                # Newest first: current in-memory first, then existing from S3
+                merged = list(archive_entries) + existing
+                result_key = save_user_archive_to_s3(athlete_id, merged)
+                if result_key:
+                    user_data['archive_s3_key'] = f"athletes/{athlete_id}/plan_archive.json.gz"
+                    user_data['archive'] = []
+                    print(f"✅ Archived all {len(archive_entries)} plan(s) to S3 (total in S3: {len(merged)})")
+                else:
+                    print("⚠️  save_user_archive_to_s3 returned None - archive not moved")
+            else:
+                print("ℹ️  S3 not available or not production - archive remains in DynamoDB (may hit size limit)")
+        except Exception as e:
+            print(f"⚠️  Error moving archive to S3: {e}")
     
     # Debug: log feedback_log state before saving
     if 'feedback_log' in user_data:

@@ -255,9 +255,11 @@ def restore_inactive_plan():
     if 'plan_structure' in inactive_plan:
         user_data['plan_structure'] = inactive_plan.get('plan_structure')
     
-    # Restore feedback_log from archive (it was stored there when archived)
-    if 'archive' in user_data and len(user_data['archive']) > 0:
-        archived_plan = user_data['archive'][0]
+    # Restore feedback_log from archive (load from S3 if archive is offloaded)
+    from utils.archive_loader import get_user_archive, save_user_archive_to_s3
+    archive = get_user_archive(athlete_id, user_data)
+    if len(archive) > 0:
+        archived_plan = archive[0]
         if 'feedback_log' in archived_plan:
             user_data['feedback_log'] = archived_plan['feedback_log']
     
@@ -273,16 +275,11 @@ def restore_inactive_plan():
     del user_data['inactive_plan']
     
     # Remove the most recent archive entry (the one we just created)
-    # This restores the archive to its previous state
-    if 'archive' in user_data and len(user_data['archive']) > 0:
-        # Check if the first archive entry matches what we archived
-        # If it was archived today, remove it to complete the rollback
-        first_archive = user_data['archive'][0]
-        if 'completed_date' in first_archive:
-            # Remove the most recent archive entry
-            user_data['archive'].pop(0)
-            if len(user_data['archive']) == 0:
-                del user_data['archive']
+    if len(archive) > 0 and 'completed_date' in archive[0]:
+        archive_after_rollback = archive[1:]
+        save_user_archive_to_s3(athlete_id, archive_after_rollback)
+        # Ensure DynamoDB doesn't hold archive (already empty when offloaded)
+        user_data.pop('archive', None)
     
     # Also remove the most recent training_history entry if it was added during archiving
     if 'training_history' in user_data and len(user_data['training_history']) > 0:
@@ -344,9 +341,11 @@ def restore_feedback_log_from_archive():
     current_activity_ids = {entry.get('activity_id') for entry in current_feedback_log}
     restored_count = 0
     
-    # 1. Restore from archive[0].feedback_log if it exists
-    if 'archive' in user_data and len(user_data['archive']) > 0:
-        archived_feedback_log = user_data['archive'][0].get('feedback_log', [])
+    # 1. Restore from archive[0].feedback_log if it exists (load from S3 if offloaded)
+    from utils.archive_loader import get_user_archive, save_user_archive_to_s3
+    archive = get_user_archive(athlete_id, user_data)
+    if len(archive) > 0:
+        archived_feedback_log = archive[0].get('feedback_log', [])
         
         if archived_feedback_log:
             for entry in archived_feedback_log:
@@ -356,9 +355,10 @@ def restore_feedback_log_from_archive():
                     current_activity_ids.add(activity_id)
                     restored_count += 1
             
-            # Remove feedback_log from archive entry (it's now restored)
-            if 'feedback_log' in user_data['archive'][0]:
-                del user_data['archive'][0]['feedback_log']
+            # Remove feedback_log from archive entry and save back to S3
+            if 'feedback_log' in archive[0]:
+                archive[0] = {k: v for k, v in archive[0].items() if k != 'feedback_log'}
+                save_user_archive_to_s3(athlete_id, archive)
     
     # 2. Also check S3 for any stored feedback_log entries
     try:
@@ -396,6 +396,28 @@ def restore_feedback_log_from_archive():
         flash("No feedback_log entries found to restore.")
     
     return redirect(url_for('feedback.coaching_log'))
+
+
+@admin_bp.route("/tidy_storage", methods=["POST"])
+@login_required
+def tidy_storage():
+    """
+    Run the same trim/archive logic as safe_save_user_data without generating a new plan.
+    Use this to shrink your DynamoDB item (archive → S3, trim plan_data, feedback_log, chat_log)
+    so you stay under the 400 KB limit. Safe to run anytime.
+    """
+    athlete_id = session["athlete_id"]
+    try:
+        from routes.api_routes import safe_save_user_data
+        user_data = data_manager.load_user_data(athlete_id)
+        safe_save_user_data(athlete_id, user_data)
+        flash("Storage optimized: archive and large data trimmed/archived to S3. Your data is unchanged.", "success")
+    except Exception as e:
+        print(f"Error in tidy_storage: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f"Optimization failed: {e}", "error")
+    return redirect(url_for("admin.connections"))
 
 
 @admin_bp.route("/api/trigger_feedback", methods=["POST"])

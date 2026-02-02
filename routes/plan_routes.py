@@ -15,6 +15,7 @@ from utils.formatters import format_seconds
 from utils.migration import parse_ai_response_to_v2
 from utils.s_and_c_utils import get_routine_link, load_default_s_and_c_library, process_s_and_c_session
 from utils.vdot_context import prepare_vdot_context
+from routes.api_routes import safe_save_user_data
 
 plan_bp = Blueprint('plan', __name__)
 
@@ -242,39 +243,9 @@ def generate_plan():
         if not user_data or 'token' not in user_data:
             return 'Could not find your session data. Please <a href="/login">log in</a> again.'
 
-        # Archive existing plan if present
-        if 'plan' in user_data and user_data.get('plan'):
-            if 'feedback_log' not in user_data:
-                user_data['feedback_log'] = []
-            
-            print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
-            
-            # Generate summary of completed plan
-            summary_text = ai_service.summarize_training_cycle(
-                user_data['plan'],
-                user_data['feedback_log']
-            )
-            
-            # Store in training history
-            training_history = user_data.get('training_history', [])
-            training_history.insert(0, {"summary": summary_text})
-            user_data['training_history'] = training_history
-            
-            # Archive the plan ONLY (not feedback_log - that stays forever)
-            if 'archive' not in user_data:
-                user_data['archive'] = []
-            user_data['archive'].insert(0, {
-                'plan': user_data['plan'],
-                'completed_date': datetime.now().isoformat()
-                # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
-            })
-            
-            # Clear current plan data
-            # DO NOT delete feedback_log - it's permanent coaching history
-            del user_data['plan']
-            # feedback_log stays - never delete it!
-            if 'plan_structure' in user_data:
-                del user_data['plan_structure']
+        # Do not archive existing plan yet - only archive after we have a valid new plan
+        # so that 429/API failures don't wipe the current plan
+        had_existing_plan = bool(user_data.get('plan'))
         
         # Gather user inputs
         lthr_raw = request.form.get('lthr', '').strip()
@@ -702,22 +673,54 @@ def generate_plan():
         
         # generate_training_plan already calls parse_ai_response_to_v2 internally
         # and returns (TrainingPlan, markdown_text) tuple
-        plan_v2, plan_markdown = ai_service.generate_training_plan(
-            user_inputs,
-            {
-                'training_history': user_data.get('training_history'),
-                'final_data_for_ai': final_data_for_ai,
-                'athlete_id': athlete_id
-            },
-            vdot_data=vdot_data
-        )
-        
+        try:
+            plan_v2, plan_markdown = ai_service.generate_training_plan(
+                user_inputs,
+                {
+                    'training_history': user_data.get('training_history'),
+                    'final_data_for_ai': final_data_for_ai,
+                    'athlete_id': athlete_id
+                },
+                vdot_data=vdot_data
+            )
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "Resource exhausted" in err_str:
+                flash("Plan generation failed: the coach service is busy (rate limit). Please try again in a few minutes.", "error")
+            else:
+                flash(f"Plan generation failed: {err_str[:200]}", "error")
+            return redirect(url_for('plan.onboarding'))
+
+        if plan_v2 is None or len(plan_v2.weeks) == 0:
+            print("--- Plan generation failed (no weeks) ---")
+            flash("Plan generation failed: the coach returned an empty plan. This can happen when the service is busy. Please try again in a few minutes.", "error")
+            return redirect(url_for('plan.onboarding'))
+
         print(f"--- Plan generated successfully ---")
 
+        # Archive existing plan only now that we have a valid new plan
+        if had_existing_plan and user_data.get('plan'):
+            if 'feedback_log' not in user_data:
+                user_data['feedback_log'] = []
+            print(f"--- Archiving previous plan for athlete {athlete_id} ---")
+            summary_text = ai_service.summarize_training_cycle(
+                user_data['plan'],
+                user_data['feedback_log']
+            )
+            training_history = user_data.get('training_history', [])
+            training_history.insert(0, {"summary": summary_text})
+            user_data['training_history'] = training_history
+            if 'archive' not in user_data:
+                user_data['archive'] = []
+            user_data['archive'].insert(0, {
+                'plan': user_data['plan'],
+                'completed_date': datetime.now().isoformat()
+            })
+            del user_data['plan']
+            if 'plan_structure' in user_data:
+                del user_data['plan_structure']
+
         # No need to call parse_ai_response_to_v2 again - already done above
-        
-        # Extract plan_structure JSON separately
-        # plan_structure is deprecated - all structure is now in plan_v2
         plan_structure = None
 
         # Save both formats
@@ -732,7 +735,7 @@ def generate_plan():
         if 'inactive_plan' in user_data:
             del user_data['inactive_plan']
         
-        data_manager.save_user_data(athlete_id, user_data)
+        safe_save_user_data(athlete_id, user_data)
         
         # Verify save
         print(f"--- APP: Verifying save operation by reloading data...")
@@ -863,7 +866,7 @@ def plan_completion_choice():
             # Clear the plan_completion_prompted flag so they can create a new plan
             if 'plan_completion_prompted' in user_data:
                 del user_data['plan_completion_prompted']
-            data_manager.save_user_data(athlete_id, user_data)
+            safe_save_user_data(athlete_id, user_data)
             # Redirect to onboarding to create a new plan
             return redirect('/onboarding')
         
@@ -871,7 +874,7 @@ def plan_completion_choice():
             # Store that they want a maintenance plan
             user_data['plan_completion_choice'] = 'maintenance'
             user_data['plan_completion_prompted'] = True
-            data_manager.save_user_data(athlete_id, user_data)
+            safe_save_user_data(athlete_id, user_data)
             # Redirect to maintenance plan generation page
             return redirect('/generate_maintenance_plan')
         
@@ -921,7 +924,7 @@ def plan_completion_choice():
                 if 'plan_structure' in user_data:
                     del user_data['plan_structure']
             
-            data_manager.save_user_data(athlete_id, user_data)
+            safe_save_user_data(athlete_id, user_data)
             flash("You're now going with the flow - no structured training plan. You can create a new plan anytime from the dashboard.")
             return redirect('/dashboard')
         
@@ -1175,7 +1178,7 @@ def generate_maintenance_plan():
         if 'inactive_plan' in user_data:
             del user_data['inactive_plan']
         
-        data_manager.save_user_data(athlete_id, user_data)
+        safe_save_user_data(athlete_id, user_data)
         
         # Render and return plan
         rendered_plan = render_markdown_with_toc(plan_markdown)

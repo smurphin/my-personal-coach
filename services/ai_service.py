@@ -3,6 +3,7 @@ from vertexai.generative_models import GenerativeModel
 from google.oauth2 import service_account
 import jinja2
 import json
+from typing import Optional
 from config import Config
 from models.training_plan import TrainingPlan
 from utils.migration import parse_ai_response_to_v2
@@ -224,13 +225,30 @@ class AIService:
         return None
     
     def generate_content(self, prompt_text, **kwargs):
-        """Generate content from a prompt"""
-        try:
-            response = self.model.generate_content(prompt_text, **kwargs)
-            return getattr(response, "text", str(response))
-        except Exception as e:
-            print(f"Error generating content from prompt: {e}")
-            return ""
+        """Generate content from a prompt. Retries on 429 (rate limit); re-raises after retries."""
+        import time
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = self.model.generate_content(prompt_text, **kwargs)
+                return getattr(response, "text", str(response))
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                if "429" in err_str or "Resource exhausted" in err_str:
+                    if attempt < 2:
+                        # Longer backoff (15s, 45s) so retries don't add to TPM spike; 429 = quota/contention, not timeout
+                        delay = [15, 45][attempt]
+                        print(f"Rate limit (429) - retrying in {delay}s (attempt {attempt + 1}/3)")
+                        time.sleep(delay)
+                    else:
+                        print(f"Error generating content from prompt (429 after retries): {e}")
+                        raise
+                else:
+                    print(f"Error generating content from prompt: {e}")
+                    return ""
+        print(f"Error generating content from prompt: {last_error}")
+        return ""
     
     def generate_training_plan(self, user_inputs, athlete_data, vdot_data=None):
         """
@@ -288,6 +306,9 @@ class AIService:
                 athlete_id=str(athlete_data.get('athlete_id')),
                 user_inputs=user_inputs
             )
+            if len(plan_v2.weeks) == 0:
+                print("⚠️  AI returned no weeks - treating as generation failure")
+                return None, None
             print(f"✅ Generated structured plan with {len(plan_v2.weeks)} weeks")
             return plan_v2, markdown_text
         except Exception as e:
@@ -698,6 +719,60 @@ class AIService:
         
         prompt = template.render(activity_names=activity_names)
         return self.generate_content(prompt).strip()
+
+    def match_activity_to_session(self, activity_data: dict, incomplete_sessions_text: str) -> Optional[str]:
+        """
+        Use AI to match a completed activity to one of the candidate planned sessions.
+        Same logic as feedback flow: AI sees activity + candidates and returns [COMPLETED:session_id].
+        Returns session_id if matched, None otherwise.
+        """
+        import re
+        name = activity_data.get('name', '') or 'Unnamed'
+        act_type = activity_data.get('type', '')
+        start_date = activity_data.get('start_date', '')
+        if start_date:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(start_date.replace('Z', ''))
+                start_date = dt.strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                pass
+        moving_sec = activity_data.get('moving_time') or 0
+        duration_str = f"{int(moving_sec // 60)} min" if moving_sec else "—"
+        distance_m = activity_data.get('distance')
+        if distance_m is not None and distance_m > 0:
+            distance_str = f"{distance_m / 1000:.2f} km" if distance_m >= 1000 else f"{int(distance_m)} m"
+        else:
+            distance_str = "—"
+        lines = [
+            f"Name: {name}",
+            f"Type: {act_type}",
+            f"Date: {start_date}",
+            f"Duration: {duration_str}",
+            f"Distance: {distance_str}",
+        ]
+        private_note = activity_data.get('private_note', '').strip()
+        if private_note:
+            lines.append(f"Private note: {private_note}")
+        time_in_zones = activity_data.get('time_in_hr_zones') or {}
+        if time_in_zones and isinstance(time_in_zones, dict):
+            zone_parts = [f"{k}: {v}" for k, v in time_in_zones.items() if v]
+            if zone_parts:
+                lines.append("Time in HR zones: " + ", ".join(zone_parts))
+        activity_summary = "\n".join(lines)
+        with open('prompts/session_match_prompt.txt', 'r') as f:
+            template = jinja2.Template(f.read())
+        prompt = template.render(
+            activity_summary=activity_summary,
+            incomplete_sessions=incomplete_sessions_text
+        )
+        response = self.generate_content(prompt)
+        if not response:
+            return None
+        match = re.search(r'\[COMPLETED:([^\]]+)\]', response)
+        if match:
+            return match.group(1).strip()
+        return None
 
 
 # Create singleton instance

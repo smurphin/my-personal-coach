@@ -3,11 +3,91 @@ Intelligent session matching for different athlete types.
 
 Disciplinarian: Sessions have fixed dates, match by date
 Improviser/Minimalist: Sessions are flexible within week, match by characteristics
+
+Shared helpers for AI-assisted matching (used by both feedback and webhook):
+- get_candidate_sessions_text(): build candidate list for AI (same format in both flows)
 """
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+import re
 from difflib import SequenceMatcher
+
+# Strava activity type -> plan session type (used by feedback and webhook)
+ACTIVITY_TYPE_MAP = {
+    'Run': 'RUN', 'VirtualRun': 'RUN',
+    'Ride': 'BIKE', 'VirtualRide': 'BIKE',
+    'Swim': 'SWIM',
+}
+
+
+def get_candidate_sessions_text(plan_v2, activity_date_str: str, strava_activity_type: Optional[str] = None) -> Optional[str]:
+    """
+    Build the list of candidate sessions (incomplete, same week, same type) as text for AI matching.
+    Used by both feedback and webhook so they use the same logic and format.
+
+    Args:
+        plan_v2: TrainingPlan object
+        activity_date_str: ISO date string (YYYY-MM-DD)
+        strava_activity_type: e.g. 'Run', 'Ride' - mapped to RUN, BIKE, etc.
+
+    Returns:
+        Text like "[w1-s1] RUN: Easy 45 min Zone 2" per line, or None if no candidates.
+    """
+    from models.training_plan import TrainingPlan
+    expected_type = ACTIVITY_TYPE_MAP.get(strava_activity_type) if strava_activity_type else None
+    target_week = None
+    for week in plan_v2.weeks:
+        if week.start_date and week.end_date and week.start_date <= activity_date_str <= week.end_date:
+            target_week = week
+            break
+    if not target_week:
+        return None
+    candidate_sessions = [
+        s for s in target_week.sessions
+        if not s.completed and s.type != 'REST'
+        and (not expected_type or s.type == expected_type)
+    ]
+    if not candidate_sessions:
+        return None
+    return "\n".join(
+        f"[{s.id}] {s.type}: {s.description or 'No description'}"
+        for s in candidate_sessions
+    )
+
+
+def _extract_target_distance_meters(session_desc: str) -> Optional[float]:
+    """Extract target distance in meters from session description (e.g. '5 miles', '5k', '10k')."""
+    if not session_desc:
+        return None
+    desc = session_desc.lower()
+    # 5 miles
+    m = re.search(r'5\s*miles?|5\s*mi\b', desc)
+    if m:
+        return 8047
+    # 5k
+    m = re.search(r'5\s*k\b|5k\b', desc)
+    if m:
+        return 5000
+    # 10k
+    m = re.search(r'10\s*k\b|10k\b', desc)
+    if m:
+        return 10000
+    # half marathon
+    if 'half marathon' in desc or ' hm ' in desc or '21.1' in desc:
+        return 21100
+    # marathon
+    if 'marathon' in desc or '42.2' in desc or '26.2' in desc:
+        return 42195
+    return None
+
+
+def _is_distance_based_session(session_desc: str) -> bool:
+    """True if session is defined by distance (e.g. '5 mile race') rather than time ('35 minutes')."""
+    if not session_desc:
+        return False
+    d = _extract_target_distance_meters(session_desc)
+    return d is not None
 
 
 def get_week_bounds(date_str: str) -> tuple[str, str]:
@@ -127,7 +207,8 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
         
         # PRIMARY: Description similarity (most important for Improvisers)
         # Check for exact phrase matches first
-        desc_similarity = similarity_score(activity_name, session_desc)
+        _match_text = f"{activity_name} {(activity_data.get('private_note') or '').lower()}".strip()
+        desc_similarity = similarity_score(_match_text, session_desc)
         
         # Boost score significantly for good description matches
         if desc_similarity > 0.5:
@@ -143,6 +224,7 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
         # Check for specific keywords/phrases in both
         # Common run types
         run_type_matches = [
+            (['race', 'league', 'championship', 'park run', '5 mile', '5 miles'], ['race', '5 mile', '10k', 'key effort']),
             (['club', 'social', 'group'], ['club', 'social', 'group']),
             (['long run', 'long'], ['long run', 'long']),
             (['tempo', 'threshold'], ['tempo', 'threshold']),
@@ -165,7 +247,7 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
         # Check cycling matches first (if it's a bike activity)
         if session_type == 'BIKE':
             for activity_keywords, session_keywords in bike_type_matches:
-                activity_has = any(kw in activity_name for kw in activity_keywords)
+                activity_has = any(kw in _match_text for kw in activity_keywords)
                 session_has = any(kw in session_desc for kw in session_keywords)
                 if activity_has and session_has:
                     score += 10.0  # Strong boost for FTP/ramp test matches
@@ -174,7 +256,7 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
         
         # Then check run matches
         for activity_keywords, session_keywords in run_type_matches:
-            activity_has = any(kw in activity_name for kw in activity_keywords)
+            activity_has = any(kw in _match_text for kw in activity_keywords)
             session_has = any(kw in session_desc for kw in session_keywords)
             if activity_has and session_has:
                 score += 8.0
@@ -208,12 +290,32 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
                     reasons.append(f"{intensity} intensity match")
                     break
         
-        # TERTIARY: Duration matching (if available)
-        if session.duration_minutes and activity_data.get('moving_time'):
+        # RACE FLAG: When Strava marks activity as race, strongly favor race sessions
+        if activity_data.get('is_race') and 'race' in session_desc:
+            score += 8.0
+            reasons.append("Strava race flag + session is race")
+        
+        # DISTANCE MATCHING: For running, match activity distance to session target (e.g. 5 miles, 5k)
+        if session_type == 'RUN' and activity_data.get('distance'):
+            target_m = _extract_target_distance_meters(session_desc)
+            if target_m and target_m > 0:
+                activity_m = activity_data['distance']
+                ratio = min(activity_m, target_m) / max(activity_m, target_m)
+                if ratio > 0.9:
+                    score += 6.0
+                    reasons.append(f"distance match ({ratio:.0%})")
+                elif ratio > 0.85:
+                    score += 4.0
+                    reasons.append(f"distance match ({ratio:.0%})")
+                elif ratio > 0.75:
+                    score += 2.0
+                    reasons.append(f"distance match ({ratio:.0%})")
+        
+        # TERTIARY: Duration matching - down-weight when session is distance-based (e.g. "5 mile race")
+        is_dist_based = _is_distance_based_session(session_desc)
+        if session.duration_minutes and activity_data.get('moving_time') and not is_dist_based:
             activity_duration_mins = activity_data['moving_time'] / 60
             session_duration = session.duration_minutes
-            
-            # Within 20% is a good match
             duration_ratio = min(activity_duration_mins, session_duration) / max(activity_duration_mins, session_duration)
             if duration_ratio > 0.8:
                 score += 2.0
@@ -221,9 +323,9 @@ def match_session_to_activity(plan_v2, activity_data: Dict[str, Any], athlete_ty
             elif duration_ratio > 0.5:
                 score += 1.0
         
-        # LOWEST PRIORITY: Session priority (only used as tiebreaker)
+        # Session priority - KEY sessions get stronger weight (races are usually KEY)
         if session.priority == 'KEY':
-            score += 0.5
+            score += 2.0
             reasons.append("KEY session")
         elif session.priority == 'IMPORTANT':
             score += 0.3
