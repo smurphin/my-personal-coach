@@ -280,13 +280,14 @@ These allow you to tweak behaviour per environment without a code deploy. Useful
 | `AI_TEMPERATURE` | float | — | 0–2, controls creativity; lower = more deterministic |
 | `AI_MAX_OUTPUT_TOKENS` | int | — | Max tokens per response |
 | `WEBHOOK_DELAY_SECONDS` | int | `10` | Delay before processing Strava webhooks; set to 300 in prod secret for batching if needed |
-| `AI_THINKING_LEVEL` | string | — | Gemini 3: MINIMAL, LOW, MEDIUM, HIGH. When not set, model default (HIGH) is used. LOW = faster, less reasoning |
+| `AI_THINKING_LEVEL` | string | — | **Gemini 3 only.** MINIMAL, LOW, MEDIUM, HIGH. Ignored for 2.5 (API errors). When not set on 3, model default (HIGH) |
 
 **Example (staging with Gemini v3 + faster responses):**
 ```json
 "AI_MODEL": "gemini-3-flash-preview",
 "AI_THINKING_LEVEL": "LOW"
 ```
+*Note: AI_THINKING_LEVEL is ignored if AI_MODEL is Gemini 2.5—only set both when using Gemini 3.*
 
 **Example (prod with longer webhook batching):**
 ```json

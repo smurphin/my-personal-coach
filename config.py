@@ -64,7 +64,7 @@ class Config:
     AI_TEMPERATURE = float(_ai_temp) if (_ai_temp and _ai_temp.strip()) else None
     _ai_max = os.getenv("AI_MAX_OUTPUT_TOKENS")
     AI_MAX_OUTPUT_TOKENS = int(_ai_max) if (_ai_max and str(_ai_max).strip()) else None
-    # Thinking level (Gemini 3): minimal, low, medium, high. When not set, model default (HIGH) is used.
+    # Thinking level (Gemini 3 only): minimal, low, medium, high. Ignored for 2.5.
     _ai_think = os.getenv("AI_THINKING_LEVEL")
     AI_THINKING_LEVEL = _ai_think.strip().upper() if (_ai_think and _ai_think.strip()) else None
     # Webhook delay (seconds) - default 10; set to 300 in prod secret for batching if needed

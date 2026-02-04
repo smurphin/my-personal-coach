@@ -231,8 +231,8 @@ class AIService:
             cfg['temperature'] = Config.AI_TEMPERATURE
         if Config.AI_MAX_OUTPUT_TOKENS is not None:
             cfg['max_output_tokens'] = Config.AI_MAX_OUTPUT_TOKENS
-        # Thinking level (Gemini 3): MINIMAL, LOW, MEDIUM, HIGH. Only add when set.
-        if Config.AI_THINKING_LEVEL:
+        # Thinking level (Gemini 3 only): MINIMAL, LOW, MEDIUM, HIGH. Skip for 2.5—API errors.
+        if Config.AI_THINKING_LEVEL and 'gemini-3' in Config.AI_MODEL.lower():
             try:
                 # Try vertexai (google-cloud-aiplatform); fallback to aiplatform proto types
                 try:
