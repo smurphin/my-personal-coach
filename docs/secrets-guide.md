@@ -14,6 +14,7 @@ This guide explains every secret used in kAIzen Coach, what it's for, where it c
   * [6. GARMIN_ENCRYPTION_KEY](#6-garmin_encryption_key)
   * [7. GCP_PROJECT_ID (Optional - Can be derived)](#7-gcp_project_id-optional---can-be-derived)
   * [8. GCP_LOCATION (Optional - Can be hardcoded)](#8-gcp_location-optional---can-be-hardcoded)
+  * [9. Runtime Configuration (Optional - Per-Environment Experiments)](#9-runtime-configuration-optional---per-environment-experiments)
 - [Complete Secrets Template](#complete-secrets-template)
 - [Secrets Per Environment](#secrets-per-environment)
   * [Production](#production)
@@ -266,6 +267,33 @@ python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(3
 ```
 
 **Note:** This is typically hardcoded in config.py and doesn't need to be in secrets.
+
+---
+
+### 9. Runtime Configuration (Optional - Per-Environment Experiments)
+
+These allow you to tweak behaviour per environment without a code deploy. Useful for testing different AI models in staging while prod stays stable.
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `AI_MODEL` | string | `gemini-2.5-flash` | Gemini model name (e.g. `gemini-3-flash-preview` for experiments) |
+| `AI_TEMPERATURE` | float | — | 0–2, controls creativity; lower = more deterministic |
+| `AI_MAX_OUTPUT_TOKENS` | int | — | Max tokens per response |
+| `WEBHOOK_DELAY_SECONDS` | int | `10` | Delay before processing Strava webhooks; set to 300 in prod secret for batching if needed |
+| `AI_THINKING_LEVEL` | string | — | Gemini 3: MINIMAL, LOW, MEDIUM, HIGH. When not set, model default (HIGH) is used. LOW = faster, less reasoning |
+
+**Example (staging with Gemini v3 + faster responses):**
+```json
+"AI_MODEL": "gemini-3-flash-preview",
+"AI_THINKING_LEVEL": "LOW"
+```
+
+**Example (prod with longer webhook batching):**
+```json
+"WEBHOOK_DELAY_SECONDS": "300"
+```
+
+**To change:** Update the secret in AWS Console → Secrets Manager, then restart App Runner. No code deploy or Terraform change.
 
 ---
 

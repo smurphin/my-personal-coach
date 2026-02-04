@@ -29,6 +29,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- STAGE 3: The Final Production Image (Minor change) ---
 FROM python:3.11-slim
 
+# Build-time version for deploy tracking (set via: docker build --build-arg VERSION=v1.2.3)
+ARG VERSION=dev
+ENV APP_VERSION=${VERSION}
+
 WORKDIR /app
 
 RUN useradd --create-home appuser

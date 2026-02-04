@@ -29,22 +29,23 @@ USE_S3 = S3_AVAILABLE and os.getenv('FLASK_ENV') == 'production'
 
 api_bp = Blueprint('api', __name__)
 
+
+@api_bp.route('/version')
+def version():
+    """Return deployed version for ECR/App Runner traceability. No auth required."""
+    return jsonify({
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'environment': os.getenv('ENVIRONMENT', 'dev')
+    })
+
+
 # Webhook processing queue with delay
 # Structure: {athlete_id: {'activity_ids': set(), 'activity_updates': {activity_id: count}, 'timer': Timer, 'last_update': timestamp}}
 webhook_queue = {}
 webhook_queue_lock = threading.Lock()
 
-# ============================================================================
-# WEBHOOK DELAY CONFIGURATION
-# ============================================================================
-# Change this value to adjust the delay before processing webhook events.
-# - Production: 300 (5 minutes) - allows batching multiple activity updates
-# - Testing: 30 or 10 seconds - for quicker feedback during development
-# 
-# This delay allows multiple activities (e.g., triathlon swim/bike/run) to
-# be updated and processed together, preventing context loss.
-# ============================================================================
-WEBHOOK_DELAY_SECONDS = 10  # Change this value for testing (e.g., 30 or 10)
+# Webhook delay comes from Config (env/Secrets: WEBHOOK_DELAY_SECONDS)
+# Prod: 300, staging: 10-30 for quicker feedback
 
 def process_queued_webhooks(athlete_id):
     """
@@ -64,7 +65,7 @@ def process_queued_webhooks(athlete_id):
     print(f"\n{'='*70}")
     print(f"PROCESSING QUEUED WEBHOOKS FOR ATHLETE {athlete_id}")
     print(f"{'='*70}")
-    print(f"⏰ Processing queued activity updates after {WEBHOOK_DELAY_SECONDS}s delay...")
+    print(f"⏰ Processing queued activity updates after {Config.WEBHOOK_DELAY_SECONDS}s delay...")
     print(f"📋 Processing {len(activity_ids)} unique activities")
     
     # Log activities that were updated multiple times
@@ -1053,7 +1054,7 @@ def strava_webhook():
                 
                 # Create new timer for 5-minute delay
                 timer = threading.Timer(
-                    WEBHOOK_DELAY_SECONDS,
+                    Config.WEBHOOK_DELAY_SECONDS,
                     process_queued_webhooks,
                     args=(athlete_id,)
                 )
@@ -1066,10 +1067,10 @@ def strava_webhook():
                 update_count = webhook_queue[athlete_id]['activity_updates'][activity_id]
                 
                 if was_already_queued:
-                    print(f"📥 Activity {activity_id} updated again (update #{update_count}) - timer reset, will process latest version after {WEBHOOK_DELAY_SECONDS}s")
+                    print(f"📥 Activity {activity_id} updated again (update #{update_count}) - timer reset, will process latest version after {Config.WEBHOOK_DELAY_SECONDS}s")
                 else:
                     print(f"📥 Queued activity {activity_id} for athlete {athlete_id} (queue size: {queue_size})")
-                    print(f"⏰ Will process after {WEBHOOK_DELAY_SECONDS}s delay (allows batching multiple activities)")
+                    print(f"⏰ Will process after {Config.WEBHOOK_DELAY_SECONDS}s delay (allows batching multiple activities)")
             
             # Return immediately - processing will happen after delay
             return 'EVENT_RECEIVED', 200
