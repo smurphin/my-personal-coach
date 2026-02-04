@@ -1,5 +1,5 @@
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, GenerationConfig
 from google.oauth2 import service_account
 import jinja2
 import json
@@ -224,9 +224,39 @@ class AIService:
         
         return None
     
+    def _get_generation_config(self):
+        """Build GenerationConfig from Config if any params are set."""
+        cfg = {}
+        if Config.AI_TEMPERATURE is not None:
+            cfg['temperature'] = Config.AI_TEMPERATURE
+        if Config.AI_MAX_OUTPUT_TOKENS is not None:
+            cfg['max_output_tokens'] = Config.AI_MAX_OUTPUT_TOKENS
+        # Thinking level (Gemini 3 only): MINIMAL, LOW, MEDIUM, HIGH. Skip for 2.5—API errors.
+        if Config.AI_THINKING_LEVEL and 'gemini-3' in Config.AI_MODEL.lower():
+            try:
+                # Try vertexai (google-cloud-aiplatform); fallback to aiplatform proto types
+                try:
+                    from vertexai.generative_models import ThinkingConfig
+                    cfg['thinking_config'] = ThinkingConfig(thinking_level=Config.AI_THINKING_LEVEL)
+                except (ImportError, AttributeError, TypeError):
+                    from google.cloud.aiplatform_v1beta1.types import GenerationConfig as GCConfig
+                    cfg['thinking_config'] = GCConfig.ThinkingConfig(
+                        thinking_level=getattr(
+                            GCConfig.ThinkingConfig.ThinkingLevel,
+                            f'THINKING_LEVEL_{Config.AI_THINKING_LEVEL}',
+                            GCConfig.ThinkingConfig.ThinkingLevel.THINKING_LEVEL_LOW
+                        )
+                    )
+            except Exception as e:
+                print(f"⚠️  AI_THINKING_LEVEL={Config.AI_THINKING_LEVEL} not applied: {e}")
+        return GenerationConfig(**cfg) if cfg else None
+
     def generate_content(self, prompt_text, **kwargs):
         """Generate content from a prompt. Retries on 429 (rate limit); re-raises after retries."""
         import time
+        gen_config = self._get_generation_config()
+        if gen_config is not None and 'generation_config' not in kwargs:
+            kwargs['generation_config'] = gen_config
         last_error = None
         for attempt in range(3):
             try:

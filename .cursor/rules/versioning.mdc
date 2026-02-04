@@ -1,0 +1,17 @@
+---
+description: Versioning and changelog workflow for releases
+alwaysApply: true
+---
+
+# Versioning & Changelog
+
+When making changes that will be deployed:
+
+1. **VERSION** (repo root): Bump per Major.Feature.Patch (v0 = beta, v1 = Strava onboarded)
+2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. When releasing, move them into `[X.Y.Z]` with the release date.
+
+**Changelog sections:** Added, Changed, Fixed, Removed, Security. Use what fits.
+
+**Do not touch:** Terraform/infra (owner maintains manually).
+
+See `docs/versioning.md` for full workflow.

@@ -58,7 +58,17 @@ class Config:
     
     GCP_PROJECT_ID = GCP_PROJECTS.get(ENVIRONMENT, 'kaizencoach-dev')
     GCP_LOCATION = "global"
-    AI_MODEL = "gemini-2.5-flash" #gemini-3-flash-preview - rolled back as tries to assume too much and doesn't follow rules well
+    # AI model and generation params - override via env/Secrets Manager for per-env experiments
+    AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash")
+    _ai_temp = os.getenv("AI_TEMPERATURE")
+    AI_TEMPERATURE = float(_ai_temp) if (_ai_temp and _ai_temp.strip()) else None
+    _ai_max = os.getenv("AI_MAX_OUTPUT_TOKENS")
+    AI_MAX_OUTPUT_TOKENS = int(_ai_max) if (_ai_max and str(_ai_max).strip()) else None
+    # Thinking level (Gemini 3 only): minimal, low, medium, high. Ignored for 2.5.
+    _ai_think = os.getenv("AI_THINKING_LEVEL")
+    AI_THINKING_LEVEL = _ai_think.strip().upper() if (_ai_think and _ai_think.strip()) else None
+    # Webhook delay (seconds) - default 10; set to 300 in prod secret for batching if needed
+    WEBHOOK_DELAY_SECONDS = int(os.getenv("WEBHOOK_DELAY_SECONDS", "10"))
     
     # AWS Resources - Keep prod names as-is (legacy), new naming for other envs
     AWS_REGION = "eu-west-1"
@@ -84,6 +94,7 @@ class Config:
         print(f"🚀 Initializing kAIzen Coach - Environment: {cls.ENVIRONMENT}")
         print(f"📊 GCP Project: {cls.GCP_PROJECT_ID}")
         print(f"🗄️  DynamoDB Table: {cls.DYNAMODB_TABLE}")
+        print(f"🤖 AI Model: {cls.AI_MODEL} (temp={cls.AI_TEMPERATURE}, max_tokens={cls.AI_MAX_OUTPUT_TOKENS}, thinking={cls.AI_THINKING_LEVEL})")
         
         # If running in production, fetch secrets from AWS Secrets Manager
         if os.getenv('FLASK_ENV') == 'production':
@@ -96,6 +107,17 @@ class Config:
             cls.STRAVA_VERIFY_TOKEN = os.getenv("STRAVA_VERIFY_TOKEN")
             cls.SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
             cls.GARMIN_ENCRYPTION_KEY = os.getenv("GARMIN_ENCRYPTION_KEY")
+            # Runtime-tweakable per env (AI model experiments, webhook delay)
+            if os.getenv("AI_MODEL"):
+                cls.AI_MODEL = os.getenv("AI_MODEL")
+            if os.getenv("AI_TEMPERATURE"):
+                cls.AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE"))
+            if os.getenv("AI_MAX_OUTPUT_TOKENS"):
+                cls.AI_MAX_OUTPUT_TOKENS = int(os.getenv("AI_MAX_OUTPUT_TOKENS"))
+            if os.getenv("WEBHOOK_DELAY_SECONDS"):
+                cls.WEBHOOK_DELAY_SECONDS = int(os.getenv("WEBHOOK_DELAY_SECONDS"))
+            if os.getenv("AI_THINKING_LEVEL"):
+                cls.AI_THINKING_LEVEL = os.getenv("AI_THINKING_LEVEL").strip().upper()
             
             print(f"✅ Secrets loaded - STRAVA_CLIENT_ID: {cls.STRAVA_CLIENT_ID[:8] if cls.STRAVA_CLIENT_ID else 'MISSING'}...")
         else:
@@ -144,6 +166,17 @@ class Config:
             # Optional: For demo instances with custom Strava apps
             if secrets.get('STRAVA_REDIRECT_URI'):
                 os.environ['STRAVA_REDIRECT_URI'] = secrets.get('STRAVA_REDIRECT_URI')
+            # Runtime-tweakable per env (no code deploy needed)
+            if secrets.get('AI_MODEL'):
+                os.environ['AI_MODEL'] = str(secrets.get('AI_MODEL'))
+            if secrets.get('AI_TEMPERATURE') is not None:
+                os.environ['AI_TEMPERATURE'] = str(secrets.get('AI_TEMPERATURE'))
+            if secrets.get('AI_MAX_OUTPUT_TOKENS'):
+                os.environ['AI_MAX_OUTPUT_TOKENS'] = str(secrets.get('AI_MAX_OUTPUT_TOKENS'))
+            if secrets.get('WEBHOOK_DELAY_SECONDS') is not None:
+                os.environ['WEBHOOK_DELAY_SECONDS'] = str(secrets.get('WEBHOOK_DELAY_SECONDS'))
+            if secrets.get('AI_THINKING_LEVEL'):
+                os.environ['AI_THINKING_LEVEL'] = str(secrets.get('AI_THINKING_LEVEL')).strip()
 
             # Create a temporary file for Google credentials
             with open("/tmp/gcp_creds.json", "w") as f:
