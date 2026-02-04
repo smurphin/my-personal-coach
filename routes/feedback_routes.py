@@ -355,12 +355,62 @@ def get_feedback_api():
                     print(f"   Raw feedback_markdown length: {len(str(entry['feedback_markdown']))}")
                     print(f"   Raw feedback_markdown preview: {str(entry['feedback_markdown'])[:200]}...")
                     
+                    # region agent log
+                    try:
+                        import json as _json
+                        import hashlib as _hashlib
+                        import time as _time
+                        raw_markdown = str(entry['feedback_markdown'])
+                        _log_entry = {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "H3",
+                            "location": "routes/feedback_routes.py:get_feedback_api:before_extraction",
+                            "message": "Raw feedback_markdown loaded from storage",
+                            "data": {
+                                "requested_activity_id": requested_activity_id,
+                                "raw_length": len(raw_markdown),
+                                "raw_sha256": _hashlib.sha256(raw_markdown.encode("utf-8")).hexdigest(),
+                            },
+                            "timestamp": int(_time.time() * 1000),
+                        }
+                        with open("/home/darren/git/.cursor/debug.log", "a") as _f:
+                            _f.write(_json.dumps(_log_entry) + "\n")
+                    except Exception:
+                        pass
+                    # endregion
+                    
                     # Extract feedback_text from JSON if needed
                     feedback_markdown = extract_feedback_text_from_json(entry['feedback_markdown'])
                     
                     print(f"   After extraction - feedback_markdown type: {type(feedback_markdown)}")
                     print(f"   After extraction - feedback_markdown length: {len(str(feedback_markdown))}")
                     print(f"   After extraction - feedback_markdown preview: {str(feedback_markdown)[:200]}...")
+                    
+                    # region agent log
+                    try:
+                        import json as _json
+                        import hashlib as _hashlib
+                        import time as _time
+                        extracted_markdown = str(feedback_markdown)
+                        _log_entry = {
+                            "sessionId": "debug-session",
+                            "runId": "pre-fix",
+                            "hypothesisId": "H3",
+                            "location": "routes/feedback_routes.py:get_feedback_api:after_extraction",
+                            "message": "feedback_markdown after extract_feedback_text_from_json",
+                            "data": {
+                                "requested_activity_id": requested_activity_id,
+                                "extracted_length": len(extracted_markdown),
+                                "extracted_sha256": _hashlib.sha256(extracted_markdown.encode("utf-8")).hexdigest(),
+                            },
+                            "timestamp": int(_time.time() * 1000),
+                        }
+                        with open("/home/darren/git/.cursor/debug.log", "a") as _f:
+                            _f.write(_json.dumps(_log_entry) + "\n")
+                    except Exception:
+                        pass
+                    # endregion
                     
                     # Process feedback to extract plan updates
                     processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)

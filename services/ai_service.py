@@ -540,6 +540,29 @@ class AIService:
         print(f"✅ Final feedback_text length: {len(feedback_text)} characters")
         print(f"✅ Final feedback_text preview: {feedback_text[:200]}...")
         
+        # region agent log
+        try:
+            import json as _json
+            import hashlib as _hashlib
+            import time as _time
+            _log_entry = {
+                "sessionId": "debug-session",
+                "runId": "pre-fix",
+                "hypothesisId": "H1",
+                "location": "services/ai_service.py:generate_feedback",
+                "message": "Final feedback_text before return",
+                "data": {
+                    "length": len(feedback_text),
+                    "sha256": _hashlib.sha256(feedback_text.encode("utf-8")).hexdigest(),
+                },
+                "timestamp": int(_time.time() * 1000),
+            }
+            with open("/home/darren/git/.cursor/debug.log", "a") as _f:
+                _f.write(_json.dumps(_log_entry) + "\n")
+        except Exception:
+            pass
+        # endregion
+        
         # VERIFY: Ensure we're not returning JSON-wrapped content
         if feedback_text.strip().startswith('```') or (feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text[:500]):
             print(f"❌ WARNING: feedback_text STILL contains JSON wrapper after all extraction attempts!")
