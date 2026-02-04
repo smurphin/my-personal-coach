@@ -20,13 +20,13 @@ See `docs/versioning.md` for full workflow.
 
 - **App Runner services**: staging, prod, and beta (plus single-tenant variants like `mark`, `shane`, `dom`) run in AWS App Runner.
 - **Deployment script**: Use `./scripts/deploy.sh <env> vX.Y.Z` as documented in `deploy.txt` (staging first, then prod/beta).
-- **App Runner rollout**: After pushing the image, trigger `aws apprunner start-deployment --service-arn <ARN> --region eu-west-1` for the target service.
 - **Health check**: Verify the deployed version with `GET /version` on the target environment.
 
 ## Git workflow for this repo
 
-- **Never work directly on `main`**: Always create a feature/patch branch (e.g. `fix-feedback-truncation-json`) before changing code.
-- **AI agent behaviour**: The assistant should:
-  - Create or switch to a feature branch before editing code for `my-personal-coach`.
+- **Never work directly on `main`**: Always create a feature/patch branch (e.g. `fix-feedback-truncation-json`, `docs-refresh-<date>`) before changing code **or documentation**.
+- **AI agent behaviour**: The assistant must:
+  - **Before any file edits** (`ApplyPatch`, `EditNotebook`, etc.), check the current branch.
+  - If the current branch is `main`, **create or switch to a feature branch first**, then perform edits only on that branch.
   - Avoid committing or pushing changes unless the user explicitly requests it.
-  - Treat `main` as tracking deployed state; any experimental or debugging changes live on feature branches.
+  - Treat `main` as tracking deployed state; any experimental, debugging, or documentation changes live on feature branches.

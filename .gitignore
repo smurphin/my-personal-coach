@@ -213,6 +213,11 @@ strava_data.json
 strava_token.json
 training_plan.md
 
+# Local deployment helpers (not for public repo)
+/deploy.txt
+/kaizen deployment cmds.txt
+/scripts/
+
 # Windows Metadata / Mark of the Web
 *:Zone.Identifier
 # =============================================================================

@@ -64,7 +64,7 @@ All application secrets are stored in **AWS Secrets Manager** and loaded at runt
 
 **Format:** Numeric string
 ```json
-"STRAVA_CLIENT_ID": "176694"
+"STRAVA_CLIENT_ID": "your_strava_app_client_id"
 ```
 
 **Used for:**
@@ -336,12 +336,12 @@ These allow you to tweak behaviour per environment without a code deploy. Useful
 # DON'T commit this file!
 cat > /tmp/staging-secrets.json << 'EOF'
 {
-  "STRAVA_CLIENT_ID": "188207",
-  "STRAVA_CLIENT_SECRET": "abc123def456...",
-  "STRAVA_VERIFY_TOKEN": "cb4fda9a37786db2cbfc7905e5458fe75874ed5a",
-  "FLASK_SECRET_KEY": "8f7d6e5c4b3a2918e7f6d5c4b3a29180...",
-  "GOOGLE_APPLICATION_CREDENTIALS_JSON": "{\"type\":\"service_account\"...}",
-  "GARMIN_ENCRYPTION_KEY": "XyZ9AbC8dEf7GhI6JkL5MnO4PqR3StU2VwX1YzA0BcD="
+  "STRAVA_CLIENT_ID": "your_strava_app_client_id",
+  "STRAVA_CLIENT_SECRET": "your_strava_app_client_secret",
+  "STRAVA_VERIFY_TOKEN": "your_random_verify_token",
+  "FLASK_SECRET_KEY": "your_generated_flask_secret_key",
+  "GOOGLE_APPLICATION_CREDENTIALS_JSON": "<single-line_service_account_json>",
+  "GARMIN_ENCRYPTION_KEY": "your_base64_garmin_encryption_key"
 }
 EOF
 ```
@@ -385,10 +385,7 @@ Check application logs after restart:
 aws logs tail /aws/apprunner/staging-kaizencoach-service/service --since 5m --region eu-west-1 | grep "Secrets loaded"
 ```
 
-Should show:
-```
-✅ Secrets loaded - STRAVA_CLIENT_ID: 188207...
-```
+Should show a line indicating secrets were loaded successfully, without exposing full values (for example, logging only that `STRAVA_CLIENT_ID` is set, not its actual value).
 
 ## Rotating Secrets
 
