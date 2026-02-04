@@ -47,10 +47,12 @@ This guide describes the versioning strategy for my-personal-coach, enabling:
 
 Images are tagged with **both**:
 
-- `:v1.2.3` — immutable, for rollbacks and traceability
+- `:vX.Y.Z` — immutable, for rollbacks and traceability (example: `:v1.2.3`)
 - `:latest` — convenience for "current" (mutable)
 
-App Runner pulls `:latest` from ECR. Versioned tags (`:v1.2.3`) are for ECR traceability and the `/version` endpoint.
+> **Note:** Any specific tags like `v1.2.3` in this document are **examples only**. The **actual** version for the app is always taken from the `VERSION` file at the repo root and mirrored in `CHANGELOG.md`.
+
+App Runner pulls `:latest` from ECR. Versioned tags (`:vX.Y.Z`) are for ECR traceability and the `/version` endpoint.
 
 **Runtime config:** AI model, temperature, webhook delay etc. are configurable per environment via Secrets Manager—no code deploy needed. See `docs/secrets-guide.md` §9.
 
@@ -124,3 +126,12 @@ When you move to staging + prod only:
 - Same versioning applies
 - Consider GitHub Actions to automate: merge to main → bump → build → push → deploy staging
 - Add a manual approval gate before prod
+
+## Documentation Maintenance Checklist
+
+When you change anything related to deployments, environments, or AI configuration, also:
+
+- Update the `VERSION` file and `CHANGELOG.md` as needed.
+- Reflect any changes to deployment flow in `docs/versioning.md` and, if relevant, `deploy.txt`.
+- Adjust environment/bootstrap details in `docs/multi_env_setup.md` or `docs/new_env_deployment.md` if Terraform, DNS, or secrets flows change.
+- Keep `docs/secrets-guide.md` in sync with how secrets are actually loaded (see `config.py` and `infra/secrets.tf`).

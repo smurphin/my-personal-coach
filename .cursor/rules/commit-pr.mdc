@@ -9,5 +9,6 @@ When the user says they're ready to commit to GitHub (or similar: "ready to push
 
 1. **Commit message**: Give a single-line git commit message (conventional commit style: feat/fix/chore/refactor etc.)
 2. **PR summary**: Give a brief PR description summarizing the changes
+3. **Branch safety**: Assume that `main` reflects deployed state. **Do not modify files or create commits on `main` directly.** Always base commit/PR suggestions on work done in a feature/patch branch (created or checked out by the user).
 
-Base both on the actual changes in the session/context.
+Base both the commit message and PR summary on the actual changes in the session/context.

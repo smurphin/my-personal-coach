@@ -672,7 +672,7 @@ if body_battery < 20 for multiple_days:
 **Rate Limiting:** Daily cache prevents excessive calls
 
 ### Google Gemini AI
-**Model:** gemini-pro  
+**Model:** gemini-2.5-flash (default)  
 **Use Cases:**
 - Weekly training analysis
 - Recovery state assessment

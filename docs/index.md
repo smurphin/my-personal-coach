@@ -49,7 +49,7 @@ Complete guides for deploying and managing environments:
 ### Stack
 - **Frontend**: Flask, Tailwind CSS, Chart.js
 - **Backend**: AWS App Runner, DynamoDB, S3
-- **AI**: Google Vertex AI (Gemini 2.5 Flash)
+- **AI**: Google Vertex AI (Gemini 2.5 Flash by default; optional Gemini 3 models for experiments)
 - **Integrations**: Strava OAuth2, Garmin Connect
 - **Infrastructure**: Terraform, Docker, AWS ECR
 
@@ -68,5 +68,5 @@ Complete guides for deploying and managing environments:
 
 ---
 
-<small>Last updated: December 2025 | [Edit on GitHub](https://github.com/smurphin/my-personal-coach/tree/main/docs)</small>
+<small>Last updated: February 2026 | [Edit on GitHub](https://github.com/smurphin/my-personal-coach/tree/main/docs)</small>
 

@@ -393,7 +393,7 @@ Ensure your `environments/{env}/vars.tfvars` has:
 app_name        = "kaizencoach"
 environment     = "staging"
 domain_name     = "staging.kaizencoach.training"
-r53_zone_id     = "Z0920467KPHM0P6Q2MOG"  # ID of kaizencoach.training zone
+r53_zone_id     = "<ROUTE53_ZONE_ID_FOR_KAIZENCOACH_TRAINING>"  # Look this up in Route 53
 
 common_tags = {
   Application = "kaizencoach"
@@ -478,16 +478,14 @@ terraform apply -var-file=environments/staging/vars.tfvars
 - **Total: 50-95 minutes** for complete bootstrap
 
 ### Account ID Reference
-Replace `321490400104` with your AWS account ID throughout this guide.
+Throughout this guide, treat any concrete AWS account IDs as **examples only**. When running commands, always substitute your own values:
+
+- `<AWS_ACCOUNT_ID>` – your AWS account ID
+- `<AWS_REGION>` – the target AWS region (e.g. `eu-west-1`)
 
 ### ECR Repository Pattern
 ```
-{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com/{ENVIRONMENT}-kaizencoach-app:latest
-```
-
-Example:
-```
-321490400104.dkr.ecr.eu-west-1.amazonaws.com/staging-kaizencoach-app:latest
+<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/<ENVIRONMENT>-kaizencoach-app:latest
 ```
 
 ## Environment Checklist
