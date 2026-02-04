@@ -495,6 +495,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     # region agent log
     try:
         import json as _json
+        import hashlib as _hashlib
         _log_entry = {
             "sessionId": "debug-session",
             "runId": "pre-fix",
@@ -510,7 +511,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             },
             "timestamp": int(time.time() * 1000),
         }
-        with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+        with open("/home/darren/git/.cursor/debug.log", "a") as _f:
             _f.write(_json.dumps(_log_entry) + "\n")
     except Exception:
         pass
@@ -531,6 +532,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         # region agent log
         try:
             import json as _json
+            import time as _time
             _log_entry = {
                 "sessionId": "debug-session",
                 "runId": "pre-fix",
@@ -541,9 +543,9 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
                     "athlete_id": athlete_id,
                     "error": str(e),
                 },
-                "timestamp": int(time.time() * 1000),
+                "timestamp": int(_time.time() * 1000),
             }
-            with open("/home/darrenmurphy/git/.cursor/debug.log", "a") as _f:
+            with open("/home/darren/git/.cursor/debug.log", "a") as _f:
                 _f.write(_json.dumps(_log_entry) + "\n")
         except Exception:
             pass
@@ -570,6 +572,32 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         "feedback_markdown": feedback_text,  # Use feedback_text from tuple
         "logged_activity_ids": all_activity_ids
     }
+    
+    # region agent log
+    try:
+        import json as _json
+        import hashlib as _hashlib
+        import time as _time
+        _log_entry = {
+            "sessionId": "debug-session",
+            "runId": "pre-fix",
+            "hypothesisId": "H2",
+            "location": "routes/api_routes.py:feedback_log_entry",
+            "message": "New feedback_log entry before insert (webhook path)",
+            "data": {
+                "activity_id": int(analyzed_sessions[0]['id']),
+                "feedback_text_length": len(feedback_text),
+                "feedback_text_sha256": _hashlib.sha256(feedback_text.encode("utf-8")).hexdigest(),
+                "entry_feedback_markdown_length": len(str(new_log_entry["feedback_markdown"])),
+                "entry_feedback_markdown_sha256": _hashlib.sha256(str(new_log_entry["feedback_markdown"]).encode("utf-8")).hexdigest(),
+            },
+            "timestamp": int(_time.time() * 1000),
+        }
+        with open("/home/darren/git/.cursor/debug.log", "a") as _f:
+            _f.write(_json.dumps(_log_entry) + "\n")
+    except Exception:
+        pass
+    # endregion
     
     feedback_log.insert(0, new_log_entry)
     user_data['feedback_log'] = feedback_log

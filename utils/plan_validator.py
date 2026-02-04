@@ -162,22 +162,13 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
     if match:
         try:
             json_str = match.group(1)
-            # Try parsing - if it fails due to size, try to extract just the feedback_text field
-            try:
-                return json.loads(json_str)
-            except json.JSONDecodeError as e:
-                # If JSON is too large or malformed, try to extract just feedback_text using regex
-                # This is a fallback for very large responses that might have parsing issues
-                feedback_text_match = re.search(r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n|\\r|\\t)*)"', json_str, re.DOTALL)
-                if feedback_text_match:
-                    # We found feedback_text but couldn't parse full JSON
-                    # Return a minimal dict with just feedback_text
-                    extracted_text = feedback_text_match.group(1)
-                    # Unescape common sequences
-                    extracted_text = extracted_text.replace('\\"', '"').replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t').replace('\\\\', '\\')
-                    return {'feedback_text': extracted_text}
-                raise e
+            # Try parsing the JSON block directly
+            # If this fails (e.g. due to malformed / unescaped quotes), we treat the
+            # whole response as non-JSON rather than attempting a partial regex-based
+            # extraction of feedback_text, which can silently truncate content.
+            return json.loads(json_str)
         except Exception:
+            # Fall through to the non–code-block strategies below
             pass
     
     # Third: try to find JSON object by finding the first { and matching to the last }

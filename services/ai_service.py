@@ -480,6 +480,45 @@ class AIService:
                         print(f"✅ Extracted feedback_text using regex fallback")
             except Exception as e:
                 print(f"⚠️  Regex extraction fallback failed: {e}")
+            
+            # OPTIONAL: Try to salvage plan_v2 from a malformed JSON response.
+            # Even if the overall JSON is invalid (e.g. due to unescaped quotes in feedback_text),
+            # the plan_v2 sub-object may still be valid JSON. We attempt to extract and validate it.
+            if plan_update_json is None and '"plan_v2"' in ai_response:
+                try:
+                    import re
+                    import json as json_module
+                    
+                    plan_key_match = re.search(r'"plan_v2"\s*:\s*\{', ai_response)
+                    if plan_key_match:
+                        start_idx = plan_key_match.start(0)
+                        # Find the opening brace for the plan_v2 object
+                        brace_start = ai_response.find('{', plan_key_match.start())
+                        if brace_start != -1:
+                            brace_count = 0
+                            end_idx = None
+                            for i, ch in enumerate(ai_response[brace_start:], brace_start):
+                                if ch == '{':
+                                    brace_count += 1
+                                elif ch == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        end_idx = i
+                                        break
+                            if end_idx is not None:
+                                plan_str = ai_response[brace_start:end_idx + 1]
+                                try:
+                                    plan_candidate = json_module.loads(plan_str)
+                                    validated_plan, error = validate_and_load_plan_v2(plan_candidate)
+                                    if validated_plan:
+                                        plan_update_json = validated_plan.to_dict()
+                                        print("✅ Salvaged plan_v2 from malformed JSON response")
+                                    else:
+                                        print(f"⚠️  Salvaged plan_v2 candidate failed validation: {error}")
+                                except Exception as inner_e:
+                                    print(f"⚠️  Failed to parse salvaged plan_v2 JSON: {inner_e}")
+                except Exception as e:
+                    print(f"⚠️  Error while attempting to salvage plan_v2 from malformed JSON: {e}")
         
         # STEP 4: Clean up the feedback_text - remove any remaining JSON artifacts
         # If feedback_text still contains JSON structure, it means extraction partially failed
@@ -539,6 +578,29 @@ class AIService:
         
         print(f"✅ Final feedback_text length: {len(feedback_text)} characters")
         print(f"✅ Final feedback_text preview: {feedback_text[:200]}...")
+        
+        # region agent log
+        try:
+            import json as _json
+            import hashlib as _hashlib
+            import time as _time
+            _log_entry = {
+                "sessionId": "debug-session",
+                "runId": "pre-fix",
+                "hypothesisId": "H1",
+                "location": "services/ai_service.py:generate_feedback",
+                "message": "Final feedback_text before return",
+                "data": {
+                    "length": len(feedback_text),
+                    "sha256": _hashlib.sha256(feedback_text.encode("utf-8")).hexdigest(),
+                },
+                "timestamp": int(_time.time() * 1000),
+            }
+            with open("/home/darren/git/.cursor/debug.log", "a") as _f:
+                _f.write(_json.dumps(_log_entry) + "\n")
+        except Exception:
+            pass
+        # endregion
         
         # VERIFY: Ensure we're not returning JSON-wrapped content
         if feedback_text.strip().startswith('```') or (feedback_text.strip().startswith('{') and '"feedback_text"' in feedback_text[:500]):

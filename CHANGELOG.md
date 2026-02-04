@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- (Add changes here before releasing)
+## [0.1.1] - 2026-02-04
+
+### Fixed
+
+- Prevent JSON feedback extraction from truncating `feedback_text` when the AI returns malformed JSON (e.g. unescaped quotes inside code blocks).
 
 ## [0.1.0] - 2025-02-03
 
