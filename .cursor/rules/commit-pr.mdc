@@ -5,10 +5,12 @@ alwaysApply: true
 
 # GitHub Commit & PR
 
+**Branch safety (always):** `main` reflects deployed state. **Do not modify files or create commits on `main`.** If the user asks for code or doc changes and you have not yet checked the branch, check the current branch first; if it is `main`, create or switch to a feature branch before making any edits. See versioning.mdc for the mandatory pre-flight.
+
 When the user says they're ready to commit to GitHub (or similar: "ready to push", "write my commit", "PR summary"):
 
 1. **Commit message**: Give a single-line git commit message (conventional commit style: feat/fix/chore/refactor etc.)
 2. **PR summary**: Give a brief PR description summarizing the changes
-3. **Branch safety**: Assume that `main` reflects deployed state. **Do not modify files or create commits on `main` directly.** Always base commit/PR suggestions on work done in a feature/patch branch (created or checked out by the user).
+3. Base both on work done in a feature/patch branch (never on `main`).
 
 Base both the commit message and PR summary on the actual changes in the session/context.

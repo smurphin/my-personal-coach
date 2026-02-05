@@ -10,6 +10,7 @@ from markdown_manager import render_markdown_with_toc
 from utils.decorators import login_required
 from utils.formatters import format_seconds, format_activity_date
 from utils.session_matcher import match_sessions_batch
+from utils.plan_validator import extract_feedback_text_by_structure
 import json
 
 feedback_bp = Blueprint('feedback', __name__)
@@ -85,17 +86,17 @@ def extract_feedback_text_from_json(feedback_markdown):
         except json.JSONDecodeError as e:
             print(f"⚠️  JSON decode error: {e}")
             print(f"   Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}")
+            # Try structure-based extraction first (handles unescaped quotes in content)
+            extracted = extract_feedback_text_by_structure(feedback_str)
+            if extracted and len(extracted) > 0:
+                print(f"✅ Extracted feedback_text using structure-based fallback (length: {len(extracted)})")
+                return extracted
             print(f"   Attempting to extract feedback_text using regex fallback...")
-            # Fallback: try to extract using regex - handle multiline strings with escaped characters
             try:
-                # More robust pattern that handles multiline strings with escaped quotes and newlines
-                # Look for "feedback_text": "..." or "feedback_text": """..."""
                 pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n|\\r|\\t)*)"'
                 match = re.search(pattern, feedback_str, re.DOTALL)
                 if match:
-                    # The matched string will have escaped sequences - decode them properly
                     extracted = match.group(1)
-                    # Replace escaped sequences
                     extracted = extracted.replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t')
                     extracted = extracted.replace('\\"', '"').replace("\\'", "'")
                     extracted = extracted.replace('\\\\', '\\')
