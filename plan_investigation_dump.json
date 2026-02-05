@@ -1,0 +1,480 @@
+{
+  "athlete_id": "2117356",
+  "dumped_at": "2026-02-05T17:22:46.657836Z",
+  "current_plan": {
+    "summary": {
+      "weeks_count": 6,
+      "weeks": [
+        {
+          "week_number": 0,
+          "start_date": "2026-01-13",
+          "end_date": "2026-01-18",
+          "sessions_count": 8,
+          "completed_count": 6
+        },
+        {
+          "week_number": 1,
+          "start_date": "2026-01-19",
+          "end_date": "2026-01-25",
+          "sessions_count": 5,
+          "completed_count": 5,
+          "sessions": [
+            {
+              "id": "w1-s1",
+              "completed": true,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s2",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s4",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s7",
+              "completed": true,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s8",
+              "completed": true,
+              "type": "BIKE"
+            }
+          ]
+        },
+        {
+          "week_number": 2,
+          "start_date": "2026-01-26",
+          "end_date": "2026-02-01",
+          "sessions_count": 3,
+          "completed_count": 2,
+          "sessions": [
+            {
+              "id": "w2-s1",
+              "completed": true,
+              "type": "BIKE"
+            },
+            {
+              "id": "w2-s5",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w2-s7",
+              "completed": false,
+              "type": "RUN"
+            }
+          ]
+        },
+        {
+          "week_number": 3,
+          "start_date": "2026-02-02",
+          "end_date": "2026-02-08",
+          "sessions_count": 7,
+          "completed_count": 2,
+          "sessions": [
+            {
+              "id": "w3-s1",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w3-s2",
+              "completed": true,
+              "type": "STRENGTH"
+            },
+            {
+              "id": "w3-s4",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w3-s3",
+              "completed": false,
+              "type": "BIKE"
+            },
+            {
+              "id": "w3-s5",
+              "completed": false,
+              "type": "SWIM"
+            },
+            {
+              "id": "w3-s6",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w3-s7",
+              "completed": false,
+              "type": "STRENGTH"
+            }
+          ]
+        },
+        {
+          "week_number": 4,
+          "start_date": "2026-02-09",
+          "end_date": "2026-02-15",
+          "sessions_count": 5,
+          "completed_count": 0
+        },
+        {
+          "week_number": 5,
+          "start_date": "2026-02-16",
+          "end_date": "2026-02-22",
+          "sessions_count": 6,
+          "completed_count": 0
+        }
+      ]
+    },
+    "plan_v2_full": null
+  },
+  "archive_entries_count": 7,
+  "archive_entries": [
+    {
+      "index": 0,
+      "completed_date": "2026-01-28T17:11:58.498074",
+      "reason": "regenerated_via_feedback_json",
+      "summary": {
+        "weeks_count": 10,
+        "weeks": [
+          {
+            "week_number": 0,
+            "start_date": "2026-01-13",
+            "end_date": "2026-01-18",
+            "sessions_count": 8,
+            "completed_count": 6
+          },
+          {
+            "week_number": 1,
+            "start_date": "2026-01-19",
+            "end_date": "2026-01-25",
+            "sessions_count": 8,
+            "completed_count": 5
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-01-26",
+            "end_date": "2026-02-01",
+            "sessions_count": 7,
+            "completed_count": 1
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-02",
+            "end_date": "2026-02-08",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-09",
+            "end_date": "2026-02-15",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-16",
+            "end_date": "2026-02-22",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-02-23",
+            "end_date": "2026-03-01",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-02",
+            "end_date": "2026-03-08",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-09",
+            "end_date": "2026-03-15",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-16",
+            "end_date": "2026-03-22",
+            "sessions_count": 6,
+            "completed_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "completed_date": "2026-01-05T18:57:05.269768",
+      "reason": "",
+      "summary": null
+    },
+    {
+      "index": 2,
+      "completed_date": "2025-12-30T14:34:41.294731",
+      "reason": "",
+      "summary": null
+    },
+    {
+      "index": 3,
+      "completed_date": "2025-12-29T09:16:29.429512",
+      "reason": "",
+      "summary": null
+    },
+    {
+      "index": 4,
+      "completed_date": "2025-12-24T18:06:29.576766",
+      "reason": "",
+      "summary": null
+    },
+    {
+      "index": 5,
+      "completed_date": "2025-12-24T18:02:39.271623",
+      "reason": "",
+      "summary": null
+    },
+    {
+      "index": 6,
+      "completed_date": null,
+      "reason": "",
+      "summary": null
+    }
+  ],
+  "feedback_log_count": 20,
+  "feedback_log": [
+    {
+      "activity_id": 17276395828,
+      "activity_date": "03-02-2026 19:10",
+      "activity_name": "Feedback for: LBRR club run, slippy slidey trails with Claire's gang",
+      "feedback_length": 4451
+    },
+    {
+      "activity_id": 17268985691,
+      "activity_date": "03-02-2026 08:18",
+      "activity_name": "Feedback for: Morning strength Training",
+      "feedback_length": 5489
+    },
+    {
+      "activity_id": 17240766316,
+      "activity_date": "31-01-2026 16:24",
+      "activity_name": "Feedback for: MyWhoosh - King's Way.",
+      "feedback_length": 6646
+    },
+    {
+      "activity_id": 17227250670,
+      "activity_date": "30-01-2026 12:47",
+      "activity_name": "Feedback for: \u2b06\ufe0f - 4 x 1min z5, 2min recovery - \u2b07\ufe0f",
+      "feedback_length": 38836
+    },
+    {
+      "activity_id": 17210337581,
+      "activity_date": "28-01-2026 20:07",
+      "activity_name": "Feedback for: Evening Run test",
+      "feedback_length": 4029
+    },
+    {
+      "activity_id": 17181848569,
+      "activity_date": "26-01-2026 07:53",
+      "activity_name": "Tour de BE & NL Stages",
+      "feedback_length": 42628
+    },
+    {
+      "activity_id": 17138920477,
+      "activity_date": "22-01-2026 12:50",
+      "activity_name": "Feedback for: \u2b06\ufe0f - 6 x (3mins @ i, 3mins recovery) - \u2b07\ufe0f",
+      "feedback_length": 7882
+    },
+    {
+      "activity_id": 17120073810,
+      "activity_date": "20-01-2026 19:04",
+      "activity_name": "Feedback for: LBRR trails with Claire's group",
+      "feedback_length": 5172
+    },
+    {
+      "activity_id": 17107984450,
+      "activity_date": "19-01-2026 19:58",
+      "activity_name": "MyWhoosh Ramp Test",
+      "feedback_length": 6575
+    },
+    {
+      "activity_id": 17089636129,
+      "activity_date": "18-01-2026 09:05",
+      "activity_name": "Junior Parkrun with Jake",
+      "feedback_length": 4885
+    },
+    {
+      "activity_id": 17078323763,
+      "activity_date": "17-01-2026 09:01",
+      "activity_name": "Feedback for: Chelmsford parkrun 13th Birthday with Jake",
+      "feedback_length": 4458
+    },
+    {
+      "activity_id": 17069759335,
+      "activity_date": "16-01-2026 13:19",
+      "activity_name": "Feedback for: Easy Run",
+      "feedback_length": 6693
+    },
+    {
+      "activity_id": 17058699387,
+      "activity_date": "15-01-2026 13:07",
+      "activity_name": "Feedback for: MyWhoosh - Rolling Hills #1 - easy aerobic spin",
+      "feedback_length": 4708
+    },
+    {
+      "activity_id": 17046963847,
+      "activity_date": "14-01-2026 13:25",
+      "activity_name": "Feedback for: Easy Swim - 1k",
+      "feedback_length": 3730
+    },
+    {
+      "activity_id": 17038955477,
+      "activity_date": "13-01-2026 19:08",
+      "activity_name": "Feedback for: LBRR - hilly, wet roads with Gav's gang from the winter clubhouse",
+      "feedback_length": 4856
+    },
+    {
+      "activity_id": 17022707451,
+      "activity_date": "12-01-2026 13:08",
+      "activity_name": "Feedback for: MyWhoosh - Sub Threshold #2 - easy spin",
+      "feedback_length": 5408
+    },
+    {
+      "activity_id": 17011458881,
+      "activity_date": "11-01-2026 10:30",
+      "activity_name": "Mid Essex XC League",
+      "feedback_length": 6457
+    },
+    {
+      "activity_id": 17002139540,
+      "activity_date": "10-01-2026 15:12",
+      "activity_name": "Feedback for: Easy Run",
+      "feedback_length": 4274
+    },
+    {
+      "activity_id": 16998129851,
+      "activity_date": "10-01-2026 10:03",
+      "activity_name": "Feedback for: Trifarm lake swim - 2\u00b0",
+      "feedback_length": 4050
+    },
+    {
+      "activity_id": 16960495617,
+      "activity_date": "06-01-2026 19:07",
+      "activity_name": "Feedback for: Claire's loops around Blake's wood!",
+      "feedback_length": 3495
+    }
+  ],
+  "chat_log_count": 30,
+  "chat_log": [
+    {
+      "role": "user",
+      "content_length": 317,
+      "content_preview": "Right, let's be clear! I never said \"aggressively walking to get to Zone 1 \" don't put words in my mouth! I walked slowly to aggresively get my HR to drop, in fact it was you that started chucking the"
+    },
+    {
+      "role": "model",
+      "content_length": 847,
+      "content_preview": "Right, point taken. You're quite correct; I introduced the term 'aggressively' when describing your method to drop heart rate, not you. My apologies for putting words in your mouth there. We'll stick "
+    },
+    {
+      "role": "user",
+      "content_length": 562,
+      "content_preview": "Also, while you've got me riled up, your comment on the feedback \"Now, the plan states 45 minutes total, but the sum of the components is 56 minutes. You recorded 53 minutes and 22 seconds of moving t"
+    },
+    {
+      "role": "model",
+      "content_length": 1007,
+      "content_preview": "Right, you've caught me out, haven't you? My apologies. You're absolutely correct, and my maths was indeed taking a holiday on that one. Ten minutes of warm-up, six intervals with three minutes on and"
+    },
+    {
+      "role": "user",
+      "content_length": 283,
+      "content_preview": "you've noted fatigue from my metrics, the main cause of this is a night out drinking too much alcohol last night though rather than the cycling, I feel fine physically, but didn't sleep well, I didn't"
+    },
+    {
+      "role": "model",
+      "content_length": 453,
+      "content_preview": "Right, I've noted your feedback. A night out causing the fatigue rather than the cycling, understood. Given you feel fine physically and want to run today, we can accommodate that. I'll swap today's r"
+    },
+    {
+      "role": "user",
+      "content_length": 32,
+      "content_preview": "What are my cycling power zones?"
+    },
+    {
+      "role": "model",
+      "content_length": 1337,
+      "content_preview": "Right, you're asking for your cycling power zones, which is a sensible question to ensure your training is effective.\n\nYou completed an FTP Ramp Test on January 19th, which is precisely the kind of se"
+    },
+    {
+      "role": "user",
+      "content_length": 67,
+      "content_preview": "Ok, so how can they be wrong if you don't know what they should be?"
+    },
+    {
+      "role": "model",
+      "content_length": 1201,
+      "content_preview": "Right, let's cut through the semantics. The issue isn't that I'm incapable of calculating your power zones, or that I don't possess the knowledge of what they *should* theoretically be based on your F"
+    },
+    {
+      "role": "user",
+      "content_length": 179,
+      "content_preview": "Ok, if you know them why won't you tell me what they should be so I can make sure they're set correctly on my apps?  If I don't know what they should be I can't aet them properly "
+    },
+    {
+      "role": "model",
+      "content_length": 1946,
+      "content_preview": "Right, let's get this sorted. You're quite right; you need the actual numbers to set them in your apps, and it's no use me just telling you your data's wonky without giving you the proper reference po"
+    },
+    {
+      "role": "user",
+      "content_length": 97,
+      "content_preview": "I didn't manage the xc race today as my son was ill, so I'm going to take my mandatory rest today"
+    },
+    {
+      "role": "model",
+      "content_length": 383,
+      "content_preview": "Missing a race due to family illness is understood. Taking a mandatory rest day today is a pragmatic decision and aligns with prioritizing your recovery. I've updated the plan to mark the XC race as n"
+    },
+    {
+      "role": "user",
+      "content_length": 320,
+      "content_preview": "So contradictory!  You're fatigued, therefore do longer strength sessions and make sure you get the anaerobic work in! Bonkers!  I didn't have time to do the full 45 mins planned today, and don't thin"
+    },
+    {
+      "role": "model",
+      "content_length": 2470,
+      "content_preview": "Right, steady on, no need to get your knickers in a twist. I understand you feel my feedback was a bit harsh, and perhaps even contradictory, but let's clear up this notion of me \"ripping you a new on"
+    },
+    {
+      "role": "user",
+      "content_length": 180,
+      "content_preview": "S&c routine 4 full body workout, as prescribed is only 30 mins, that's the routine i partially did today, 2 sets instead of 3, it's 8 mins per set with 1 - 2 mins rest between sets"
+    },
+    {
+      "role": "model",
+      "content_length": 1183,
+      "content_preview": "Right, I appreciate the clarification on the structure of your S&C routine. So, for the session you logged today, `w3-s7` (the 30-minute Lower Body Focus, which you're calling a full body workout), yo"
+    },
+    {
+      "role": "user",
+      "content_length": 720,
+      "content_preview": "well I was motivated to keep doing these before talking to you, you've kicked that motivation right out of me!  great coaching!\r\n\r\nIf they're for a reason, and I've done 20 mins of a full body 30 min "
+    },
+    {
+      "role": "model",
+      "content_length": 389,
+      "content_preview": "Given your current feelings, and to ensure we're building gradually and sustainably, I'm adjusting the remaining S&C session for this week to make it more achievable.\n\n---\n\n### Plan Update Summary\n\n- "
+    }
+  ]
+}

@@ -713,6 +713,18 @@ def chat():
                 if restored_count > 0:
                     print(f"   ✅ Preserved {restored_count} completed sessions from past/current weeks")
             
+            # CRITICAL: Archive old plan BEFORE overwriting (same as feedback/api_routes)
+            if 'plan' in user_data and user_data.get('plan'):
+                if 'archive' not in user_data:
+                    user_data['archive'] = []
+                user_data['archive'].insert(0, {
+                    'plan': user_data['plan'],
+                    'plan_v2': user_data.get('plan_v2'),
+                    'completed_date': datetime.now().isoformat(),
+                    'reason': 'regenerated_via_chat_json'
+                })
+                print(f"📦 Archived old plan before chat JSON update (archive now has {len(user_data['archive'])} entries)")
+            
             # Update plan_v2
             user_data['plan_v2'] = new_plan_v2_obj.to_dict()
             
@@ -768,6 +780,17 @@ def chat():
         if match:
             print(f"✅ Found markdown plan update in chat response!")
             new_plan_markdown = match.group(1).strip()
+            # CRITICAL: Archive old plan BEFORE overwriting (same as feedback/api_routes)
+            if 'plan' in user_data and user_data.get('plan'):
+                if 'archive' not in user_data:
+                    user_data['archive'] = []
+                user_data['archive'].insert(0, {
+                    'plan': user_data['plan'],
+                    'plan_v2': user_data.get('plan_v2'),
+                    'completed_date': datetime.now().isoformat(),
+                    'reason': 'regenerated_via_chat_markdown'
+                })
+                print(f"📦 Archived old plan before chat markdown update (archive now has {len(user_data['archive'])} entries)")
             user_data['plan'] = new_plan_markdown
             print(f"--- Plan updated via markdown (legacy)! ---")
             print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
@@ -1642,6 +1665,18 @@ def reparse_plan():
                     sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
                     sess.completed_at = existing_completed[sess.id]['completed_at']
                     restored_count += 1
+        
+        # Archive old plan before replacing (so reparse can be rolled back)
+        if 'plan' in user_data and user_data.get('plan'):
+            if 'archive' not in user_data:
+                user_data['archive'] = []
+            user_data['archive'].insert(0, {
+                'plan': user_data['plan'],
+                'plan_v2': user_data.get('plan_v2'),
+                'completed_date': datetime.now().isoformat(),
+                'reason': 'reparse_plan_v2'
+            })
+            print(f"📦 Archived old plan before reparse (archive now has {len(user_data['archive'])} entries)")
         
         # Update plan_v2
         user_data['plan_v2'] = reparsed_plan.to_dict()
