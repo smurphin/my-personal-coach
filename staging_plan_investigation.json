@@ -1,0 +1,5224 @@
+{
+  "athlete_id": "196048876",
+  "dumped_at": "2026-02-05T21:40:54.482636+00:00",
+  "current_plan": {
+    "summary": {
+      "weeks_count": 11,
+      "weeks": [
+        {
+          "week_number": 1,
+          "start_date": "2026-01-20",
+          "end_date": "2026-01-26",
+          "sessions_count": 10,
+          "completed_count": 2,
+          "sessions": [
+            {
+              "id": "w1-s1",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s2",
+              "completed": false,
+              "type": "STRENGTH"
+            },
+            {
+              "id": "w1-s3",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s4",
+              "completed": true,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s5",
+              "completed": false,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s6",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s7",
+              "completed": false,
+              "type": "OTHER"
+            },
+            {
+              "id": "w1-s8",
+              "completed": false,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s9",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s10",
+              "completed": false,
+              "type": "RUN"
+            }
+          ]
+        },
+        {
+          "week_number": 2,
+          "start_date": "2026-01-27",
+          "end_date": "2026-02-02",
+          "sessions_count": 7,
+          "completed_count": 0,
+          "sessions": [
+            {
+              "id": "w2-s1",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w2-s2",
+              "completed": false,
+              "type": "STRENGTH"
+            },
+            {
+              "id": "w2-s3",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w2-s4",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w2-s5",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w2-s6",
+              "completed": false,
+              "type": "STRENGTH"
+            },
+            {
+              "id": "w2-s7",
+              "completed": false,
+              "type": "SWIM"
+            }
+          ]
+        },
+        {
+          "week_number": 3,
+          "start_date": "2026-01-20",
+          "end_date": "2026-01-26",
+          "sessions_count": 10,
+          "completed_count": 2,
+          "sessions": [
+            {
+              "id": "w1-s1",
+              "completed": true,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s2",
+              "completed": false,
+              "type": "STRENGTH"
+            },
+            {
+              "id": "w1-s3",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s4",
+              "completed": true,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s5",
+              "completed": false,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s6",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s7",
+              "completed": false,
+              "type": "OTHER"
+            },
+            {
+              "id": "w1-s8",
+              "completed": false,
+              "type": "BIKE"
+            },
+            {
+              "id": "w1-s9",
+              "completed": false,
+              "type": "RUN"
+            },
+            {
+              "id": "w1-s10",
+              "completed": false,
+              "type": "RUN"
+            }
+          ]
+        },
+        {
+          "week_number": 4,
+          "start_date": "2026-01-27",
+          "end_date": "2026-02-02",
+          "sessions_count": 7,
+          "completed_count": 0
+        },
+        {
+          "week_number": 5,
+          "start_date": "2026-02-03",
+          "end_date": "2026-02-09",
+          "sessions_count": 7,
+          "completed_count": 1
+        },
+        {
+          "week_number": 6,
+          "start_date": "2026-02-10",
+          "end_date": "2026-02-16",
+          "sessions_count": 6,
+          "completed_count": 0
+        },
+        {
+          "week_number": 7,
+          "start_date": "2026-02-17",
+          "end_date": "2026-02-23",
+          "sessions_count": 7,
+          "completed_count": 0
+        },
+        {
+          "week_number": 8,
+          "start_date": "2026-02-24",
+          "end_date": "2026-03-02",
+          "sessions_count": 6,
+          "completed_count": 0
+        },
+        {
+          "week_number": 9,
+          "start_date": "2026-03-03",
+          "end_date": "2026-03-09",
+          "sessions_count": 7,
+          "completed_count": 0
+        },
+        {
+          "week_number": 10,
+          "start_date": "2026-03-10",
+          "end_date": "2026-03-16",
+          "sessions_count": 6,
+          "completed_count": 0
+        },
+        {
+          "week_number": 11,
+          "start_date": "2026-03-17",
+          "end_date": "2026-03-21",
+          "sessions_count": 3,
+          "completed_count": 0
+        }
+      ]
+    },
+    "plan_v2_full": {
+      "athlete_goal": "Unknown goal",
+      "weeks": [
+        {
+          "end_date": "2026-01-26",
+          "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+          "sessions": [
+            {
+              "date": "2026-01-21",
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+              "id": "w1-s1",
+              "completed": true,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Tuesday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+              "id": "w1-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+              "id": "w1-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "date": "2026-01-25",
+              "completed_at": "2026-01-26T07:53:53Z",
+              "duration_minutes": 180,
+              "scheduled": false,
+              "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+              "id": "w1-s4",
+              "completed": true,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Saturday",
+              "strava_activity_id": 17220818282
+            },
+            {
+              "date": "2026-01-26",
+              "duration_minutes": 240,
+              "scheduled": false,
+              "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+              "id": "w1-s5",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Sunday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+              "id": "w1-s6",
+              "completed": false,
+              "type": "RUN",
+              "priority": "STRETCH",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 20,
+              "scheduled": true,
+              "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+              "id": "w1-s7",
+              "completed": false,
+              "type": "OTHER",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+              "id": "w1-s8",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "STRETCH",
+              "zones": {
+                "hr": "5"
+              },
+              "day": "Anytime"
+            },
+            {
+              "date": "2026-01-22",
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+              "id": "w1-s9",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4-5",
+                "pace": "03:59/km"
+              },
+              "day": "Wednesday"
+            },
+            {
+              "date": "2026-01-24",
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+              "id": "w1-s10",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2-3"
+              },
+              "day": "Friday"
+            }
+          ],
+          "week_number": 1,
+          "start_date": "2026-01-20"
+        },
+        {
+          "end_date": "2026-02-02",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": true,
+              "description": "Social Club Run, 60 mins, Zone 2. Reinstated for a healthy calf.",
+              "id": "w2-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Tuesday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Lower Body Focus, 30 mins.",
+              "id": "w2-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": true,
+              "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides. Reinstated for a healthy calf.",
+              "id": "w2-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Thursday"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Little Baddow Ridge Runners XC Race (7.5km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5. **CONDITIONAL on calf being 100% pain-free.** If not, substitute with non-impact cross-training.",
+              "id": "w2-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4-5"
+              },
+              "day": "Saturday"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": true,
+              "description": "Easy Recovery, 45 mins, Zone 1-2. Reinstated for a healthy calf.",
+              "id": "w2-s5",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "1-2"
+              },
+              "day": "Sunday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins.",
+              "id": "w2-s6",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Pool Session, 1km, 30 mins",
+              "id": "w2-s7",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 2,
+          "start_date": "2026-01-27"
+        },
+        {
+          "end_date": "2026-01-26",
+          "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+          "sessions": [
+            {
+              "date": "2026-01-21",
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+              "id": "w1-s1",
+              "completed": true,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Tuesday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+              "id": "w1-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+              "id": "w1-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "date": "2026-01-25",
+              "completed_at": "2026-01-26T07:53:53Z",
+              "duration_minutes": 180,
+              "scheduled": false,
+              "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+              "id": "w1-s4",
+              "completed": true,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Saturday",
+              "strava_activity_id": 17220818282
+            },
+            {
+              "date": "2026-01-26",
+              "duration_minutes": 240,
+              "scheduled": false,
+              "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+              "id": "w1-s5",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Sunday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+              "id": "w1-s6",
+              "completed": false,
+              "type": "RUN",
+              "priority": "STRETCH",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 20,
+              "scheduled": true,
+              "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+              "id": "w1-s7",
+              "completed": false,
+              "type": "OTHER",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+              "id": "w1-s8",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "STRETCH",
+              "zones": {
+                "hr": "5"
+              },
+              "day": "Anytime"
+            },
+            {
+              "date": "2026-01-22",
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2).",
+              "id": "w1-s9",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4-5",
+                "pace": "03:59/km"
+              },
+              "day": "Wednesday"
+            },
+            {
+              "date": "2026-01-24",
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled.",
+              "id": "w1-s10",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2-3"
+              },
+              "day": "Friday"
+            }
+          ],
+          "week_number": 3,
+          "start_date": "2026-01-20"
+        },
+        {
+          "end_date": "2026-02-02",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": true,
+              "description": "Social Club Run, 60 mins, Zone 2.",
+              "id": "w2-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Tuesday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Lower Body Focus, 30 mins.",
+              "id": "w2-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": true,
+              "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides.",
+              "id": "w2-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Thursday"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Little Baddow Ridge Runners XC Race (7.5km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5.",
+              "id": "w2-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4-5"
+              },
+              "day": "Saturday"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": true,
+              "description": "Easy Recovery, 45 mins, Zone 1-2.",
+              "id": "w2-s5",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "1-2"
+              },
+              "day": "Sunday"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins.",
+              "id": "w2-s6",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Pool Session, 1km, 30 mins",
+              "id": "w2-s7",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 4,
+          "start_date": "2026-01-27"
+        },
+        {
+          "end_date": "2026-02-09",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w3-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins",
+              "id": "w3-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Steady Endurance Turbo, 1 hour, Zone 2",
+              "id": "w3-s3",
+              "completed": true,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides",
+              "id": "w3-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Springfield XC Race (8km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5",
+              "id": "w3-s5",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4-5"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Easy Recovery, 30 mins, Zone 1-2. Shortened to ensure freshness for Sunday.",
+              "id": "w3-s6",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "1-2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Full Body Circuit, 30 mins",
+              "id": "w3-s7",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 5,
+          "start_date": "2026-02-03"
+        },
+        {
+          "end_date": "2026-02-16",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w4-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Lower Body Focus, 30 mins",
+              "id": "w4-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Long Interval Run, 60 mins - 15 min warm up, 5x6 min Zone 4 with 3 min Zone 1-2 recovery, 15 min cool down",
+              "id": "w4-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Aerobic, 45 mins, Zone 2",
+              "id": "w4-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins",
+              "id": "w4-s5",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 40,
+              "scheduled": false,
+              "description": "Pool Session, 1.5km, 40 mins",
+              "id": "w4-s6",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 6,
+          "start_date": "2026-02-10"
+        },
+        {
+          "end_date": "2026-02-23",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w5-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins",
+              "id": "w5-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 120,
+              "scheduled": false,
+              "description": "Long Zone 2, 2 hours, Zone 2",
+              "id": "w5-s3",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 75,
+              "scheduled": false,
+              "description": "Hill Repeats, 75 mins - 15 min warm up, 8x3 min Zone 5 hill repeats (hard effort uphill) with jog down recovery, 15 min cool down",
+              "id": "w5-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "5"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Recovery, 45 mins, Zone 2",
+              "id": "w5-s5",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Upper Body & Back Focus, 30 mins",
+              "id": "w5-s6",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 40,
+              "scheduled": false,
+              "description": "Pool Session, 1.5km, 40 mins",
+              "id": "w5-s7",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 7,
+          "start_date": "2026-02-17"
+        },
+        {
+          "end_date": "2026-03-02",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w6-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Lower Body Focus, 30 mins",
+              "id": "w6-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 105,
+              "scheduled": false,
+              "description": "Orion Specific Long Run, 1 hour 45 mins, Zone 2-3",
+              "id": "w6-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "2-3"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Aerobic, 45 mins, Zone 2",
+              "id": "w6-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins",
+              "id": "w6-s5",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 50,
+              "scheduled": false,
+              "description": "Pool Session, 2km, 50 mins",
+              "id": "w6-s6",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 8,
+          "start_date": "2026-02-24"
+        },
+        {
+          "end_date": "2026-03-09",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w7-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Full Body Circuit, 30 mins",
+              "id": "w7-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 105,
+              "scheduled": false,
+              "description": "Moderate Endurance, 1 hour 45 mins, Zone 2",
+              "id": "w7-s3",
+              "completed": false,
+              "type": "BIKE",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 75,
+              "scheduled": false,
+              "description": "Trail Tempo, 75 mins - 15 min warm up, 3x10 min Zone 4 on rolling terrain with 5 min Zone 1-2 recovery, 15 min cool down",
+              "id": "w7-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "4"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Easy Recovery, 45 mins, Zone 2",
+              "id": "w7-s5",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Upper Body & Back Focus, 30 mins",
+              "id": "w7-s6",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 50,
+              "scheduled": false,
+              "description": "Pool Session, 2km, 50 mins",
+              "id": "w7-s7",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 9,
+          "start_date": "2026-03-03"
+        },
+        {
+          "end_date": "2026-03-16",
+          "sessions": [
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Social Club Run, 60 mins, Zone 2",
+              "id": "w8-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Core Focus, 30 mins",
+              "id": "w8-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "IMPORTANT",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 45,
+              "scheduled": false,
+              "description": "Pre-race Sharpening, 45 mins - 10 min warm up, 5x1 min Zone 5 (fast) with 2 min Zone 1-2 recovery, 10 min cool down",
+              "id": "w8-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {
+                "hr": "5"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "Easy Aerobic, 30 mins, Zone 2",
+              "id": "w8-s4",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "2"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 30,
+              "scheduled": false,
+              "description": "S&C: Lower Body Focus, 30 mins",
+              "id": "w8-s5",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 60,
+              "scheduled": false,
+              "description": "Pool Session, 2.5km, 60 mins",
+              "id": "w8-s6",
+              "completed": false,
+              "type": "SWIM",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 10,
+          "start_date": "2026-03-10"
+        },
+        {
+          "end_date": "2026-03-21",
+          "sessions": [
+            {
+              "duration_minutes": 20,
+              "scheduled": false,
+              "description": "Easy Shakeout, 20 mins, Zone 1",
+              "id": "w9-s1",
+              "completed": false,
+              "type": "RUN",
+              "priority": "IMPORTANT",
+              "zones": {
+                "hr": "1"
+              },
+              "day": "Anytime"
+            },
+            {
+              "duration_minutes": 20,
+              "scheduled": false,
+              "description": "S&C: Core Focus (light), 20 mins",
+              "id": "w9-s2",
+              "completed": false,
+              "type": "STRENGTH",
+              "priority": "STRETCH",
+              "zones": {},
+              "day": "Anytime"
+            },
+            {
+              "date": "2026-03-17",
+              "duration_minutes": 120,
+              "scheduled": false,
+              "description": "Orion 15 (Goal Race), Race Strategy & Effort",
+              "id": "w9-s3",
+              "completed": false,
+              "type": "RUN",
+              "priority": "KEY",
+              "zones": {},
+              "day": "Anytime"
+            }
+          ],
+          "week_number": 11,
+          "start_date": "2026-03-17"
+        }
+      ],
+      "goal_date": "2026-03-17",
+      "athlete_id": "unknown",
+      "libraries": {},
+      "created_at": "2026-02-05T18:49:11.010510",
+      "version": 2,
+      "plan_start_date": "2026-01-20"
+    }
+  },
+  "archive_entries_count": 7,
+  "archive_entries": [
+    {
+      "index": 0,
+      "completed_date": "2026-02-05T18:49:11.015649",
+      "reason": "regenerated_via_chat_json",
+      "summary": {
+        "weeks_count": 9,
+        "weeks": [
+          {
+            "week_number": 1,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 2
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      },
+      "plan_v2_full": {
+        "athlete_goal": "Unknown goal",
+        "weeks": [
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 1,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-02-02",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2. Reinstated for a healthy calf.",
+                "id": "w2-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Lower Body Focus, 30 mins.",
+                "id": "w2-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides. Reinstated for a healthy calf.",
+                "id": "w2-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Thursday"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Little Baddow Ridge Runners XC Race (7.5km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5. **CONDITIONAL on calf being 100% pain-free.** If not, substitute with non-impact cross-training.",
+                "id": "w2-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5"
+                },
+                "day": "Saturday"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Recovery, 45 mins, Zone 1-2. Reinstated for a healthy calf.",
+                "id": "w2-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1-2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins.",
+                "id": "w2-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Pool Session, 1km, 30 mins",
+                "id": "w2-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 2,
+            "start_date": "2026-01-27"
+          },
+          {
+            "end_date": "2026-02-09",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w3-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w3-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 90,
+                "scheduled": false,
+                "description": "Steady Endurance, 1 hour 30 mins, Zone 2",
+                "id": "w3-s3",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides",
+                "id": "w3-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "scheduled": false,
+                "description": "Springfield XC Race (8km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5",
+                "id": "w3-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 1-2",
+                "id": "w3-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1-2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Full Body Circuit, 30 mins",
+                "id": "w3-s7",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 3,
+            "start_date": "2026-02-03"
+          },
+          {
+            "end_date": "2026-02-16",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w4-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w4-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Long Interval Run, 60 mins - 15 min warm up, 5x6 min Zone 4 with 3 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w4-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Aerobic, 45 mins, Zone 2",
+                "id": "w4-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w4-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 40,
+                "scheduled": false,
+                "description": "Pool Session, 1.5km, 40 mins",
+                "id": "w4-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 4,
+            "start_date": "2026-02-10"
+          },
+          {
+            "end_date": "2026-02-23",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w5-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w5-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 120,
+                "scheduled": false,
+                "description": "Long Zone 2, 2 hours, Zone 2",
+                "id": "w5-s3",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 75,
+                "scheduled": false,
+                "description": "Hill Repeats, 75 mins - 15 min warm up, 8x3 min Zone 5 hill repeats (hard effort uphill) with jog down recovery, 15 min cool down",
+                "id": "w5-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2",
+                "id": "w5-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Upper Body & Back Focus, 30 mins",
+                "id": "w5-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 40,
+                "scheduled": false,
+                "description": "Pool Session, 1.5km, 40 mins",
+                "id": "w5-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 5,
+            "start_date": "2026-02-17"
+          },
+          {
+            "end_date": "2026-03-02",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w6-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w6-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 105,
+                "scheduled": false,
+                "description": "Orion Specific Long Run, 1 hour 45 mins, Zone 2-3 (focus on hills within Z2/avoid Z3 in flat sections)",
+                "id": "w6-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Aerobic, 45 mins, Zone 2",
+                "id": "w6-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w6-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 50,
+                "scheduled": false,
+                "description": "Pool Session, 2km, 50 mins",
+                "id": "w6-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 6,
+            "start_date": "2026-02-24"
+          },
+          {
+            "end_date": "2026-03-09",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w7-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Full Body Circuit, 30 mins",
+                "id": "w7-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 105,
+                "scheduled": false,
+                "description": "Moderate Endurance, 1 hour 45 mins, Zone 2",
+                "id": "w7-s3",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 75,
+                "scheduled": false,
+                "description": "Trail Tempo, 75 mins - 15 min warm up, 3x10 min Zone 4 on rolling terrain with 5 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w7-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2",
+                "id": "w7-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Upper Body & Back Focus, 30 mins",
+                "id": "w7-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 50,
+                "scheduled": false,
+                "description": "Pool Session, 2km, 50 mins",
+                "id": "w7-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 7,
+            "start_date": "2026-03-03"
+          },
+          {
+            "end_date": "2026-03-16",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w8-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w8-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Pre-race Sharpening, 45 mins - 10 min warm up, 5x1 min Zone 5 (fast) with 2 min Zone 1-2 recovery, 10 min cool down",
+                "id": "w8-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Easy Aerobic, 30 mins, Zone 2",
+                "id": "w8-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w8-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Pool Session, 2.5km, 60 mins",
+                "id": "w8-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 8,
+            "start_date": "2026-03-10"
+          },
+          {
+            "end_date": "2026-03-21",
+            "sessions": [
+              {
+                "duration_minutes": 20,
+                "scheduled": false,
+                "description": "Easy Shakeout, 20 mins, Zone 1",
+                "id": "w9-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": false,
+                "description": "S&C: Core Focus (light), 20 mins",
+                "id": "w9-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-03-17",
+                "scheduled": false,
+                "description": "Orion 15 (Goal Race), Race Strategy & Effort",
+                "id": "w9-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 9,
+            "start_date": "2026-03-17"
+          }
+        ],
+        "goal_date": "2026-03-17",
+        "athlete_id": "unknown",
+        "libraries": {},
+        "created_at": "2026-01-22T01:31:36.893603",
+        "version": 2,
+        "plan_start_date": "2026-01-20"
+      }
+    },
+    {
+      "index": 1,
+      "completed_date": "2026-02-05T18:47:31.501597",
+      "reason": "rollback_from_truncated_plan",
+      "summary": {
+        "weeks_count": 17,
+        "weeks": [
+          {
+            "week_number": 1,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 1
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 10,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 5,
+            "completed_count": 1
+          },
+          {
+            "week_number": 11,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 1
+          },
+          {
+            "week_number": 12,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 4,
+            "completed_count": 0
+          },
+          {
+            "week_number": 13,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 2,
+            "completed_count": 0
+          },
+          {
+            "week_number": 14,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 2,
+            "completed_count": 0
+          },
+          {
+            "week_number": 15,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 1,
+            "completed_count": 0
+          },
+          {
+            "week_number": 16,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 1,
+            "completed_count": 0
+          },
+          {
+            "week_number": 17,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 1,
+            "completed_count": 0
+          }
+        ]
+      },
+      "plan_v2_full": {
+        "athlete_goal": "Unknown goal",
+        "weeks": [
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 1,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. No further running this week.",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Cancelled due to calf issue.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": true,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": true,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Cancelled due to calf issue.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "1-2, 5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. Cancelled due to calf issue.",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Cancelled due to calf issue.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 2,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 3,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 4,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-02-02",
+            "sessions": [
+              {
+                "date": "2026-01-28",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 60 mins, Zone 2. (Replaces Social Club Run)",
+                "id": "w2-s1",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins. (Modify or skip if it aggravates calf)",
+                "id": "w2-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-30",
+                "completed_at": "2026-01-31T16:24:43Z",
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 30 mins, Zone 2. (Replaces XC Race Prep Run)",
+                "id": "w2-s3",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Thursday",
+                "strava_activity_id": 17264514041
+              },
+              {
+                "date": "2026-02-01",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact Cross-Training (Bike or Swim): 60 mins, Zone 3-4 effort. (Replaces Little Baddow Ridge Runners XC Race)",
+                "id": "w2-s4",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "3-4"
+                },
+                "day": "Saturday"
+              },
+              {
+                "date": "2026-02-02",
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Active Recovery (Gentle Walk/Swim/Foam Rolling): 45 mins, Zone 1. (Replaces Easy Recovery Run)",
+                "id": "w2-s5",
+                "completed": false,
+                "type": "OTHER",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins.",
+                "id": "w2-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Pool Session, 1km, 30 mins",
+                "id": "w2-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 5,
+            "start_date": "2026-01-27"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2).",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 6,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "Duplicate week context preserved for history.",
+            "sessions": [],
+            "week_number": 7,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "Duplicate week context preserved for history.",
+            "sessions": [],
+            "week_number": 8,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "Duplicate week context preserved for history.",
+            "sessions": [],
+            "week_number": 9,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-02-02",
+            "description": "Transition week focusing on non-impact recovery.",
+            "sessions": [
+              {
+                "date": "2026-01-28",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 60 mins, Zone 2. (Replaces Social Club Run)",
+                "id": "w2-s1",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins.",
+                "id": "w2-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-30",
+                "completed_at": "2026-01-31T16:24:43Z",
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 30 mins, Zone 2.",
+                "id": "w2-s3",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Thursday",
+                "strava_activity_id": 17264514041
+              },
+              {
+                "date": "2026-02-01",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact Cross-Training (Bike or Swim): 60 mins, Zone 3-4 effort.",
+                "id": "w2-s4",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "3-4"
+                },
+                "day": "Saturday"
+              },
+              {
+                "date": "2026-02-02",
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Active Recovery (Gentle Walk/Swim/Foam Rolling): 45 mins, Zone 1.",
+                "id": "w2-s5",
+                "completed": false,
+                "type": "OTHER",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1"
+                },
+                "day": "Sunday"
+              }
+            ],
+            "week_number": 10,
+            "start_date": "2026-01-27"
+          },
+          {
+            "end_date": "2026-02-09",
+            "description": "Race Week: Springfield XC. Prioritise freshness.",
+            "sessions": [
+              {
+                "date": "2026-02-03",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w3-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w3-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-02-05",
+                "duration_minutes": 90,
+                "scheduled": true,
+                "description": "Steady Endurance, 1 hour 30 mins, Zone 2",
+                "id": "w3-s3",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Thursday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides",
+                "id": "w3-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-02-08",
+                "scheduled": true,
+                "description": "Springfield XC Race (8km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5",
+                "id": "w3-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Easy Recovery, 30 mins, Zone 1-2. Shortened per athlete request to ensure fresh legs for Sunday.",
+                "id": "w3-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1-2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Full Body Circuit, 30 mins",
+                "id": "w3-s7",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 11,
+            "start_date": "2026-02-03"
+          },
+          {
+            "end_date": "2026-02-16",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w4-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w4-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Long Interval Run, 60 mins - 15 min warm up, 5x6 min Zone 4 with 3 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w4-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 4"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Aerobic, 45 mins, Zone 2",
+                "id": "w4-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 12,
+            "start_date": "2026-02-10"
+          },
+          {
+            "end_date": "2026-02-23",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w5-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 75,
+                "scheduled": true,
+                "description": "Hill Repeats, 75 mins - 15 min warm up, 8x3 min Zone 5 hill repeats (hard effort uphill) with jog down recovery, 15 min cool down",
+                "id": "w5-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 13,
+            "start_date": "2026-02-17"
+          },
+          {
+            "end_date": "2026-03-02",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w6-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 105,
+                "scheduled": true,
+                "description": "Orion Specific Long Run, 1 hour 45 mins, Zone 2-3",
+                "id": "w6-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 14,
+            "start_date": "2026-02-24"
+          },
+          {
+            "end_date": "2026-03-09",
+            "sessions": [
+              {
+                "duration_minutes": 75,
+                "scheduled": true,
+                "description": "Trail Tempo, 75 mins - 15 min warm up, 3x10 min Zone 4 on rolling terrain with 5 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w7-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 4"
+                },
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 15,
+            "start_date": "2026-03-03"
+          },
+          {
+            "end_date": "2026-03-16",
+            "sessions": [
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Pre-race Sharpening, 45 mins - 10 min warm up, 5x1 min Zone 5 (fast) with 2 min Zone 1-2 recovery, 10 min cool down",
+                "id": "w8-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 5"
+                },
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 16,
+            "start_date": "2026-03-10"
+          },
+          {
+            "end_date": "2026-03-21",
+            "description": "Goal Race Week.",
+            "sessions": [
+              {
+                "scheduled": true,
+                "description": "Orion 15 (Goal Race), Race Strategy & Effort",
+                "id": "w9-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 17,
+            "start_date": "2026-03-17"
+          }
+        ],
+        "goal_date": "2026-03-17",
+        "athlete_id": "unknown",
+        "libraries": {},
+        "created_at": "2026-02-05T18:46:25.046572",
+        "version": 2,
+        "plan_start_date": "2026-01-20"
+      }
+    },
+    {
+      "index": 2,
+      "completed_date": "2026-02-05T18:46:25.052938",
+      "reason": "regenerated_via_chat_json",
+      "summary": {
+        "weeks_count": 12,
+        "weeks": [
+          {
+            "week_number": 1,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 3
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 1
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 1
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 10,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 11,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 12,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      },
+      "plan_v2_full": {
+        "athlete_goal": "Unknown goal",
+        "weeks": [
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 1,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. No further running this week.",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Cancelled due to calf issue.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": true,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": true,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Cancelled due to calf issue.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "1-2, 5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. Cancelled due to calf issue.",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Cancelled due to calf issue.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 2,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 3,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-01-26",
+            "description": "This week's volume is now significantly increased due to travel-related cycling and your requested run sessions. Manage optional sessions carefully.",
+            "sessions": [
+              {
+                "date": "2026-01-21",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Social Club Run, 60 mins, Zone 2 - Completed, but resulted in calf issue. **No further running this week.**",
+                "id": "w1-s1",
+                "completed": true,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "S&C: Core Focus, 30 mins (Ensure no calf strain) - Now an optional 'stretch' session, proceed if feeling fresh.",
+                "id": "w1-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Easy Recovery, 45 mins, Zone 2 - Reinstated as an option following calf recovery, proceed if feeling fresh.",
+                "id": "w1-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-25",
+                "completed_at": "2026-01-26T07:53:53Z",
+                "duration_minutes": 180,
+                "scheduled": false,
+                "description": "Endurance Ride, 3 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s4",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Saturday",
+                "strava_activity_id": 17220818282
+              },
+              {
+                "date": "2026-01-26",
+                "duration_minutes": 240,
+                "scheduled": false,
+                "description": "Endurance Ride, 4 hours, Zone 2 (Non-impact aerobic volume, travel segment).",
+                "id": "w1-s5",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "Extra Easy Run, 30 mins, Zone 2. Use this only if you feel genuinely fresh and have no calf discomfort.",
+                "id": "w1-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Calf Mobility & Gentle Movement - Focus on pain-free exercises, light stretching or foam rolling if comfortable.",
+                "id": "w1-s7",
+                "completed": false,
+                "type": "OTHER",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": false,
+                "description": "VO2 Max Turbo Spin: 5 min warm-up Zone 1-2, 6x(1 min Zone 5, 2 min Zone 1-2 recovery), 5 min cool-down Zone 1-2.",
+                "id": "w1-s8",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "STRETCH",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-22",
+                "duration_minutes": 60,
+                "scheduled": false,
+                "description": "Track Session: Intervals. 15 min warm up Easy (Zone 2), then 6x800m at Interval pace (03:59/km) with 400m Easy jog (05:08/km) recovery, 15 min cool down Easy (Zone 2). **Crucially, only undertake this if your calf is absolutely 100% and you are feeling fresh. With 7 hours of cycling already locked in for the weekend, this pushes your weekly load considerably.**",
+                "id": "w1-s9",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5",
+                  "pace": "03:59/km"
+                },
+                "day": "Wednesday"
+              },
+              {
+                "date": "2026-01-24",
+                "duration_minutes": 45,
+                "scheduled": false,
+                "description": "Steady Aerobic Run: 45 mins, Zone 2-3. Keep the effort controlled. If feeling fatigued, drop to Zone 2 or shorten the run. This is a day before heavy cycling, so conserve energy.",
+                "id": "w1-s10",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Friday"
+              }
+            ],
+            "week_number": 4,
+            "start_date": "2026-01-20"
+          },
+          {
+            "end_date": "2026-02-02",
+            "sessions": [
+              {
+                "date": "2026-01-28",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 60 mins, Zone 2. (Replaces Social Club Run)",
+                "id": "w2-s1",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Tuesday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins. (Modify or skip if it aggravates calf)",
+                "id": "w2-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "date": "2026-01-30",
+                "completed_at": "2026-01-31T16:24:43Z",
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Non-impact aerobic: 30 mins, Zone 2. (Replaces XC Race Prep Run)",
+                "id": "w2-s3",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Thursday",
+                "strava_activity_id": 17264514041
+              },
+              {
+                "date": "2026-02-01",
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Non-impact Cross-Training (Bike or Swim): 60 mins, Zone 3-4 effort. (Replaces Little Baddow Ridge Runners XC Race)",
+                "id": "w2-s4",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "3-4"
+                },
+                "day": "Saturday"
+              },
+              {
+                "date": "2026-02-02",
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Active Recovery (Gentle Walk/Swim/Foam Rolling): 45 mins, Zone 1. (Replaces Easy Recovery Run)",
+                "id": "w2-s5",
+                "completed": false,
+                "type": "OTHER",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1"
+                },
+                "day": "Sunday"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins.",
+                "id": "w2-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Pool Session, 1km, 30 mins",
+                "id": "w2-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 5,
+            "start_date": "2026-01-27"
+          },
+          {
+            "end_date": "2026-02-09",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w3-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w3-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "completed_at": "2026-02-05T12:53:51Z",
+                "duration_minutes": 90,
+                "scheduled": true,
+                "description": "Steady Endurance, 1 hour 30 mins, Zone 2",
+                "id": "w3-s3",
+                "completed": true,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime",
+                "strava_activity_id": 17298162043
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "XC Race Prep, 30 mins, Zone 2 with 4x30s strides",
+                "id": "w3-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "scheduled": true,
+                "description": "Springfield XC Race (8km), Approx 1 hour total including warm-up/cool-down, Race effort Zone 4-5",
+                "id": "w3-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "4-5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Recovery, 45 mins, Zone 1-2",
+                "id": "w3-s6",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1-2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Full Body Circuit, 30 mins",
+                "id": "w3-s7",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 6,
+            "start_date": "2026-02-03"
+          },
+          {
+            "end_date": "2026-02-16",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w4-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w4-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Long Interval Run, 60 mins - 15 min warm up, 5x6 min Zone 4 with 3 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w4-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 4"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Aerobic, 45 mins, Zone 2",
+                "id": "w4-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w4-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 40,
+                "scheduled": true,
+                "description": "Pool Session, 1.5km, 40 mins",
+                "id": "w4-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 7,
+            "start_date": "2026-02-10"
+          },
+          {
+            "end_date": "2026-02-23",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w5-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w5-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 120,
+                "scheduled": true,
+                "description": "Long Zone 2, 2 hours, Zone 2",
+                "id": "w5-s3",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 75,
+                "scheduled": true,
+                "description": "Hill Repeats, 75 mins - 15 min warm up, 8x3 min Zone 5 hill repeats (hard effort uphill) with jog down recovery, 15 min cool down",
+                "id": "w5-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Recovery, 45 mins, Zone 2",
+                "id": "w5-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Upper Body & Back Focus, 30 mins",
+                "id": "w5-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 40,
+                "scheduled": true,
+                "description": "Pool Session, 1.5km, 40 mins",
+                "id": "w5-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 8,
+            "start_date": "2026-02-17"
+          },
+          {
+            "end_date": "2026-03-02",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w6-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w6-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 105,
+                "scheduled": true,
+                "description": "Orion Specific Long Run, 1 hour 45 mins, Zone 2-3 (focus on hills within Z2/avoid Z3 in flat sections)",
+                "id": "w6-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "2-3"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Aerobic, 45 mins, Zone 2",
+                "id": "w6-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w6-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 50,
+                "scheduled": true,
+                "description": "Pool Session, 2km, 50 mins",
+                "id": "w6-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 9,
+            "start_date": "2026-02-24"
+          },
+          {
+            "end_date": "2026-03-09",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w7-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Full Body Circuit, 30 mins",
+                "id": "w7-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 105,
+                "scheduled": true,
+                "description": "Moderate Endurance, 1 hour 45 mins, Zone 2",
+                "id": "w7-s3",
+                "completed": false,
+                "type": "BIKE",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 75,
+                "scheduled": true,
+                "description": "Trail Tempo, 75 mins - 15 min warm up, 3x10 min Zone 4 on rolling terrain with 5 min Zone 1-2 recovery, 15 min cool down",
+                "id": "w7-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 4"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Easy Recovery, 45 mins, Zone 2",
+                "id": "w7-s5",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Upper Body & Back Focus, 30 mins",
+                "id": "w7-s6",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 50,
+                "scheduled": true,
+                "description": "Pool Session, 2km, 50 mins",
+                "id": "w7-s7",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 10,
+            "start_date": "2026-03-03"
+          },
+          {
+            "end_date": "2026-03-16",
+            "sessions": [
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Social Club Run, 60 mins, Zone 2",
+                "id": "w8-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Core Focus, 30 mins",
+                "id": "w8-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "IMPORTANT",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 45,
+                "scheduled": true,
+                "description": "Pre-race Sharpening, 45 mins - 10 min warm up, 5x1 min Zone 5 (fast) with 2 min Zone 1-2 recovery, 10 min cool down",
+                "id": "w8-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {
+                  "hr": "1-2, 5"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "Easy Aerobic, 30 mins, Zone 2",
+                "id": "w8-s4",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "2"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 30,
+                "scheduled": true,
+                "description": "S&C: Lower Body Focus, 30 mins",
+                "id": "w8-s5",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 60,
+                "scheduled": true,
+                "description": "Pool Session, 2.5km, 60 mins",
+                "id": "w8-s6",
+                "completed": false,
+                "type": "SWIM",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 11,
+            "start_date": "2026-03-10"
+          },
+          {
+            "end_date": "2026-03-21",
+            "sessions": [
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "Easy Shakeout, 20 mins, Zone 1",
+                "id": "w9-s1",
+                "completed": false,
+                "type": "RUN",
+                "priority": "IMPORTANT",
+                "zones": {
+                  "hr": "1"
+                },
+                "day": "Anytime"
+              },
+              {
+                "duration_minutes": 20,
+                "scheduled": true,
+                "description": "S&C: Core Focus (light), 20 mins",
+                "id": "w9-s2",
+                "completed": false,
+                "type": "STRENGTH",
+                "priority": "STRETCH",
+                "zones": {},
+                "day": "Anytime"
+              },
+              {
+                "scheduled": true,
+                "description": "Orion 15 (Goal Race), Race Strategy & Effort",
+                "id": "w9-s3",
+                "completed": false,
+                "type": "RUN",
+                "priority": "KEY",
+                "zones": {},
+                "day": "Anytime"
+              }
+            ],
+            "week_number": 12,
+            "start_date": "2026-03-17"
+          }
+        ],
+        "goal_date": "2026-03-17",
+        "athlete_id": "unknown",
+        "libraries": {},
+        "created_at": "2026-02-02T16:38:38.663136",
+        "version": 2,
+        "plan_start_date": "2026-01-20"
+      }
+    },
+    {
+      "index": 3,
+      "completed_date": "2026-01-29T20:39:06.569400",
+      "reason": "regenerated_via_feedback_json",
+      "summary": {
+        "weeks_count": 9,
+        "weeks": [
+          {
+            "week_number": 1,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 10,
+            "completed_count": 2
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "completed_date": "2026-01-21T23:58:20.115384",
+      "reason": "regenerated_via_feedback_json",
+      "summary": {
+        "weeks_count": 10,
+        "weeks": [
+          {
+            "week_number": 0,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 6,
+            "completed_count": 1
+          },
+          {
+            "week_number": 1,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-16",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "index": 5,
+      "completed_date": "2026-01-21T22:38:29.200495",
+      "reason": "regenerated_via_feedback_json",
+      "summary": {
+        "weeks_count": 10,
+        "weeks": [
+          {
+            "week_number": 0,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 6,
+            "completed_count": 1
+          },
+          {
+            "week_number": 1,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-16",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "index": 6,
+      "completed_date": "2026-01-21T16:17:51.840824",
+      "reason": "regenerated_via_feedback_json",
+      "summary": {
+        "weeks_count": 10,
+        "weeks": [
+          {
+            "week_number": 0,
+            "start_date": "2026-01-20",
+            "end_date": "2026-01-26",
+            "sessions_count": 5,
+            "completed_count": 2
+          },
+          {
+            "week_number": 1,
+            "start_date": "2026-01-27",
+            "end_date": "2026-02-02",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 2,
+            "start_date": "2026-02-03",
+            "end_date": "2026-02-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 3,
+            "start_date": "2026-02-10",
+            "end_date": "2026-02-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 4,
+            "start_date": "2026-02-17",
+            "end_date": "2026-02-23",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 5,
+            "start_date": "2026-02-24",
+            "end_date": "2026-03-02",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 6,
+            "start_date": "2026-03-03",
+            "end_date": "2026-03-09",
+            "sessions_count": 7,
+            "completed_count": 0
+          },
+          {
+            "week_number": 7,
+            "start_date": "2026-03-10",
+            "end_date": "2026-03-16",
+            "sessions_count": 6,
+            "completed_count": 0
+          },
+          {
+            "week_number": 8,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-16",
+            "sessions_count": 0,
+            "completed_count": 0
+          },
+          {
+            "week_number": 9,
+            "start_date": "2026-03-17",
+            "end_date": "2026-03-21",
+            "sessions_count": 3,
+            "completed_count": 0
+          }
+        ]
+      }
+    }
+  ],
+  "feedback_log_count": 4,
+  "feedback_log": [
+    {
+      "activity_id": 17298162043,
+      "activity_date": "05-02-2026 12:53",
+      "activity_name": "Feedback for: MyWhoosh endurance ride",
+      "feedback_length": 3439
+    },
+    {
+      "activity_id": 17264514041,
+      "activity_date": "31-01-2026 16:24",
+      "activity_name": "Feedback for: Easy spin!",
+      "feedback_length": 3878
+    },
+    {
+      "activity_id": 17220818282,
+      "activity_date": "26-01-2026 07:53",
+      "activity_name": "Feedback for: NL bike ride",
+      "feedback_length": 3894
+    },
+    {
+      "activity_id": 11258795,
+      "activity_date": "28-01-2026 19:04",
+      "activity_name": "Test Activity",
+      "feedback_length": 17966
+    }
+  ],
+  "chat_log_count": 30,
+  "chat_log": [
+    {
+      "role": "user",
+      "content_length": 136,
+      "content_preview": "I'm purring like a land rover, that's to say banging and popping all over the place, creaking at the hinges, but ready and raring to go!"
+    },
+    {
+      "role": "model",
+      "content_length": 486,
+      "content_preview": "Right, good to hear you're feeling ready, even if you sound like a classic British Leyland product on a cold morning. That's the spirit \u2013 a bit of character, a bit of noise, but ultimately getting the"
+    },
+    {
+      "role": "user",
+      "content_length": 78,
+      "content_preview": "could I do a really hard turbo based bike race on mywhoosh today do you think?"
+    },
+    {
+      "role": "model",
+      "content_length": 809,
+      "content_preview": "Right, a 'really hard turbo based bike race' today, on what's scheduled as an active recovery day. Let's apply a bit of common sense, shall we?\n\nFirstly, today is planned for Active Recovery \u2013 a gentl"
+    },
+    {
+      "role": "user",
+      "content_length": 100,
+      "content_preview": "hmm fair enough, what about some 100m sprints?  I promise I won't go quicker than 9 seconds per 100m"
+    },
+    {
+      "role": "model",
+      "content_length": 823,
+      "content_preview": "Right, still on the sprinting escapade, are we? \"Not quicker than 9 seconds per 100m,\" you say. That's a good one, you're either aiming for a new world record or you've found a rather fast downhill wi"
+    },
+    {
+      "role": "user",
+      "content_length": 54,
+      "content_preview": "alright, I'll just go for a walk or something, boring!"
+    },
+    {
+      "role": "model",
+      "content_length": 777,
+      "content_preview": "Right, 'boring' it may seem, but a walk is precisely what the doctor ordered today. Let's not forget, you've just come off a week where your calf decided to throw a bit of a wobbler, and your system's"
+    },
+    {
+      "role": "user",
+      "content_length": 119,
+      "content_preview": "not sure the air could be called fresh out there, maybe if I sprint through it at a leisurely 8s per 100m it might help"
+    },
+    {
+      "role": "model",
+      "content_length": 529,
+      "content_preview": "Right, still flogging that dead horse, are we? An 8-second 100m would be a new world record, not a 'leisurely' sprint, and certainly not a remedy for 'unfresh' air. If anything, that would simply get "
+    },
+    {
+      "role": "user",
+      "content_length": 45,
+      "content_preview": "how about 8 seconds per 100m in my landrover?"
+    },
+    {
+      "role": "model",
+      "content_length": 645,
+      "content_preview": "Right, now you're talking my language. Eight seconds per 100m in a Land Rover? You'd need a rather steep downhill, a following hurricane, and possibly a jet engine strapped to the roof. Even then, I'd"
+    },
+    {
+      "role": "user",
+      "content_length": 78,
+      "content_preview": "not to be pedantic, but I don't think landrovers are made from diesel either\r\n"
+    },
+    {
+      "role": "model",
+      "content_length": 583,
+      "content_preview": "Right, you're splitting hairs now, aren't you? While many Land Rovers run on diesel, the point was about the fuel *type* often associated with heavier, more robust vehicles, not their construction mat"
+    },
+    {
+      "role": "user",
+      "content_length": 29,
+      "content_preview": "do you still love me coach?\r\n"
+    },
+    {
+      "role": "model",
+      "content_length": 743,
+      "content_preview": "Don't get soft on me now. My \"love\" is strictly conditional on you actually following the plan and not ending up in a heap because you tried to break a land speed record in a Land Rover. \n\nIt\u2019s Tuesda"
+    },
+    {
+      "role": "user",
+      "content_length": 251,
+      "content_preview": "ohhh saucy!  I'll forgive you for calling me a heavier more robust vehicle, and will do my best to keep the HR low tonight, the weather outside is awful and the fire inside is delightful, but I've got"
+    },
+    {
+      "role": "model",
+      "content_length": 479,
+      "content_preview": "Right, off you go then. Woods in the rain\u2014character building, or just a good way to get your kit filthy. \n\nJust remember, \"doing your best\" to keep the HR low isn't a suggestion, it's the mission. If "
+    },
+    {
+      "role": "user",
+      "content_length": 40,
+      "content_preview": "i don't think I can do more than my best"
+    },
+    {
+      "role": "model",
+      "content_length": 506,
+      "content_preview": "Fair point, but in this game, \"doing your best\" often means having the discipline to hold back when your ego wants to push. If your \"best\" tonight is a controlled, boring Zone 2 trot that keeps your c"
+    }
+  ]
+}

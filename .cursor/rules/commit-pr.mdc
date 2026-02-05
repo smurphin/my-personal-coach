@@ -9,8 +9,11 @@ alwaysApply: true
 
 When the user says they're ready to commit to GitHub (or similar: "ready to push", "write my commit", "PR summary"):
 
-1. **Commit message**: Give a single-line git commit message (conventional commit style: feat/fix/chore/refactor etc.)
-2. **PR summary**: Give a brief PR description summarizing the changes
-3. Base both on work done in a feature/patch branch (never on `main`).
+1. **Version and changelog:** Verify **VERSION** (repo root) and **CHANGELOG.md** are release-ready:
+   - If **CHANGELOG.md** still has substantive entries under **`[Unreleased]`**, create a release section **`## [X.Y.Z] - YYYY-MM-DD`** (ISO date) where X.Y.Z equals the value in **VERSION**, move the Unreleased entries into it, and leave **`[Unreleased]`** empty.
+   - Confirm **VERSION** matches the new release heading (e.g. if VERSION is 0.1.5, CHANGELOG must have `## [0.1.5] - YYYY-MM-DD`). If they differ, fix either VERSION or the changelog section so they agree.
+2. **Commit message**: Give a single-line git commit message (conventional commit style: feat/fix/chore/refactor etc.)
+3. **PR summary**: Give a brief PR description summarizing the changes
+4. Base commit message and PR summary on work done in a feature/patch branch (never on `main`).
 
 Base both the commit message and PR summary on the actual changes in the session/context.

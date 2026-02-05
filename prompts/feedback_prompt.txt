@@ -88,7 +88,7 @@ You have been given a list of one or more recently completed sessions. Your task
         - **Format partial distances as decimals:** 410.7m = 0.41 km (or 0.26 miles), 1000.5m = 1.00 km (or 0.62 miles). Always round to 2 decimal places.
         - Use the \`distance_km\` or \`distance_miles\` fields from segment data - these are already formatted to 1 decimal place. Choose based on \`distance_unit_preference\`.
         - **Example table format:** If using km, show "Distance (km)" column with values from \`distance_km\` field (e.g., "1.00", "0.41", "1.20"). If using miles, show "Distance (miles)" with values from \`distance_miles\` field (e.g., "0.62", "0.26", "0.75").
-3.  Compare the completed session to the likely intended session from the \`training_plan\`.
+3.  Compare the completed session to the likely intended session from the **structured plan JSON** (match by type, duration, zones, priority; use session id when available). Do not infer schedule from the markdown.
 4.  Provide a concise, one-paragraph critique on execution and intensity.
 5.  Give a single, overall **Execution Score out of 10** for the combined effort if it appears to be 1 activity, i.e a triathlon, otherwise give each session an **Execution Score out of 10**. Remember we're not looking for perfection, but consistency. Repeated 7/10s are better than a 10/10 followed by multiple 2/10s.
 
@@ -158,6 +158,7 @@ You have been given a list of one or more recently completed sessions. Your task
     5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
     6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null) - **NEVER use "SOCIAL", "OPTIONAL", or any other value. ONLY use KEY, IMPORTANT, STRETCH, or null.**
     7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
+    8. **Day field:** Preserve each session's \`day\` value from the original plan unless the athlete is a **Disciplinarian** with day-specific scheduling. For Minimalist and Improviser, use "Anytime" (or the existing flexible value); do NOT assign "Monday", "Tuesday", etc.
 
 **Format 2: When NOT updating the plan (no plan changes needed):**
 {
@@ -278,7 +279,11 @@ FORMATTING REQUIREMENTS:
 ---
 **CONTEXT**
 
-**Current Training Plan (JSON format - use this for structured updates):**
+**Source of truth for "what was scheduled":** The structured plan JSON below is the authority. Use it (not the markdown) to compare completed sessions to the plan. Match on: session id, type, duration_minutes, zones, priority, description. When you update the plan, return plan_v2 JSON that matches this structure.
+
+**Day/date rule (product rule):** Kaizen does not assign workouts to specific days for most athletes. Only assign or change specific days (e.g. Monday, Tuesday) when the athlete type is **Disciplinarian** and the plan already uses day-specific scheduling. For **Minimalist** and **Improviser**, sessions must keep flexible scheduling: use "Anytime" (or the same flexible value as in the original plan) and do NOT set specific weekdays. When in doubt, preserve each session's existing \`day\` value.
+
+**Current Training Plan (JSON format - source of truth for comparison and updates):**
 {% if training_plan_json %}
 ```json
 {{ training_plan_json }}
@@ -287,7 +292,7 @@ FORMATTING REQUIREMENTS:
 No structured plan available. Use markdown below for context.
 {% endif %}
 
-**Current Training Plan (Markdown for context):**
+**Current Training Plan (Markdown for context only - do not use for exact comparison or for building plan_v2):**
 ```markdown
 {{ training_plan }}
 ```

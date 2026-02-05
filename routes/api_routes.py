@@ -484,7 +484,28 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
     
     vdot_data = prepare_vdot_context(user_data)
     
-    training_plan = user_data.get('plan')
+    # Use plan_v2 as source of truth when available (same as feedback page)
+    if 'plan_v2' in user_data and user_data['plan_v2']:
+        from models.training_plan import TrainingPlan
+        try:
+            training_plan = TrainingPlan.from_dict(user_data['plan_v2'])
+            print("✅ Using structured plan_v2 for feedback generation (webhook)")
+        except Exception as e:
+            print(f"⚠️  Failed to load plan_v2, falling back to markdown: {e}")
+            training_plan = user_data.get('plan')
+    else:
+        training_plan = user_data.get('plan')
+        print("ℹ️  Using markdown plan for feedback generation (plan_v2 not found)")
+    
+    # Athlete profile so AI respects type (Minimalist/Improviser/Disciplinarian) and day flexibility
+    athlete_profile = user_data.get('athlete_profile', {})
+    if not athlete_profile:
+        plan_data = user_data.get('plan_data', {}) or {}
+        athlete_profile = {
+            'lifestyle_context': plan_data.get('lifestyle_context'),
+            'athlete_type': plan_data.get('athlete_type'),
+        }
+    
     feedback_log = user_data.get('feedback_log', [])
     
     # Log all activities being passed to feedback generation
@@ -526,7 +547,8 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             user_data.get('training_history'),
             garmin_data_for_activity,
             incomplete_sessions=None,
-            vdot_data=vdot_data
+            vdot_data=vdot_data,
+            athlete_profile=athlete_profile,
         )
     except Exception as e:
         # region agent log

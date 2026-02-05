@@ -20,7 +20,11 @@ Treat `main` as deployed state. Do not commit or push unless the user explicitly
 When making changes that will be deployed:
 
 1. **VERSION** (repo root): Bump per Major.Feature.Patch (v0 = beta, v1 = Strava onboarded)
-2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. When releasing, move them into `[X.Y.Z]` with the release date.
+2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): section order Added, Changed, Fixed, etc.; short bullet lines; no inline markdown in entries.
+
+**Before considering deployable work complete:** Verify you have (1) bumped **VERSION** and (2) added all relevant entries under **`[Unreleased]`** in **CHANGELOG.md**. If you did not do this at the start, do it before finishing the task.
+
+**At commit / push (release finalization):** When the user is ready to commit or push, move **`[Unreleased]`** content into a new release section **`## [X.Y.Z] - YYYY-MM-DD`** (ISO date), where X.Y.Z matches **VERSION**. Leave **`[Unreleased]`** empty. This is the right time to tie the changelog to a version and date.
 
 **Do not touch:** Terraform/infra (owner maintains manually). See `docs/versioning.md` for full workflow.
 

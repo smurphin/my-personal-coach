@@ -67,6 +67,18 @@
     {% endif %}
 </div>
 
+{% if can_access_plan_archive %}
+<div class="mt-8 bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
+    <h2 class="text-2xl font-bold text-brand-blue mb-4">Plan archive</h2>
+    <p class="text-brand-light-gray mb-4">
+        View saved plan snapshots and restore a previous version if a plan update went wrong.
+    </p>
+    <a href="{{ url_for('admin.plan_archive') }}" class="inline-block bg-brand-blue text-white font-bold py-2 px-4 rounded-lg shadow-lg hover:opacity-90 transition">
+        View plan archive and restore
+    </a>
+</div>
+{% endif %}
+
 <div class="mt-8 bg-brand-gray rounded-xl shadow-lg p-6 lg:p-8">
     <h2 class="text-2xl font-bold text-brand-blue mb-4">Optimize storage</h2>
     <p class="text-brand-light-gray mb-4">

@@ -6,9 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-02-05
+
+### Added
+
+- Plan archive UI at `/admin/plan_archive` to list and restore snapshots; visibility gated by `ADMIN_ATHLETE_IDS` when set.
+- Plan archive API: `GET /admin/api/plan_archive` and `POST /admin/api/restore_plan_archive` for listing/restoring any tenant by `athlete_id`, protected by `FEEDBACK_TRIGGER_SECRET`.
+
+### Changed
+
+- Feedback prompt: plan_v2 JSON is the source of truth for comparison and plan updates; day/date only for Disciplinarian athletes, preserve "Anytime" for Minimalist and Improviser.
+
 ### Fixed
 
-- Feedback truncation: use structure-based extraction for `feedback_text` when AI returns malformed JSON (unescaped quotes in content), so full feedback is kept instead of cutting off at the first internal quote. Prompt updated to remind model to escape quotes in JSON strings.
+- Use structure-based extraction for `feedback_text` when AI returns malformed JSON so full feedback is kept; prompt updated to remind model to escape quotes in JSON strings.
+- Archive current plan before applying chat (JSON or markdown) or reparse updates so the previous good state is never lost to overwrite.
+- Webhook feedback uses plan_v2 and athlete_profile when available so the AI compares against the same source of truth as the feedback page.
+- Plan merge when prepending archived past weeks: drop the first N weeks of the AI plan by count of past weeks (not max week number) so weeks 1–2 and Week 0 are not duplicated; preserve Week 0 when renumbering after merge.
 
 ## [0.1.1] - 2026-02-04
 
