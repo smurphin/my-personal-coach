@@ -7,7 +7,7 @@ from typing import Optional
 from config import Config
 from models.training_plan import TrainingPlan
 from utils.migration import parse_ai_response_to_v2
-from utils.plan_validator import extract_json_from_ai_response, validate_and_load_plan_v2
+from utils.plan_validator import extract_json_from_ai_response, extract_feedback_text_by_structure, validate_and_load_plan_v2
 
 
 def sanitize_feedback_log_for_ai(feedback_log):
@@ -461,25 +461,23 @@ class AIService:
         # STEP 3: Final validation - ensure we have actual text, not raw JSON
         # This is a safety net in case all extraction methods failed
         if feedback_text == ai_response and feedback_text.strip().startswith('{'):
-            # Still looks like JSON - try one more time with more aggressive extraction
-            try:
-                # Try to find and extract just the feedback_text value from the JSON string
-                import re
-                # Look for "feedback_text": "..." pattern
-                feedback_match = re.search(r'"feedback_text"\s*:\s*"([^"\\]*(\\.[^"\\]*)*)"', feedback_text, re.DOTALL)
-                if not feedback_match:
-                    # Try with triple quotes or escaped quotes
+            # Still looks like JSON - try structure-based extraction first (handles unescaped quotes)
+            extracted_text = extract_feedback_text_by_structure(feedback_text)
+            if extracted_text and len(extracted_text) > 50:
+                feedback_text = extracted_text
+                print(f"✅ Extracted feedback_text using structure-based fallback")
+            else:
+                try:
+                    # Fallback: regex (may truncate at first unescaped quote in content)
+                    import re
                     feedback_match = re.search(r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n)*)"', feedback_text, re.DOTALL)
-                
-                if feedback_match:
-                    # Unescape the string
-                    import json as json_module
-                    extracted_text = json_module.loads(f'"' + feedback_match.group(1) + '"')
-                    if extracted_text and len(extracted_text) > 50:  # Sanity check
-                        feedback_text = extracted_text
-                        print(f"✅ Extracted feedback_text using regex fallback")
-            except Exception as e:
-                print(f"⚠️  Regex extraction fallback failed: {e}")
+                    if feedback_match:
+                        extracted_text = feedback_match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                        if extracted_text and len(extracted_text) > 50:
+                            feedback_text = extracted_text
+                            print(f"✅ Extracted feedback_text using regex fallback")
+                except Exception as e:
+                    print(f"⚠️  Regex extraction fallback failed: {e}")
             
             # OPTIONAL: Try to salvage plan_v2 from a malformed JSON response.
             # Even if the overall JSON is invalid (e.g. due to unescaped quotes in feedback_text),
@@ -559,20 +557,24 @@ class AIService:
                     print(f"✅ CRITICAL FIX: Extracted response_text from JSON wrapper (length: {len(feedback_text)})")
             except Exception as e:
                 print(f"❌ CRITICAL: Final extraction failed: {e}")
-                # Last resort: try to extract just the text content using regex
-                try:
-                    import re
-                    # Look for "feedback_text": "..." and extract the value
-                    pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n)*)"'
-                    match = re.search(pattern, feedback_text, re.DOTALL)
-                    if match:
-                        # Unescape the string
-                        extracted = match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
-                        if len(extracted) > 100:  # Sanity check
-                            feedback_text = extracted
-                            print(f"✅ CRITICAL FIX: Extracted via regex fallback (length: {len(feedback_text)})")
-                except Exception as regex_error:
-                    print(f"❌ CRITICAL: Regex fallback also failed: {regex_error}")
+                # Try structure-based extraction first (handles unescaped quotes in content)
+                extracted = extract_feedback_text_by_structure(cleaned)
+                if extracted and len(extracted) > 100:
+                    feedback_text = extracted
+                    print(f"✅ CRITICAL FIX: Extracted via structure-based fallback (length: {len(feedback_text)})")
+                else:
+                    # Last resort: regex (may truncate at first unescaped quote)
+                    try:
+                        import re
+                        pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n)*)"'
+                        match = re.search(pattern, feedback_text, re.DOTALL)
+                        if match:
+                            extracted = match.group(1).replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                            if len(extracted) > 100:
+                                feedback_text = extracted
+                                print(f"✅ CRITICAL FIX: Extracted via regex fallback (length: {len(feedback_text)})")
+                    except Exception as regex_error:
+                        print(f"❌ CRITICAL: Regex fallback also failed: {regex_error}")
                     # At this point, we've failed all extraction attempts
                     # Log the issue but don't crash - the display-time extraction will handle it
         

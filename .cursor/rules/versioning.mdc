@@ -5,28 +5,27 @@ alwaysApply: true
 
 # Versioning & Changelog
 
+## MANDATORY: Before any file edits
+
+**You MUST do this before using any tool that modifies files** (e.g. `write`, `search_replace`, `ApplyPatch`). No exceptions.
+
+1. **Check current branch**: Run `git branch --show-current` (or equivalent). If you have not yet done this in this task, do it now before editing.
+2. **If the current branch is `main`**: Create or switch to a feature/patch branch (e.g. `fix/issue-name`, `docs/update-readme`), then perform all edits only on that branch. Do not edit files on `main`.
+3. **If the change is deployable** (code, config, or docs that will be released): Before or with your first edit, bump **VERSION** (repo root) per Major.Feature.Patch and add an entry under **`[Unreleased]`** in **CHANGELOG.md** (repo root). Changelog sections: Added, Changed, Fixed, Removed, Security.
+
+Treat `main` as deployed state. Do not commit or push unless the user explicitly asks.
+
+---
+
 When making changes that will be deployed:
 
 1. **VERSION** (repo root): Bump per Major.Feature.Patch (v0 = beta, v1 = Strava onboarded)
 2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. When releasing, move them into `[X.Y.Z]` with the release date.
 
-**Changelog sections:** Added, Changed, Fixed, Removed, Security. Use what fits.
-
-**Do not touch:** Terraform/infra (owner maintains manually).
-
-See `docs/versioning.md` for full workflow.
+**Do not touch:** Terraform/infra (owner maintains manually). See `docs/versioning.md` for full workflow.
 
 ## Environments & deployment
 
 - **App Runner services**: staging, prod, and beta (plus single-tenant variants like `mark`, `shane`, `dom`) run in AWS App Runner.
 - **Deployment script**: Use `./scripts/deploy.sh <env> vX.Y.Z` as documented in `deploy.txt` (staging first, then prod/beta).
 - **Health check**: Verify the deployed version with `GET /version` on the target environment.
-
-## Git workflow for this repo
-
-- **Never work directly on `main`**: Always create a feature/patch branch (e.g. `fix-feedback-truncation-json`, `docs-refresh-<date>`) before changing code **or documentation**.
-- **AI agent behaviour**: The assistant must:
-  - **Before any file edits** (`ApplyPatch`, `EditNotebook`, etc.), check the current branch.
-  - If the current branch is `main`, **create or switch to a feature branch first**, then perform edits only on that branch.
-  - Avoid committing or pushing changes unless the user explicitly requests it.
-  - Treat `main` as tracking deployed state; any experimental, debugging, or documentation changes live on feature branches.

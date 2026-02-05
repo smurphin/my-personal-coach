@@ -123,6 +123,59 @@ def validate_and_load_plan_v2(plan_data: Dict[str, Any]) -> Tuple[Optional[Train
         return None, f"Failed to load TrainingPlan: {str(e)}"
 
 
+def extract_feedback_text_by_structure(raw: str) -> Optional[str]:
+    """
+    Extract the value of "feedback_text" from malformed JSON by finding the
+    structural end of the string (the " that precedes the next key or }).
+    This avoids truncation when the feedback content contains unescaped quotes.
+
+    Args:
+        raw: JSON string (may be wrapped in ```json ... ```), possibly invalid.
+
+    Returns:
+        Extracted feedback text, or None if not found.
+    """
+    import re
+    # Strip markdown code block if present
+    text = raw.strip()
+    if text.startswith('```'):
+        match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
+        if match:
+            text = match.group(1)
+    if '"feedback_text"' not in text:
+        return None
+    key_pattern = re.compile(r'"feedback_text"\s*:\s*"', re.DOTALL)
+    key_match = key_pattern.search(text)
+    if not key_match:
+        return None
+    start = key_match.end()  # first character of the string value
+    # Structural end: the " that is followed by , "change_summary_markdown" etc. or by }\s*
+    end_markers = [
+        '", "change_summary_markdown"',
+        '", "change_summary"',
+        '", "plan_v2"',
+        '", "response_text"',
+    ]
+    end_pos = None
+    for marker in end_markers:
+        idx = text.find(marker, start)
+        if idx != -1 and (end_pos is None or idx < end_pos):
+            end_pos = idx
+    if end_pos is None:
+        # feedback_text might be last: look for " followed by optional whitespace and }
+        close_match = re.search(r'"\s*}\s*', text[start:])
+        if close_match:
+            end_pos = start + close_match.start()
+    if end_pos is None:
+        return None
+    value = text[start:end_pos]
+    # Unescape JSON string sequences
+    value = value.replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t')
+    value = value.replace('\\"', '"').replace("\\'", "'")
+    value = value.replace('\\\\', '\\')
+    return value if len(value) > 0 else None
+
+
 def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]]:
     """
     Extract JSON from AI response that may contain markdown code blocks or extra text.

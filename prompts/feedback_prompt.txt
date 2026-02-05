@@ -179,7 +179,7 @@ You have been given a list of one or more recently completed sessions. Your task
 
 **DO NOT use markdown code blocks around the JSON. Return ONLY the raw JSON object.**
 
-**REMEMBER:** Your `feedback_text` field should contain markdown-formatted text (with headings, tables, etc.), but the overall response structure MUST be JSON. Think of it as: JSON wrapper, markdown content inside.
+**REMEMBER:** Your `feedback_text` field should contain markdown-formatted text (with headings, tables, etc.), but the overall response structure MUST be JSON. Think of it as: JSON wrapper, markdown content inside. **Inside JSON strings, escape any double-quotes as \\"** (e.g. phrases in quotes like \"on the day\" must be written as \\\"on the day\\\") so the JSON stays valid.
 
 ---
 {% if vdot_data and vdot_data.current_vdot %}

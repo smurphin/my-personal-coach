@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
+### Fixed
+
+- Feedback truncation: use structure-based extraction for `feedback_text` when AI returns malformed JSON (unescaped quotes in content), so full feedback is kept instead of cutting off at the first internal quote. Prompt updated to remind model to escape quotes in JSON strings.
 
 ## [0.1.1] - 2026-02-04
 
