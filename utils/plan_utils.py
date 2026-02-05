@@ -67,13 +67,19 @@ def archive_and_restore_past_weeks(current_plan_v2: Optional[Dict[str, Any]], ne
             new_plan_min_week = min(w.week_number for w in new_plan_weeks) if new_plan_weeks else 1
             
             if new_plan_min_week == 1 and max_past_week_num > 0:
-                # AI regenerated from Week 1 - need to renumber new weeks to continue from past
-                print(f"   🔄 New plan starts at Week 1, but we have past weeks up to Week {max_past_week_num}")
-                print(f"   🔢 Renumbering new weeks to continue from Week {max_past_week_num + 1}")
-                
-                # Renumber all new weeks to continue from past weeks
-                for week in new_plan_weeks:
-                    week.week_number = max_past_week_num + week.week_number
+                # AI regenerated from Week 1 (or Week 0) - we're prepending past weeks, so drop
+                # the first N weeks from the new plan (same period as our past weeks). Use the
+                # count of past weeks (covers Week 0 + Week 1, etc.), not max_past_week_num.
+                num_past_weeks = len(past_week_objects)
+                print(f"   🔄 New plan starts at Week 1, but we have {num_past_weeks} past week(s) (up to Week {max_past_week_num})")
+                print(f"   🔢 Dropping first {num_past_weeks} weeks from new plan (same period as archived past weeks)")
+                new_plan_weeks = new_plan_weeks[num_past_weeks:]
+                if not new_plan_weeks:
+                    print(f"   ⚠️  New plan had only past weeks; keeping archived past weeks only")
+                else:
+                    # Renumber remaining new weeks to follow past weeks (1-based)
+                    for i, week in enumerate(new_plan_weeks):
+                        week.week_number = max_past_week_num + 1 + i
             
             # Avoid duplicating weeks: if a past week's week_number already exists
             # in the new plan, skip that past week (the new plan's version wins).
@@ -87,6 +93,11 @@ def archive_and_restore_past_weeks(current_plan_v2: Optional[Dict[str, Any]], ne
             
             # Merge: filtered past weeks + (possibly renumbered) new weeks
             new_plan_v2.weeks = filtered_past_weeks + new_plan_weeks
+            # Renumber consecutive, preserving week 0 if it was in the past (partial-week case)
+            has_week_zero = any(w.week_number == 0 for w in past_week_objects)
+            start = 0 if has_week_zero else 1
+            for i, week in enumerate(new_plan_v2.weeks):
+                week.week_number = start + i
             print(f"   ✅ Merged {len(filtered_past_weeks)} archived past weeks back into plan")
             print(f"   📊 Final plan: {len(new_plan_v2.weeks)} weeks total (Weeks {new_plan_v2.weeks[0].week_number} to {new_plan_v2.weeks[-1].week_number})")
     
