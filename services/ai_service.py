@@ -591,6 +591,10 @@ class AIService:
                     # At this point, we've failed all extraction attempts
                     # Log the issue but don't crash - the display-time extraction will handle it
         
+        # Normalize over-escaped quotes: model sometimes outputs \" in JSON so parsed string
+        # contains literal backslash-quote; convert to single quote for display.
+        feedback_text = feedback_text.replace('\\"', '"')
+        
         print(f"✅ Final feedback_text length: {len(feedback_text)} characters")
         print(f"✅ Final feedback_text preview: {feedback_text[:200]}...")
         

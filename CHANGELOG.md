@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-02-06
+
+### Changed
+
+- Feedback prompt: use a single JSON response schema and clearer quote-escaping rules for `feedback_text`; remove fenced JSON examples from prompt context to reduce malformed JSON responses.
+
+### Fixed
+
+- Feedback extraction: improve `extract_feedback_text_by_structure` so it handles whitespace/newlines and generic key names after `feedback_text` without truncating content when JSON is malformed.
+- Webhook processing now uses queued activity IDs so activities outside the 7-day window or missed by the Strava list are still processed.
+- Over-escaped quotes in feedback: normalize literal `\"` to `"` so quotes display correctly in the UI (storage and display).
+
 ## [0.1.6] - 2026-02-06
 
 ### Added

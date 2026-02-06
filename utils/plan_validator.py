@@ -136,40 +136,51 @@ def extract_feedback_text_by_structure(raw: str) -> Optional[str]:
         Extracted feedback text, or None if not found.
     """
     import re
+
     # Strip markdown code block if present
     text = raw.strip()
     if text.startswith('```'):
         match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
         if match:
             text = match.group(1)
+
     if '"feedback_text"' not in text:
         return None
-    key_pattern = re.compile(r'"feedback_text"\s*:\s*"', re.DOTALL)
-    key_match = key_pattern.search(text)
+
+    # Find the start of the feedback_text string value
+    key_match = re.search(r'"feedback_text"\s*:\s*"', text, re.DOTALL)
     if not key_match:
         return None
     start = key_match.end()  # first character of the string value
-    # Structural end: the " that is followed by , "change_summary_markdown" etc. or by }\s*
-    end_markers = [
-        '", "change_summary_markdown"',
-        '", "change_summary"',
-        '", "plan_v2"',
-        '", "response_text"',
-    ]
-    end_pos = None
-    for marker in end_markers:
-        idx = text.find(marker, start)
-        if idx != -1 and (end_pos is None or idx < end_pos):
-            end_pos = idx
-    if end_pos is None:
-        # feedback_text might be last: look for " followed by optional whitespace and }
-        close_match = re.search(r'"\s*}\s*', text[start:])
+
+    # Structural end: the closing quote whose following characters look like:
+    #   ",   "<next_key>"
+    # or:
+    #   "   }
+    #
+    # This allows for arbitrary whitespace/newlines between tokens and does not
+    # assume a specific key name (handles change_summary_markdown, plan_v2, etc.).
+    tail = text[start:]
+    end_pos: Optional[int] = None
+
+    # Case 1: another key follows feedback_text
+    next_key_pattern = re.compile(r'"\s*,\s*"[A-Za-z0-9_]+"', re.DOTALL)
+    next_key_match = next_key_pattern.search(tail)
+    if next_key_match:
+        # end_pos points to the closing quote of feedback_text (start of the match)
+        end_pos = start + next_key_match.start()
+    else:
+        # Case 2: feedback_text is the last key before the closing brace
+        close_match = re.search(r'"\s*}\s*', tail)
         if close_match:
             end_pos = start + close_match.start()
+
     if end_pos is None:
         return None
+
     value = text[start:end_pos]
-    # Unescape JSON string sequences
+
+    # Unescape common JSON string escape sequences so the caller gets readable text.
     value = value.replace('\\n', '\n').replace('\\r', '\r').replace('\\t', '\t')
     value = value.replace('\\"', '"').replace("\\'", "'")
     value = value.replace('\\\\', '\\')

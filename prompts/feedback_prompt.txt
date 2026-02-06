@@ -112,76 +112,68 @@ You have been given a list of one or more recently completed sessions. Your task
 
 **This applies whether you are updating the plan or not. Always use JSON format.**
 
-**Your response MUST be valid JSON in one of these formats:**
+**Your response MUST be valid JSON in this exact format. MUST NOT contain raw double-quotes inside JSON strings (escape them as `\"`).**
 
-**Format 1: When updating the plan (plan_v2 changes):**
+**Single response format (one schema; one field always required, two fields whose values are conditional):**
 
 {
-  "feedback_text": "Your full feedback text here (all sections: Recent Activity Summary, Session Analysis, Plan Adaptation).",
-  "plan_v2": {
-        "version": 2,
-        "athlete_id": "{{ training_plan_json.athlete_id if training_plan_json else 'unknown' }}",
-        "athlete_goal": "{{ training_plan_json.athlete_goal if training_plan_json else 'Unknown goal' }}",
-        "goal_date": "{{ training_plan_json.goal_date if training_plan_json else null }}",
-        "goal_distance": "{{ training_plan_json.goal_distance if training_plan_json else null }}",
-        "plan_start_date": "{{ training_plan_json.plan_start_date if training_plan_json else null }}",
-        "weeks": [
-          {
-            "week_number": 1,
-            "start_date": "2026-01-01",
-            "end_date": "2026-01-07",
-            "description": "Optional weekly focus",
-            "sessions": [
-              {
-                "id": "w1-s1",
-                "day": "Anytime",
-                "type": "RUN",
-                "date": "2026-01-01",
-                "priority": "KEY",
-                "duration_minutes": 60,
-                "description": "Full session description including workout details, zones, paces, etc.",
-                "zones": {"hr": "2", "pace": "5:30/km"},
-                "scheduled": false,
-                "completed": false
-              }
-            ]
-          }
-        ]
-      },
-      "change_summary_markdown": "Brief summary of key changes (2-3 bullet points)"
+  "feedback_text": "Your full feedback here (Recent Activity Summary, Session Analysis, Plan Adaptation). Escape any double-quotes inside this string as \\\"like this\\\".",
+  "change_summary_markdown": null,
+  "plan_v2": null
+}
+
+- **Always required:** `feedback_text` (string), `change_summary_markdown` (string or null).
+- **When you are NOT changing the plan:** set `change_summary_markdown` to `null` and omit `plan_v2` (or set `plan_v2` to `null`).
+- **When you ARE changing the plan:** set `change_summary_markdown` to a brief summary (2–3 bullet points) and include `plan_v2` with the full updated plan object (structure below).
+
+**plan_v2 structure (only when updating the plan):**
+{
+  "version": 2,
+  "athlete_id": "{{ training_plan_json.athlete_id if training_plan_json else 'unknown' }}",
+  "athlete_goal": "{{ training_plan_json.athlete_goal if training_plan_json else 'Unknown goal' }}",
+  "goal_date": "{{ training_plan_json.goal_date if training_plan_json else null }}",
+  "goal_distance": "{{ training_plan_json.goal_distance if training_plan_json else null }}",
+  "plan_start_date": "{{ training_plan_json.plan_start_date if training_plan_json else null }}",
+  "weeks": [
+    {
+      "week_number": 1,
+      "start_date": "2026-01-01",
+      "end_date": "2026-01-07",
+      "description": "Optional weekly focus",
+      "sessions": [
+        {
+          "id": "w1-s1",
+          "day": "Anytime",
+          "type": "RUN",
+          "date": "2026-01-01",
+          "priority": "KEY",
+          "duration_minutes": 60,
+          "description": "Full session description including workout details, zones, paces, etc.",
+          "zones": {"hr": "2", "pace": "5:30/km"},
+          "scheduled": false,
+          "completed": false
+        }
+      ]
+    }
+  ]
 }
 
 **NON-NEGOTIABLE RULES:**
 1. **You MUST return valid JSON** - no markdown code blocks (no ```json markers), no extra text before/after. Just pure JSON starting with `{` and ending with `}`.
-    2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
-    3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
-    4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
-    5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
-    6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null) - **NEVER use "SOCIAL", "OPTIONAL", or any other value. ONLY use KEY, IMPORTANT, STRETCH, or null.**
-    7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
-    8. **Day field:** Preserve each session's \`day\` value from the original plan unless the athlete is a **Disciplinarian** with day-specific scheduling. For Minimalist and Improviser, use "Anytime" (or the existing flexible value); do NOT assign "Monday", "Tuesday", etc.
-
-**Format 2: When NOT updating the plan (no plan changes needed):**
-{
-  "feedback_text": "Your full feedback text here (all sections: Recent Activity Summary, Session Analysis, Plan Adaptation).",
-  "change_summary_markdown": null
-}
-
-**NON-NEGOTIABLE RULES:**
-1. **You MUST return valid JSON** - no markdown code blocks, no extra text before/after, no explanations outside the JSON. Just pure JSON.
-2. **The entire response must be parseable as JSON** - start with `{` and end with `}`
-3. **Always include `feedback_text`** - this contains your full feedback in markdown format (the markdown goes INSIDE the JSON string, not as the response format)
-4. **If updating the plan, include `plan_v2`** with the complete updated plan structure
-5. **If updating the plan, include `change_summary_markdown`** with a brief summary (2-3 bullet points)
-6. **If NOT updating the plan, set `change_summary_markdown` to `null`**
-7. **Double-check your JSON is valid** - invalid JSON will cause the system to fail
-8. **DO NOT return plain markdown** - always wrap your feedback in JSON format, even if no plan update is needed
+2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
+3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
+4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
+5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
+6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null) - **NEVER use "SOCIAL", "OPTIONAL", or any other value. ONLY use KEY, IMPORTANT, STRETCH, or null.**
+7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
+8. **Day field:** Preserve each session's \`day\` value from the original plan unless the athlete is a **Disciplinarian** with day-specific scheduling. For Minimalist and Improviser, use "Anytime" (or the existing flexible value); do NOT assign "Monday", "Tuesday", etc.
+9. **Always include `feedback_text`** and **`change_summary_markdown`**; include **`plan_v2`** only when you are returning an updated plan.
 
 **CRITICAL:** The system will REJECT your response if the JSON is invalid or if required fields are missing. Always validate your JSON before responding.
 
 **DO NOT use markdown code blocks around the JSON. Return ONLY the raw JSON object.**
 
-**REMEMBER:** Your `feedback_text` field should contain markdown-formatted text (with headings, tables, etc.), but the overall response structure MUST be JSON. Think of it as: JSON wrapper, markdown content inside. **Inside JSON strings, escape any double-quotes as \\"** (e.g. phrases in quotes like \"on the day\" must be written as \\\"on the day\\\") so the JSON stays valid.
+**REMEMBER:** Your `feedback_text` field should contain markdown-formatted text (with headings, tables, etc.), but the overall response structure MUST be JSON. Think of it as: JSON wrapper, markdown content inside. **Inside JSON strings, escape any double-quotes as \\"** (e.g. phrases in quotes like \\\"on the day\\\" must be written as `\\\"on the day\\\"`) so the JSON stays valid. If you are unsure whether a sentence should include quotes, prefer rewriting it without quotes rather than risking invalid JSON.
 
 ---
 {% if vdot_data and vdot_data.current_vdot %}
@@ -286,27 +278,21 @@ FORMATTING REQUIREMENTS:
 
 **Current Training Plan (JSON format - source of truth for comparison and updates):**
 {% if training_plan_json %}
-```json
+The following is a JSON object. **Do NOT copy any surrounding formatting such as code fences.** Treat it as data only.
+
 {{ training_plan_json }}
-```
 {% else %}
-No structured plan available. Use markdown below for context.
+No structured plan available. Use the contextual markdown description below for high-level understanding only.
 {% endif %}
 
 **Current Training Plan (Markdown for context only - do not use for exact comparison or for building plan_v2):**
-```markdown
 {{ training_plan }}
-```
 
-Recent Feedback Log (Newest First):
-```json
+Recent Feedback Log (Newest First, JSON data for context only):  
 {{ feedback_log_json }}
-```
 
-Just Completed Session(s):
-```json
+Just Completed Session(s) (JSON data for context only):  
 {{ completed_sessions }}
-```
 
 **🚨🚨🚨 CRITICAL: BEFORE ANALYZING - READ THIS FIRST 🚨🚨🚨**
 
@@ -315,7 +301,7 @@ Just Completed Session(s):
 - Look for \`preferred_segment_summary\` = "laps_summary"  
 - Look for session name containing "interval", "repeat", "x 3min", "6x", "3 min", etc.
 
-**STEP 2: If it's an interval session, you MUST:**
+**STEP 2: ONLY If it's an interval session, you MUST:**
 - ✅ **FIRST:** Check \`laps_summary.count\` - this is the NUMBER OF LAPS available. Look at the actual number, don't assume.
 - ✅ **IF \`laps_summary.count > 1\`:** You have multiple laps! Use \`laps_summary.segments\` array for your analysis. Each element in the array is a lap.
 - ✅ **IF \`laps_summary.count = 0 or 1\`:** This means there's a data issue. Check if \`laps_summary.segments\` exists and has data. If it does, use it. If not, mention this as a data logging issue.
