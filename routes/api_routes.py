@@ -75,15 +75,15 @@ def process_queued_webhooks(athlete_id):
         for aid, count in multiple_updates.items():
             print(f"   - Activity {aid}: {count} updates")
     
-    # Now process activities (the existing logic will handle finding new activities)
-    # We'll trigger the normal processing flow
-    _trigger_webhook_processing(athlete_id)
+    # Pass queued activity IDs so we always consider them (even if Strava list or feedback_log would skip them)
+    _trigger_webhook_processing(athlete_id, queued_activity_ids=activity_ids)
 
 
-def _trigger_webhook_processing(athlete_id):
+def _trigger_webhook_processing(athlete_id, queued_activity_ids=None):
     """
     Trigger the normal webhook processing flow for an athlete.
-    This will find and process all new activities.
+    Finds new activities from Strava (last 7 days). If queued_activity_ids is provided (from webhook),
+    any queued ID not already processed is also included so webhook-driven activities are never skipped.
     """
     user_data = data_manager.load_user_data(athlete_id)
     if not user_data or 'token' not in user_data:
@@ -122,13 +122,28 @@ def _trigger_webhook_processing(athlete_id):
     )
     
     if not isinstance(recent_activities_summary, list):
-        print(f"⚠️ Strava API call failed for athlete {athlete_id}")
-        return
+        print(f"⚠️ Strava API call failed for athlete {athlete_id}, will still try queued activity IDs")
+        recent_activities_summary = []
     
     new_activities_to_process = [
         act for act in recent_activities_summary
         if str(act['id']) not in processed_activity_ids
     ]
+    existing_ids = {str(act['id']) for act in new_activities_to_process}
+
+    # Include queued webhook activity IDs so we never skip activities the webhook told us about
+    if queued_activity_ids:
+        for qid in queued_activity_ids:
+            qid_str = str(qid)
+            if qid_str in processed_activity_ids or qid_str in existing_ids:
+                continue
+            detail = strava_service.get_activity_detail(access_token, qid)
+            if detail and isinstance(detail, dict) and detail.get('id'):
+                new_activities_to_process.append({'id': detail['id']})
+                existing_ids.add(qid_str)
+                print(f"📥 Including queued activity {qid} (not in recent Strava list)")
+            else:
+                print(f"⚠️ Queued activity {qid} could not be fetched from Strava, skipping")
     
     if not new_activities_to_process:
         print(f"--- No new activities to analyze for athlete {athlete_id}. ---")

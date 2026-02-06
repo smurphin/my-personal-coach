@@ -15,6 +15,14 @@ import json
 
 feedback_bp = Blueprint('feedback', __name__)
 
+
+def _normalize_escaped_quotes(text):
+    """Replace literal backslash-quote in feedback text with quote for display (model sometimes over-escapes in JSON)."""
+    if not text or not isinstance(text, str):
+        return text
+    return text.replace('\\"', '"')
+
+
 def extract_feedback_text_from_json(feedback_markdown):
     """
     Extract feedback_text from JSON if feedback_markdown contains raw JSON.
@@ -36,7 +44,7 @@ def extract_feedback_text_from_json(feedback_markdown):
     if isinstance(feedback_markdown, dict):
         # If it's already a dict, check if it has feedback_text
         if 'feedback_text' in feedback_markdown:
-            return feedback_markdown.get('feedback_text', '')
+            return _normalize_escaped_quotes(feedback_markdown.get('feedback_text', ''))
         # Otherwise, try to convert to JSON string
         feedback_markdown = json.dumps(feedback_markdown)
     
@@ -80,7 +88,7 @@ def extract_feedback_text_from_json(feedback_markdown):
                 extracted_text = parsed.get('feedback_text', feedback_str)
                 print(f"✅ Successfully extracted feedback_text (length: {len(extracted_text)})")
                 print(f"   First 200 chars of extracted: {extracted_text[:200]}...")
-                return extracted_text
+                return _normalize_escaped_quotes(extracted_text)
             else:
                 print(f"⚠️  Parsed JSON but 'feedback_text' key not found. Keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'N/A'}")
         except json.JSONDecodeError as e:
@@ -90,7 +98,7 @@ def extract_feedback_text_from_json(feedback_markdown):
             extracted = extract_feedback_text_by_structure(feedback_str)
             if extracted and len(extracted) > 0:
                 print(f"✅ Extracted feedback_text using structure-based fallback (length: {len(extracted)})")
-                return extracted
+                return _normalize_escaped_quotes(extracted)
             print(f"   Attempting to extract feedback_text using regex fallback...")
             try:
                 pattern = r'"feedback_text"\s*:\s*"((?:[^"\\]|\\.|\\n|\\r|\\t)*)"'
@@ -101,7 +109,7 @@ def extract_feedback_text_from_json(feedback_markdown):
                     extracted = extracted.replace('\\"', '"').replace("\\'", "'")
                     extracted = extracted.replace('\\\\', '\\')
                     print(f"✅ Extracted feedback_text using regex fallback (length: {len(extracted)})")
-                    return extracted
+                    return _normalize_escaped_quotes(extracted)
             except Exception as regex_error:
                 print(f"⚠️  Regex fallback also failed: {regex_error}")
                 import traceback
@@ -116,7 +124,7 @@ def extract_feedback_text_from_json(feedback_markdown):
         if 'feedback_text' not in feedback_str:
             print(f"   (doesn't contain 'feedback_text')")
     
-    return feedback_markdown
+    return _normalize_escaped_quotes(feedback_markdown) if isinstance(feedback_markdown, str) else feedback_markdown
 
 def safe_save_user_data(athlete_id, user_data):
     """
