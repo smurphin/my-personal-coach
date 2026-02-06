@@ -232,23 +232,36 @@ class AIService:
         if Config.AI_MAX_OUTPUT_TOKENS is not None:
             cfg['max_output_tokens'] = Config.AI_MAX_OUTPUT_TOKENS
         # Thinking level (Gemini 3 only): MINIMAL, LOW, MEDIUM, HIGH. Skip for 2.5—API errors.
+        # vertexai.generative_models may not export ThinkingConfig in all versions; use proto first.
         if Config.AI_THINKING_LEVEL and 'gemini-3' in Config.AI_MODEL.lower():
+            level_str = Config.AI_THINKING_LEVEL.strip().upper()
+            thinking_config = None
+            # Try 1: proto (google.cloud.aiplatform_v1beta1) — no dependency on vertexai export
             try:
-                # Try vertexai (google-cloud-aiplatform); fallback to aiplatform proto types
+                from google.cloud.aiplatform_v1beta1.types import GenerationConfig as GCConfig
+                thinking_level_enum = getattr(GCConfig, 'ThinkingLevel', None)
+                if thinking_level_enum is not None:
+                    level_enum = getattr(
+                        thinking_level_enum,
+                        f'THINKING_LEVEL_{level_str}',
+                        getattr(thinking_level_enum, level_str, getattr(thinking_level_enum, 'LOW', None))
+                    )
+                    if level_enum is not None:
+                        thinking_config = GCConfig.ThinkingConfig(thinking_level=level_enum)
+            except (ImportError, AttributeError):
+                pass
+            # Try 2: vertexai.generative_models.ThinkingConfig (if available in this SDK version)
+            if thinking_config is None:
                 try:
                     from vertexai.generative_models import ThinkingConfig
-                    cfg['thinking_config'] = ThinkingConfig(thinking_level=Config.AI_THINKING_LEVEL)
-                except (ImportError, AttributeError, TypeError):
-                    from google.cloud.aiplatform_v1beta1.types import GenerationConfig as GCConfig
-                    cfg['thinking_config'] = GCConfig.ThinkingConfig(
-                        thinking_level=getattr(
-                            GCConfig.ThinkingConfig.ThinkingLevel,
-                            f'THINKING_LEVEL_{Config.AI_THINKING_LEVEL}',
-                            GCConfig.ThinkingConfig.ThinkingLevel.THINKING_LEVEL_LOW
-                        )
-                    )
-            except Exception as e:
-                print(f"⚠️  AI_THINKING_LEVEL={Config.AI_THINKING_LEVEL} not applied: {e}")
+                    thinking_config = ThinkingConfig(thinking_level=level_str)
+                except (ImportError, TypeError, ValueError, AttributeError):
+                    pass
+            if thinking_config is not None:
+                cfg['thinking_config'] = thinking_config
+                print(f"✅ AI_THINKING_LEVEL={level_str} applied for Gemini 3")
+            else:
+                print(f"⚠️  AI_THINKING_LEVEL={Config.AI_THINKING_LEVEL} not applied: could not build ThinkingConfig")
         return GenerationConfig(**cfg) if cfg else None
 
     def generate_content(self, prompt_text, **kwargs):

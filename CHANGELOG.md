@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-02-06
+
+### Added
+
+- Feedback prompt: cycling-specific guidance so HR vs power zone "mismatch" is not framed as an error; when power is absent, analyse on HR only and do not suggest the power meter is broken.
+- Documentation: `docs/cycling-zones-feedback.md` explaining HR (5 zones) vs power (7 zones) and that mismatch is expected.
+
+### Changed
+
+- Cycling feedback: prompt reworded to principle-based guidance (primary signal = HR, power as context; coach-like tone) for more meaningful analysis.
+
+### Fixed
+
+- AI_THINKING_LEVEL for Gemini 3: apply thinking level via a supported config path so LOW/MEDIUM/HIGH/MINIMAL from secrets are applied instead of failing when `ThinkingConfig` exports are missing.
+
 ## [0.1.5] - 2026-02-05
 
 ### Added
