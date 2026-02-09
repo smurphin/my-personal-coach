@@ -327,6 +327,7 @@ class AIService:
             hours_per_week=user_inputs.get('hours_per_week'),
             athlete_type=user_inputs['athlete_type'],
             lifestyle_context=user_inputs['lifestyle_context'],
+            included_sports=user_inputs.get('included_sports', []),
             training_history=athlete_data.get('training_history'),
             json_data=json.dumps(final_data, indent=4),
             weeks_until_goal=weeks_until_goal,

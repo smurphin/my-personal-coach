@@ -212,13 +212,13 @@ def onboarding():
         
         # Get existing athlete profile if available
         athlete_profile = user_data.get('athlete_profile') if user_data else None
-        
+
         # For legacy users, check plan_data for lifestyle_context if not in profile
         if user_data and not athlete_profile:
             plan_data = user_data.get('plan_data', {})
             legacy_lifestyle_context = plan_data.get('lifestyle_context')
             legacy_athlete_type = plan_data.get('athlete_type')
-            
+
             # Create temporary profile dict for template prepopulation
             if legacy_lifestyle_context or legacy_athlete_type:
                 athlete_profile = {
@@ -226,11 +226,31 @@ def onboarding():
                     'athlete_type': legacy_athlete_type
                 }
                 print(f"--- Loading legacy profile data for athlete {athlete_id} ---")
-        
-        return render_template("onboarding.html", athlete_profile=athlete_profile)
+
+        # Prefill LTHR/FTP/VDOT from training_metrics for re-onboarding
+        training_metrics_prefill = {}
+        if user_data:
+            metrics = user_data.get('training_metrics', {})
+            if isinstance(metrics.get('lthr'), dict) and metrics['lthr'].get('value') is not None:
+                training_metrics_prefill['lthr_value'] = metrics['lthr']['value']
+            if isinstance(metrics.get('ftp'), dict) and metrics['ftp'].get('value') is not None:
+                training_metrics_prefill['ftp_value'] = metrics['ftp']['value']
+            vdot_obj = metrics.get('vdot')
+            if isinstance(vdot_obj, dict) and vdot_obj.get('value') is not None:
+                training_metrics_prefill['vdot_value'] = int(vdot_obj['value']) if vdot_obj['value'] else None
+                if vdot_obj.get('detected_from', {}).get('date'):
+                    training_metrics_prefill['vdot_date'] = vdot_obj['detected_from']['date'][:10]
+                elif vdot_obj.get('detected_at'):
+                    training_metrics_prefill['vdot_date'] = str(vdot_obj['detected_at'])[:10]
+
+        return render_template(
+            "onboarding.html",
+            athlete_profile=athlete_profile,
+            training_metrics_prefill=training_metrics_prefill
+        )
     except Exception as e:
         print(f"Error loading onboarding: {e}")
-        return render_template("onboarding.html", athlete_profile=None)
+        return render_template("onboarding.html", athlete_profile=None, training_metrics_prefill={})
 
 @plan_bp.route("/generate_plan", methods=['POST'])
 @login_required
@@ -313,13 +333,20 @@ def generate_plan():
                 athlete_type = plan_data.get('athlete_type')
                 print(f"--- Migrating legacy athlete_type to athlete_profile ---")
         
+        # Sports to include in plan (at least one required)
+        selected_sports = request.form.getlist('sports')
+        if not selected_sports:
+            flash('Please select at least one sport to include in your plan.')
+            return redirect('/onboarding')
+
         athlete_profile = {
             'lifestyle_context': lifestyle_context,
             'athlete_type': athlete_type,
+            'sports': selected_sports,
             'updated_at': datetime.now().isoformat()
         }
         user_data['athlete_profile'] = athlete_profile
-        print(f"--- Saved athlete_profile for athlete {athlete_id} ---")
+        print(f"--- Saved athlete_profile for athlete {athlete_id} (sports: {selected_sports}) ---")
         
         # Save unit preferences (per sport)
         unit_run = request.form.get('unit_run', 'km')
@@ -351,7 +378,8 @@ def generate_plan():
             'lifestyle_context': combined_context,  # Combined context for AI
             'athlete_type': athlete_type,
             'lthr': lthr,
-            'ftp': ftp
+            'ftp': ftp,
+            'included_sports': selected_sports,
         }
         
         print(f"--- DEBUG user_inputs['goal']: {user_inputs['goal']} ---")
@@ -639,6 +667,7 @@ def generate_plan():
             "hours_per_week": user_inputs['hours_per_week'],
             "lifestyle_context": user_inputs['lifestyle_context'],
             "athlete_type": user_inputs['athlete_type'],
+            "included_sports": user_inputs['included_sports'],
             "athlete_stats": athlete_stats,
             "strava_zones": strava_zones,
             "friel_hr_zones": friel_hr_zones,

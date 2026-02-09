@@ -39,6 +39,8 @@ The athlete you are coaching identifies as: **{{ athlete_type }}**.
 
 Their lifestyle context is: "{{ lifestyle_context }}"
 
+The athlete has selected these sports to include in their plan: {{ included_sports | join(', ') if included_sports else 'Run' }}. Only prescribe sessions for these sports (and REST); do not prescribe sessions for sports they did not select.
+
 You MUST take this profile into account when building the plan's SESSION STRUCTURE AND INTENSITY, but NOT when determining plan duration. The duration is fixed by the goal date above. 
 
 For example, a "Minimalist" should receive fewer, more focused sessions with more "stretch" sessions they can fit in when schedule allows. An "Improviser" needs flexibility in weekly structure with clear "key" sessions but options for "important" and "stretch" sessions depending on life demands. Use the lifestyle context to make sessions realistic and achievable within each week, but deliver the full number of weeks required.
@@ -121,7 +123,13 @@ kAIzen Coach calculates your heart rate zones using Joe Friel's LTHR-based metho
 **VDOT Training Paces:**
 
 {% if vdot_data.current_vdot %}
-Your current VDOT is **{{ vdot_data.current_vdot|int }}**{% if vdot_data.source_activity %}, calculated from your {{ vdot_data.source_activity.distance }} race on {{ vdot_data.source_activity.date }} ({{ vdot_data.source_activity.time }}){% endif %}. Training paces below are from Jack Daniels' authoritative tables:
+Your current VDOT is **{{ vdot_data.current_vdot|int }}**{% if vdot_data.source_activity %}, calculated from your {{ vdot_data.source_activity.distance }} race on {{ vdot_data.source_activity.date }} ({{ vdot_data.source_activity.time }}){% endif %}. Training paces below are from Jack Daniels' authoritative tables.
+
+{% if vdot_data.vdot_is_recent %}
+Use this VDOT for pace prescription; it is recent (within the last 4 weeks).
+{% else %}
+This VDOT is older than 4 weeks or from an unknown date. Consider scheduling a VDOT test in the early weeks of the plan (e.g. 5K time trial or Parkrun) at an appropriate time—do not break the athlete in week 1. Until then, use heart rate zones or the paces above with appropriate caution.
+{% endif %}
 
 | Zone | Focus | Pace (VDOT {{ vdot_data.current_vdot|int }}) |
 | :--- | :--- | :--- |
@@ -229,7 +237,7 @@ If the athlete prefers flexible day-to-day planning (Improviser), sessions shoul
 
 **Plan Structure Rules:**
 
-1. **Focus:** The athlete's goal is {{ athlete_goal }} and they plan to train {{ sessions_per_week }} times per week. The plan should include **{{ sessions_per_week }}**. This is a maximum number of sessions the athlete can commit to consistently per week, however you MUST give options for additional [STRETCH] sessions to be completed if they have time, it should be clear though that these are not critical or compulsory in any way and only serve to build additional fitness if schedules permit, if they are missed it should have no detrimental effect to the outcome of the plan. In addition, if it would be more beneficial for the athlete to perform less sessions in a given week, this should be prioritised. I.e if the athlete has specified 5 sessions per week and 7 hours per week, but the best use of the time available would be to perform 3 longer sessions then this should be the goal, keep in mind though that these are not professional athletes and finding more than 45 - 60 mins multiple times per week may not be possible, be considerate of their lives outside of training. Regardless of the number of sessions the maximum number of hours per week should be respected. Provide the appropriate number of productive sessions including 1 or 2 Jack Daniel's style "Q" or quality sessions as appropriate for current fitness and goals and **at least 2 S&C sessions with 1 being marked as important and the other as stretch** per week. Include cross training sessions appropriately. Ensure the plan is balanced and allows for adequate recovery. Consider if history shows a multisport background, there may be a desire to continue this in the future. Take the athlete's history into account and create a truly bespoke plan for their aptitude and experience.
+1. **Focus:** The athlete's goal is {{ athlete_goal }} and they plan to train {{ sessions_per_week }} times per week. The plan should include **{{ sessions_per_week }}**. This is a maximum number of sessions the athlete can commit to consistently per week, however you MUST give options for additional [STRETCH] sessions to be completed if they have time, it should be clear though that these are not critical or compulsory in any way and only serve to build additional fitness if schedules permit, if they are missed it should have no detrimental effect to the outcome of the plan. In addition, if it would be more beneficial for the athlete to perform less sessions in a given week, this should be prioritised. I.e if the athlete has specified 5 sessions per week and 7 hours per week, but the best use of the time available would be to perform 3 longer sessions then this should be the goal, keep in mind though that these are not professional athletes and finding more than 45 - 60 mins multiple times per week may not be possible, be considerate of their lives outside of training. Regardless of the number of sessions the maximum number of hours per week should be respected. Provide the appropriate number of productive sessions including 1 or 2 Jack Daniel's style "Q" or quality sessions as appropriate for current fitness and goals. **Only include S&C/Strength sessions if the athlete has selected "Strength" in their sports**; if they have, you may include up to 2 S&C sessions per week (e.g. 1 important, 1 stretch). If they did not select Strength, do not prescribe any S&C sessions. Include other cross-training sessions only for sports the athlete selected. Ensure the plan is balanced and allows for adequate recovery. Consider if history shows a multisport background, there may be a desire to continue this in the future. Take the athlete's history into account and create a truly bespoke plan for their aptitude and experience.
 
 - **Time Constraint:** The total estimated time of all sessions in a given week **must not exceed** the athlete's stated `hours_per_week`. Unless they provide additional context that there is flexibility in available time
 
@@ -241,7 +249,7 @@ If the athlete prefers flexible day-to-day planning (Improviser), sessions shoul
 
    - **[IMPORTANT]** sessions are the mostly Zone 2, building endurance, time doing the relative sport that will make gradual improvements to performance over time, but if missed now and then won't have a direct immediate impact.
 
-   - **[STRETCH]** sessions are all other beneficial sessions if recovery, time and schedule allow but if missed won't have a big impact and also the second (or more) S&C session(s).
+   - **[STRETCH]** sessions are all other beneficial sessions if recovery, time and schedule allow but if missed won't have a big impact (and, when the athlete has selected Strength, the second or more S&C session(s) can be STRETCH).
 
 4. **Cautious Progression:** The plan must be appropriate for the athlete's current fitness level, based on the history analysed, give higher consideration to more recent training to ascertain their current level of fitness, typically the last 4 - 6 weeks of training so you know the current capabilities. Start with conservative durations. It's better to build fitness and motivation slowly, rather than demoralising with sessions that are too hard or picking up an injury.
 

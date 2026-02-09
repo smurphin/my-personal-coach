@@ -7,7 +7,11 @@ for inclusion in AI prompts.
 With DEBUG logging to verify what gets passed to AI.
 """
 
+from datetime import datetime, date
 from typing import Dict, Any, Optional
+
+# VDOT is considered "recent" if from the last 4 weeks (plan prompt uses this for pace prescription vs scheduling a test)
+VDOT_RECENT_DAYS = 28
 
 
 def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[str, Any]:
@@ -28,6 +32,8 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
     
     vdot_context = {
         'current_vdot': None,
+        'vdot_is_recent': False,
+        'vdot_age_days': None,
         # Primary per-km paces (legacy fields, kept for backwards compatibility)
         'easy_pace': None,
         'marathon_pace': None,
@@ -92,7 +98,29 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
         
         if debug:
             print(f"\n✅ VDOT value found: {vdot_value}")
-        
+
+        # Recency: use detected_from.date or detected_at for age
+        vdot_date = None
+        if isinstance(vdot_data, dict):
+            if 'detected_from' in vdot_data and isinstance(vdot_data['detected_from'], dict) and vdot_data['detected_from'].get('date'):
+                try:
+                    raw = vdot_data['detected_from']['date']
+                    vdot_date = datetime.fromisoformat(str(raw).replace('Z', '')[:10]).date()
+                except (ValueError, TypeError):
+                    pass
+            if vdot_date is None and vdot_data.get('detected_at'):
+                try:
+                    raw = vdot_data['detected_at']
+                    vdot_date = datetime.fromisoformat(str(raw).replace('Z', '')[:10]).date()
+                except (ValueError, TypeError):
+                    pass
+        if vdot_date:
+            today = date.today()
+            vdot_context['vdot_age_days'] = (today - vdot_date).days
+            vdot_context['vdot_is_recent'] = vdot_context['vdot_age_days'] < VDOT_RECENT_DAYS
+            if debug:
+                print(f"   VDOT date: {vdot_date}, age_days: {vdot_context['vdot_age_days']}, is_recent: {vdot_context['vdot_is_recent']}")
+
         vdot_context['current_vdot'] = vdot_value
         
         # Get training paces
@@ -384,6 +412,8 @@ def prepare_vdot_context(user_data: Dict[str, Any], debug: bool = True) -> Dict[
         # Return empty context on error
         return {
             'current_vdot': None,
+            'vdot_is_recent': False,
+            'vdot_age_days': None,
             'easy_pace': None,
             'marathon_pace': None,
             'threshold_pace': None,

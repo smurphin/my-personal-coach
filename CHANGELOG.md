@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Onboarding: sports selection (Run, Bike, Swim, Strength, Other); plan only includes selected sports and REST.
+- Onboarding: LTHR, FTP, and VDOT pre-filled from saved training metrics when re-onboarding.
+- Plan prompt: VDOT recency (within 4 weeks) drives “use for pace prescription” vs “schedule VDOT test in early weeks”.
+
+### Changed
+
+- Plan prompt: S&C/Strength sessions only prescribed when athlete selected Strength; removed mandatory 2 S&C sessions per week.
+- Onboarding: sports section moved between goal date and sessions per week, choices centred and spaced.
+
 ### Fixed
 
 - Week date parsing in legacy plan migration and simple parser now correctly handles plans that span December into January, aligning week ranges across year boundaries.
