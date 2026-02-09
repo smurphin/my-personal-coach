@@ -52,19 +52,23 @@ def migrate_plan_to_v2(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                 current_year = datetime.now().year
                 start_clean = re.sub(r'(\d+)(?:st|nd|rd|th)', r'\1', match.group(2))
                 end_clean = re.sub(r'(\d+)(?:st|nd|rd|th)', r'\1', match.group(3))
-                
+
                 # Try full month name first (January), then abbreviated (Jan)
                 try:
-                    start_date = datetime.strptime(f"{start_clean} {current_year}", "%B %d %Y").date().isoformat()
+                    start_date = datetime.strptime(f"{start_clean} {current_year}", "%B %d %Y").date()
                 except ValueError:
-                    start_date = datetime.strptime(f"{start_clean} {current_year}", "%b %d %Y").date().isoformat()
-                
+                    start_date = datetime.strptime(f"{start_clean} {current_year}", "%b %d %Y").date()
+
                 try:
-                    end_date = datetime.strptime(f"{end_clean} {current_year}", "%B %d %Y").date().isoformat()
+                    end_date = datetime.strptime(f"{end_clean} {current_year}", "%B %d %Y").date()
                 except ValueError:
-                    end_date = datetime.strptime(f"{end_clean} {current_year}", "%b %d %Y").date().isoformat()
-                
-                week_dates[week_num] = (start_date, end_date)
+                    end_date = datetime.strptime(f"{end_clean} {current_year}", "%b %d %Y").date()
+
+                # Handle year transitions for ranges like "December 29 – January 4"
+                if start_date.month > end_date.month:
+                    end_date = end_date.replace(year=current_year + 1)
+
+                week_dates[week_num] = (start_date.isoformat(), end_date.isoformat())
             except Exception as e:
                 print(f"⚠️  Could not parse dates for Week {week_num}: {e}")
         

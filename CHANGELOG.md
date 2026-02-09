@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Week date parsing in legacy plan migration and simple parser now correctly handles plans that span December into January, aligning week ranges across year boundaries.
+
 ## [0.1.7] - 2026-02-06
 
 ### Changed

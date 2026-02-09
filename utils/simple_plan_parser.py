@@ -258,12 +258,19 @@ def parse_plan_simple(plan_markdown: str, plan_data: Optional[Dict[str, Any]],
                 # Remove ordinal suffixes
                 start_clean = re.sub(r'(\d+)(?:st|nd|rd|th)', r'\1', start_date_str)
                 end_clean = re.sub(r'(\d+)(?:st|nd|rd|th)', r'\1', end_date_str)
-                
+
                 # Try parsing (simplified - may fail for some formats)
                 for fmt in ["%B %d %Y", "%b %d %Y", "%d %B %Y", "%d %b %Y"]:
                     try:
-                        start_date = datetime.strptime(f"{start_clean} {current_year}", fmt).date().isoformat()
-                        end_date = datetime.strptime(f"{end_clean} {current_year}", fmt).date().isoformat()
+                        start_dt = datetime.strptime(f"{start_clean} {current_year}", fmt).date()
+                        end_dt = datetime.strptime(f"{end_clean} {current_year}", fmt).date()
+
+                        # Handle year transitions for ranges like "December 29 – January 4"
+                        if start_dt.month > end_dt.month:
+                            end_dt = end_dt.replace(year=current_year + 1)
+
+                        start_date = start_dt.isoformat()
+                        end_date = end_dt.isoformat()
                         break
                     except ValueError:
                         continue
