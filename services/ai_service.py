@@ -629,10 +629,11 @@ class AIService:
         
         return feedback_text, plan_update_json, change_summary
     
-    def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None, athlete_profile=None):
+    def generate_chat_response(self, training_plan, feedback_log, chat_history, vdot_data=None, athlete_profile=None,
+                               fitness_baseline=None, garmin_summary=None):
         """
         Generate a chat response from the coach.
-        
+
         Returns:
             Tuple of (response_text, plan_update_json, change_summary)
             - response_text: The full AI response (markdown or JSON string)
@@ -641,7 +642,7 @@ class AIService:
         """
         with open('prompts/chat_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
-        
+
         # If training_plan is a TrainingPlan object, pass it as JSON for structured updates
         if isinstance(training_plan, TrainingPlan):
             training_plan_json = training_plan.to_dict()
@@ -649,7 +650,7 @@ class AIService:
         else:
             training_plan_json = None
             training_plan_text = training_plan
-        
+
         # Get user message from chat history (last user message)
         user_message = ""
         if chat_history:
@@ -657,12 +658,12 @@ class AIService:
                 if msg.get('role') == 'user':
                     user_message = msg.get('content', '')
                     break
-        
+
         # CRITICAL: Sanitize feedback_log and chat_history before passing to AI to prevent format contamination
         # If these contain JSON wrapped in markdown, the AI might copy that format
         sanitized_feedback_log = sanitize_feedback_log_for_ai(feedback_log)
         sanitized_chat_history = sanitize_chat_history_for_ai(chat_history)
-        
+
         prompt = template.render(
             user_message=user_message,
             training_plan=training_plan_text,
@@ -670,7 +671,9 @@ class AIService:
             feedback_log_json=json.dumps(sanitized_feedback_log, indent=2),
             chat_history_json=json.dumps(sanitized_chat_history, indent=2),
             vdot_data=vdot_data,
-            athlete_profile=athlete_profile
+            athlete_profile=athlete_profile,
+            fitness_baseline=fitness_baseline,
+            garmin_summary=garmin_summary
         )
         
         ai_response = self.generate_content(prompt)

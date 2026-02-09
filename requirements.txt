@@ -10,5 +10,5 @@ gunicorn
 boto3
 garminconnect
 cryptography
-gevent==24.2.1
+gevent==24.11.1
 python-dateutil

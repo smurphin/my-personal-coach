@@ -8,14 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Onboarding: sports selection (Run, Bike, Swim, Strength, Other); plan only includes selected sports and REST.
+- Onboarding: sports selection (Run, Bike, Swim, Strength, Other); plan only includes selected sports.
 - Onboarding: LTHR, FTP, and VDOT pre-filled from saved training metrics when re-onboarding.
-- Plan prompt: VDOT recency (within 4 weeks) drives “use for pace prescription” vs “schedule VDOT test in early weeks”.
+- Plan: VDOT from the last 4 weeks is used for pace prescription; otherwise the plan suggests scheduling a VDOT test in early weeks.
 
 ### Changed
 
-- Plan prompt: S&C/Strength sessions only prescribed when athlete selected Strength; removed mandatory 2 S&C sessions per week.
+- Plan: S&C/Strength sessions only appear when the athlete selected Strength; no longer forces two S&C sessions per week.
 - Onboarding: sports section moved between goal date and sessions per week, choices centred and spaced.
+- Plan generation uses a shorter training summary so week dates and plan scope stay correct (#105).
+- Chat: coach uses plan, completed sessions, Strava data, and conversation history; plan edits respect selected sports only (e.g. no "Easy Spin" on run-only plans unless the athlete asks).
+- Feedback: suggested plan changes only use the athlete's selected sports.
+- Plan: session types and examples match selected sports only (e.g. run-only plans get Run and Strength if selected, not Bike/Swim).
+- Chat: coach can answer "how's my fitness" on a new plan using recent training and Garmin summary instead of saying it has no data.
+- Plan: when VDOT is not established, a VDOT test is now scheduled in early weeks.
 
 ### Fixed
 

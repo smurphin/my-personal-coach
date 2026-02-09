@@ -556,12 +556,25 @@ def chat():
     if isinstance(athlete_profile, dict):
         athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
 
+    # Fitness baseline from plan building (recent_training_summary) and Garmin so coach can answer "how's my fitness" on a new plan
+    plan_data = user_data.get('plan_data', {}) or {}
+    fitness_baseline = plan_data.get('recent_training_summary')
+    garmin_summary = None
+    try:
+        garmin_raw = garmin_service.fetch_yesterday_data(user_data)
+        if garmin_raw is not None:
+            garmin_summary = json.dumps(garmin_raw, indent=2) if isinstance(garmin_raw, dict) else str(garmin_raw)
+    except Exception as e:
+        print(f"Chat: Could not fetch Garmin data for context: {e}")
+
     ai_response_markdown, plan_update_json, change_summary = ai_service.generate_chat_response(
         training_plan,
         feedback_log,
         chat_history,
         vdot_data=vdot_data,
-        athlete_profile=athlete_profile  # Includes lifestyle, type, and unit preferences
+        athlete_profile=athlete_profile,
+        fitness_baseline=fitness_baseline,
+        garmin_summary=garmin_summary
     )
 
     # CRITICAL: Ensure we're not storing raw JSON - extract response_text if needed

@@ -11,6 +11,10 @@ The athlete you are coaching identifies as: **{{ athlete_profile.athlete_type }}
 
 Their lifestyle context is: "{{ athlete_profile.lifestyle_context }}"
 
+{% if athlete_profile.get('sports') %}
+**Sports in this plan:** The plan only includes: {{ athlete_profile.sports | join(', ') }}. When suggesting plan changes or comparing sessions, only prescribe or reference these sports. Do not add sessions for sports they did not select (e.g. no "Easy Spin" or cycling in a run-only plan).
+{% endif %}
+
 You MUST take this profile into account when providing feedback and regenerating the training plan. For example, a "Minimalist" should receive fewer, more focused sessions with more "stretch" sessions they can fit in when schedule allows. An "Improviser" needs flexibility in weekly structure with clear "key" sessions but options for "important" and "stretch" sessions depending on life demands. Use the lifestyle context to make sessions realistic and achievable, recognizing the constraints and opportunities in their life.
 {% endif %}
 
@@ -163,7 +167,7 @@ You have been given a list of one or more recently completed sessions. Your task
 2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
 3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
 4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
-5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
+5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, CROSS_TRAIN
 6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null) - **NEVER use "SOCIAL", "OPTIONAL", or any other value. ONLY use KEY, IMPORTANT, STRETCH, or null.**
 7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 8. **Day field:** Preserve each session's \`day\` value from the original plan unless the athlete is a **Disciplinarian** with day-specific scheduling. For Minimalist and Improviser, use "Anytime" (or the existing flexible value); do NOT assign "Monday", "Tuesday", etc.
@@ -239,7 +243,7 @@ The athlete has recently rejected the following VDOT updates. Use this informati
 
 - Athlete hasn't completed a qualifying race or time trial
 - Use heart rate zones for intensity prescription and analysis  
-- Recommend completing a 5K time trial or Parkrun to establish VDOT baseline
+- Recommend completing a 5K or 10K time trial or race (e.g. Parkrun, 10K, half marathon) to establish VDOT; race is usually preferred for best estimate
 - **DO NOT attempt to calculate VDOT from workout data** - VDOT calculation requires the system to validate the effort was all-out and meets distance criteria
 - **DO NOT say "Based on this time, your VDOT is X"** - you are not authorized to calculate VDOT
 - **DO NOT provide training paces** - paces require an established VDOT from the system

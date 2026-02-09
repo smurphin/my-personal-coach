@@ -15,9 +15,36 @@ from utils.formatters import format_seconds
 from utils.migration import parse_ai_response_to_v2
 from utils.s_and_c_utils import get_routine_link, load_default_s_and_c_library, process_s_and_c_session
 from utils.vdot_context import prepare_vdot_context
+from utils.week_dates import generate_week_calendar
 from routes.api_routes import safe_save_user_data
 
 plan_bp = Blueprint('plan', __name__)
+
+
+def build_recent_training_summary(activities_summary, weeks=6):
+    """
+    Build a compact summary of recent training from Strava activity list (no full analysis).
+    Used to trim plan prompt token usage while still informing the AI of current load.
+    """
+    if not activities_summary or not isinstance(activities_summary, list):
+        return {"summary_text": "No recent activities.", "by_type": {}}
+    cutoff = datetime.now() - timedelta(weeks=weeks)
+    by_type = {}
+    for a in activities_summary:
+        try:
+            start = datetime.strptime(a.get("start_date_local", "")[:10], "%Y-%m-%d")
+            if start < cutoff:
+                continue
+            atype = (a.get("type") or "Other").replace(" ", "_")
+            by_type.setdefault(atype, {"count": 0, "moving_min": 0, "distance_km": 0.0})
+            by_type[atype]["count"] += 1
+            by_type[atype]["moving_min"] += int((a.get("moving_time") or 0) / 60)
+            by_type[atype]["distance_km"] += float((a.get("distance") or 0) / 1000)
+        except (ValueError, TypeError, KeyError):
+            continue
+    parts = [f"{v['count']} {k} ({v['moving_min']} min, {v['distance_km']:.0f} km)" for k, v in sorted(by_type.items())]
+    summary_text = f"Last {weeks} weeks: " + "; ".join(parts) if parts else f"No activities in last {weeks} weeks."
+    return {"summary_text": summary_text, "weeks": weeks, "by_type": by_type}
 
 
 def get_next_monday(include_partial_week=False):
@@ -619,63 +646,59 @@ def generate_plan():
             goal_lower = user_inputs['goal'].lower()
             goal_includes_cycling = 'cycling' in goal_lower or 'triathlon' in goal_lower or 'bike' in goal_lower
         
-        # Analyze activities (only if we have valid activities data)
-        analyzed_activities = []
-        if activities_summary and not isinstance(activities_summary, FlaskResponse):
-            one_week_ago = datetime.now() - timedelta(weeks=1)
-            
-            for activity_summary in activities_summary:
-                activity_date = datetime.strptime(
-                    activity_summary['start_date_local'],
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
-                
-                # Get detailed data for recent activities
-                if activity_date > one_week_ago:
-                    activity_to_process = strava_service.get_activity_detail(
-                        access_token,
-                        activity_summary['id']
-                    )
-                else:
-                    activity_to_process = activity_summary
+        # Recent training summary (trimmed for prompt token usage; no full activity list)
+        recent_training_summary = build_recent_training_summary(
+            activities_summary if not isinstance(activities_summary, FlaskResponse) else None,
+            weeks=6
+        )
 
-                streams = strava_service.get_activity_streams(access_token, activity_to_process['id'])
-                
-                # Build zones dict, ensuring we don't pass None values
-                zones_for_analysis = {}
-                if friel_hr_zones:
-                    zones_for_analysis['heart_rate'] = friel_hr_zones
-                if friel_power_zones:
-                    zones_for_analysis['power'] = friel_power_zones
-                
-                analyzed_activity = training_service.analyze_activity(
-                    activity_to_process,
-                    streams,
-                    zones_for_analysis
+        # Week calendar from plan dates (single source of truth for week ranges)
+        week_calendar = []
+        _plan_start = plan_start_date
+        _weeks = weeks_until_goal
+        if _weeks is None:
+            _plan_start = get_next_monday(include_partial_week=False)
+            _weeks = 6
+        if _plan_start and _weeks:
+            full_weeks = _weeks - 1 if has_partial_week else _weeks
+            if full_weeks < 0:
+                full_weeks = 0
+            try:
+                week_ranges = generate_week_calendar(
+                    _plan_start,
+                    full_weeks,
+                    has_partial_week=has_partial_week,
+                    days_in_partial_week=days_in_partial_week if has_partial_week else None,
                 )
-                
-                # Format time in zones
-                for key, seconds in analyzed_activity["time_in_hr_zones"].items():
-                    analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
-                
-                analyzed_activities.append(analyzed_activity)
+                week_calendar = [w.to_dict() for w in week_ranges]
+            except (ValueError, TypeError) as e:
+                print(f"--- Week calendar build failed: {e} ---")
 
-        # Prepare data for AI
+        # Minimal athlete_stats for prompt (avoid large payloads)
+        athlete_stats_trimmed = {}
+        if athlete_stats and not isinstance(athlete_stats, FlaskResponse) and isinstance(athlete_stats, dict):
+            for k in ("recent_ride_totals", "recent_run_totals", "ytd_ride_totals", "ytd_run_totals", "all_ride_totals", "all_run_totals"):
+                if k in athlete_stats and athlete_stats[k]:
+                    athlete_stats_trimmed[k] = athlete_stats[k]
+
+        # Prepare data for AI (trimmed: summary not full activity list, minimal stats/zones)
+        # Store upcoming_commitments separately so weekly summary/chat can reference "constraints for this plan"
         final_data_for_ai = {
             "athlete_goal": user_inputs['goal'],
             "sessions_per_week": user_inputs['sessions_per_week'],
             "hours_per_week": user_inputs['hours_per_week'],
             "lifestyle_context": user_inputs['lifestyle_context'],
+            "upcoming_commitments": upcoming_commitments,
             "athlete_type": user_inputs['athlete_type'],
             "included_sports": user_inputs['included_sports'],
-            "athlete_stats": athlete_stats,
-            "strava_zones": strava_zones,
+            "recent_training_summary": recent_training_summary,
+            "week_calendar": week_calendar,
+            "athlete_stats": athlete_stats_trimmed,
+            "strava_zones": strava_zones if strava_zones and not isinstance(strava_zones, FlaskResponse) else {},
             "friel_hr_zones": friel_hr_zones,
             "friel_power_zones": friel_power_zones,
             "vdot_data": vdot_data,
             "goal_includes_cycling": goal_includes_cycling,
-            "analyzed_activities": analyzed_activities,
-            # Add calculated duration parameters
             "weeks_until_goal": weeks_until_goal,
             "goal_date": goal_date,
             "plan_start_date": plan_start_date,

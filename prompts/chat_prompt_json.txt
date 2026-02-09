@@ -87,7 +87,7 @@ When you need to update the plan, you MUST return your response in this EXACT JS
 2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
 3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
 4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
-5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
+5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, CROSS_TRAIN
 6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null)
 7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 
