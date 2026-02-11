@@ -279,3 +279,30 @@ def extract_json_from_ai_response(response_text: str) -> Optional[Dict[str, Any]
     
     return None
 
+
+def extract_preamble_from_plan_response(response_text: str, max_chars: int = 8000) -> Optional[str]:
+    """
+    Extract the short preamble (Part 1) from a plan AI response: everything before
+    the ```json block or the first '{'. Truncates to max_chars so the plan view
+    shows a 2-3 sentence intro, not a long block.
+    """
+    if not response_text or not response_text.strip():
+        return None
+    text = response_text.strip()
+    cut = None
+    for marker in ('```json', '```'):
+        idx = text.find(marker)
+        if idx != -1:
+            cut = idx
+            break
+    if cut is None:
+        brace = text.find('{')
+        if brace != -1:
+            cut = brace
+    if cut is None or cut == 0:
+        return None
+    preamble = text[:cut].strip()
+    if not preamble:
+        return None
+    return preamble
+

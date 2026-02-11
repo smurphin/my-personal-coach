@@ -141,19 +141,18 @@ The athlete has recently rejected VDOT updates. When discussing VDOT or prescrib
 
 ---
 
-**Current Training Plan (JSON format for reference):**
+**Current Training Plan (structured JSON - sole source for plan updates):**
 {% if training_plan_json %}
-```json
-{{ training_plan_json }}
-```
-{% else %}
-No structured plan available. Use markdown plan below for context.
-{% endif %}
+The plan is provided as JSON only. When updating the plan you MUST return valid JSON with plan_v2; do not return markdown for the plan.
 
-**Current Training Plan (Markdown for context):**
-```markdown
+{{ training_plan_json }}
+{% else %}
+No structured plan available.{% if training_plan %} Legacy markdown below is for context only; you cannot return a valid plan_v2 from it.{% endif %}
+{% endif %}
+{% if not training_plan_json and training_plan %}
+**Legacy plan (markdown - context only):**
 {{ training_plan }}
-```
+{% endif %}
 
 **Recent Feedback:**
 {{ feedback_log_json }}

@@ -267,10 +267,19 @@ def restore_inactive_plan():
     # Complete rollback - restore everything exactly as it was
     inactive_plan = user_data['inactive_plan']
     
-    # Restore the plan and structure
+    # Restore the plan and structure (restore plan_v2 when present so we stay on structured data)
     user_data['plan'] = inactive_plan.get('plan')
     if 'plan_structure' in inactive_plan:
         user_data['plan_structure'] = inactive_plan.get('plan_structure')
+    if 'plan_v2' in inactive_plan and inactive_plan.get('plan_v2'):
+        user_data['plan_v2'] = inactive_plan['plan_v2']
+        # Keep display markdown in sync when we had only plan_v2 stored
+        if not user_data.get('plan'):
+            try:
+                from models.training_plan import TrainingPlan
+                user_data['plan'] = TrainingPlan.from_dict(inactive_plan['plan_v2']).to_markdown()
+            except Exception:
+                pass
     
     # Restore feedback_log from archive (load from S3 if archive is offloaded)
     from utils.archive_loader import get_user_archive, save_user_archive_to_s3

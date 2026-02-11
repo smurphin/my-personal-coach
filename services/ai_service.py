@@ -7,7 +7,8 @@ from typing import Optional
 from config import Config
 from models.training_plan import TrainingPlan
 from utils.migration import parse_ai_response_to_v2
-from utils.plan_validator import extract_json_from_ai_response, extract_feedback_text_by_structure, validate_and_load_plan_v2
+from utils.plan_validator import extract_json_from_ai_response, extract_feedback_text_by_structure, extract_preamble_from_plan_response, validate_and_load_plan_v2
+from utils.plan_utils import apply_week_calendar_to_plan
 
 
 def sanitize_feedback_log_for_ai(feedback_log):
@@ -337,33 +338,103 @@ class AIService:
             days_in_partial_week=days_in_partial_week,
             vdot_data=vdot_data,
             friel_hr_zones=final_data.get('friel_hr_zones'),
-            friel_power_zones=final_data.get('friel_power_zones')
+            friel_power_zones=final_data.get('friel_power_zones'),
+            assessment=final_data.get('assessment'),
+            assessment_json=json.dumps(final_data.get('assessment'), indent=2) if final_data.get('assessment') else '',
+            strava_hr_zones=final_data.get('strava_zones', {}).get('heart_rate', {}) if isinstance(final_data.get('strava_zones'), dict) else {}
         )
         
         # Generate AI response
         ai_response = self.generate_content(prompt)
-        
-        # Parse into structured format
+        week_calendar = final_data.get('week_calendar') or []
+
+        # JSON-first: try to extract and validate plan_v2 from response
+        extracted = extract_json_from_ai_response(ai_response)
+        plan_data = None
+        if extracted and isinstance(extracted, dict):
+            if 'plan_v2' in extracted:
+                plan_data = extracted.get('plan_v2')
+            elif 'weeks' in extracted and isinstance(extracted.get('weeks'), list):
+                plan_data = extracted
+
+        if plan_data:
+            plan_v2, error = validate_and_load_plan_v2(plan_data)
+            if plan_v2 and len(plan_v2.weeks) > 0:
+                plan_v2.athlete_id = str(athlete_data.get('athlete_id', ''))
+                plan_v2.athlete_goal = user_inputs.get('goal', '')
+                plan_v2.goal_date = final_data.get('goal_date')
+                plan_v2.plan_start_date = final_data.get('plan_start_date')
+                apply_week_calendar_to_plan(plan_v2, week_calendar)
+                markdown_text = plan_v2.to_markdown()
+                preamble = extract_preamble_from_plan_response(ai_response)
+                print(f"✅ Generated plan from JSON with {len(plan_v2.weeks)} weeks (week dates from calendar)")
+                return plan_v2, markdown_text, preamble
+            if error:
+                print(f"⚠️  Plan JSON validation failed: {error}; falling back to markdown parser")
+
+        # Fallback: legacy markdown parsing, then apply server-side week dates
         try:
             plan_v2, markdown_text = parse_ai_response_to_v2(
                 ai_response,
                 athlete_id=str(athlete_data.get('athlete_id')),
                 user_inputs=user_inputs
             )
-            if len(plan_v2.weeks) == 0:
+            if plan_v2 and len(plan_v2.weeks) > 0:
+                apply_week_calendar_to_plan(plan_v2, week_calendar)
+                preamble = extract_preamble_from_plan_response(ai_response)
+                print(f"✅ Generated structured plan via fallback parser with {len(plan_v2.weeks)} weeks (week dates from calendar)")
+                return plan_v2, markdown_text, preamble
+            if plan_v2 and len(plan_v2.weeks) == 0:
                 print("⚠️  AI returned no weeks - treating as generation failure")
-                return None, None
-            print(f"✅ Generated structured plan with {len(plan_v2.weeks)} weeks")
-            return plan_v2, markdown_text
+                return None, None, None
         except Exception as e:
             print(f"⚠️  Failed to parse structured plan: {e}")
-            print(f"Falling back to markdown-only")
-            # Fallback: return markdown only, plan_v2 will be None
-            return None, ai_response
+        return None, ai_response, None
+    
+    def generate_assessment(self, recent_training_summary, athlete_stats=None, training_metrics=None, garmin_summary=None):
+        """
+        Call A: Produce a structured training assessment (JSON) from recent training, long-term stats,
+        training metrics, and optional Garmin summary. Used before plan generation and stored for chat/feedback/summaries.
+
+        Returns:
+            Dict with short_term_state, long_term_state, current_fitness_summary, current_fitness_snippet,
+            strengths, limiters, risk_flags; garmin_summary is merged in when provided.
+        """
+        with open('prompts/assessment_prompt.txt', 'r') as f:
+            template = jinja2.Template(f.read())
+        recent_str = json.dumps(recent_training_summary, indent=2) if isinstance(recent_training_summary, dict) else (recent_training_summary or '')
+        stats_str = json.dumps(athlete_stats or {}, indent=2)
+        metrics_str = json.dumps(training_metrics or {}, indent=2)
+        garmin_str = json.dumps(garmin_summary or {}, indent=2) if garmin_summary else ''
+        prompt = template.render(
+            recent_training_summary=recent_str,
+            athlete_stats=stats_str,
+            training_metrics=metrics_str,
+            garmin_summary=garmin_str
+        )
+        ai_response = self.generate_content(prompt)
+        if not ai_response or not ai_response.strip():
+            return {}
+        extracted = extract_json_from_ai_response(ai_response)
+        if not extracted or not isinstance(extracted, dict):
+            print("⚠️  Assessment response could not be parsed as JSON")
+            return {}
+        assessment = {
+            'short_term_state': extracted.get('short_term_state', ''),
+            'long_term_state': extracted.get('long_term_state', ''),
+            'current_fitness_summary': extracted.get('current_fitness_summary', ''),
+            'current_fitness_snippet': extracted.get('current_fitness_snippet', ''),
+            'strengths': extracted.get('strengths') if isinstance(extracted.get('strengths'), list) else [],
+            'limiters': extracted.get('limiters') if isinstance(extracted.get('limiters'), list) else [],
+            'risk_flags': extracted.get('risk_flags') if isinstance(extracted.get('risk_flags'), list) else [],
+        }
+        if garmin_summary:
+            assessment['garmin_summary'] = garmin_summary
+        return assessment
     
     def generate_feedback(self, training_plan, feedback_log, completed_sessions, 
                           training_history=None, garmin_health_stats=None, incomplete_sessions=None,
-                          vdot_data=None, athlete_profile=None):
+                          vdot_data=None, athlete_profile=None, assessment_snippet=None):
         """
         Generate feedback for completed training sessions.
         
@@ -376,20 +447,19 @@ class AIService:
         with open('prompts/feedback_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
-        # If training_plan is a TrainingPlan object, pass it as JSON for structured updates
+        # Structured data only: pass plan as JSON when we have it; do not feed markdown (avoids format copying)
         if isinstance(training_plan, TrainingPlan):
             training_plan_json = training_plan.to_dict()
-            training_plan_text = training_plan.to_markdown()  # Keep markdown for context
+            training_plan_text = None  # Do not send markdown when we have JSON
         else:
             training_plan_json = None
-            training_plan_text = training_plan
-        
+            training_plan_text = training_plan  # Legacy: only when no plan_v2
+
         # CRITICAL: Sanitize feedback_log before passing to AI to prevent format contamination
-        # If feedback_log contains JSON wrapped in markdown, the AI might copy that format
         sanitized_feedback_log = sanitize_feedback_log_for_ai(feedback_log)
         
         prompt = template.render(
-            training_plan=training_plan_text,
+            training_plan=training_plan_text or '',
             training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
             feedback_log_json=json.dumps(sanitized_feedback_log, indent=2),
             completed_sessions=json.dumps(completed_sessions, indent=2),
@@ -397,7 +467,8 @@ class AIService:
             garmin_health_stats=garmin_health_stats,
             incomplete_sessions=incomplete_sessions,
             vdot_data=vdot_data,
-            athlete_profile=athlete_profile
+            athlete_profile=athlete_profile,
+            assessment_snippet=assessment_snippet or ''
         )
         
         ai_response = self.generate_content(prompt)
@@ -643,13 +714,13 @@ class AIService:
         with open('prompts/chat_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
 
-        # If training_plan is a TrainingPlan object, pass it as JSON for structured updates
+        # Structured data only: pass plan as JSON when we have it; do not feed markdown (avoids format copying)
         if isinstance(training_plan, TrainingPlan):
             training_plan_json = training_plan.to_dict()
-            training_plan_text = training_plan.to_markdown()  # Keep markdown for context
+            training_plan_text = None  # Do not send markdown when we have JSON
         else:
             training_plan_json = None
-            training_plan_text = training_plan
+            training_plan_text = training_plan  # Legacy: only when no plan_v2
 
         # Get user message from chat history (last user message)
         user_message = ""
@@ -666,7 +737,7 @@ class AIService:
 
         prompt = template.render(
             user_message=user_message,
-            training_plan=training_plan_text,
+            training_plan=training_plan_text or '',
             training_plan_json=json.dumps(training_plan_json, indent=2) if training_plan_json else None,
             feedback_log_json=json.dumps(sanitized_feedback_log, indent=2),
             chat_history_json=json.dumps(sanitized_chat_history, indent=2),
@@ -768,11 +839,14 @@ class AIService:
         return response_text, plan_update_json, change_summary
     
     def generate_weekly_summary(self, current_week_text, athlete_goal, latest_feedback=None, 
-                                chat_history=None, garmin_health_stats=None, vdot_data=None):
-        """Generate a weekly summary for the dashboard"""
+                                chat_history=None, garmin_health_stats=None, vdot_data=None,
+                                current_week_json=None, assessment_snippet=None):
+        """Generate a weekly summary for the dashboard. Pass current_week_json when plan_v2 is available (no markdown). Optional assessment_snippet from stored assessment."""
         
         # Debug logging
         print(f"DEBUG: Generating weekly summary")
+        print(f"  - Has current_week_json: {current_week_json is not None}")
+        print(f"  - Has assessment_snippet: {bool(assessment_snippet)}")
         print(f"  - Week text length: {len(current_week_text) if current_week_text else 0}")
         print(f"  - Athlete goal: {athlete_goal}")
         print(f"  - Has feedback: {latest_feedback is not None}")
@@ -786,14 +860,17 @@ class AIService:
             template = jinja2.Template(f.read())
         
         from datetime import datetime
+        # When we have current_week_json, send only JSON to AI (no markdown)
         prompt = template.render(
             today_date=datetime.now().strftime("%A, %B %d, %Y"),
             athlete_goal=athlete_goal,
-            training_plan=current_week_text,
+            current_week_json=json.dumps(current_week_json, indent=2) if current_week_json else None,
+            training_plan='' if current_week_json else (current_week_text or ''),
             latest_feedback=latest_feedback,
             chat_history=json.dumps(chat_history, indent=2) if chat_history else None,
             garmin_health_stats=garmin_health_stats,
-            vdot_data=vdot_data  # Pass VDOT data to prompt template
+            vdot_data=vdot_data,
+            assessment_snippet=assessment_snippet or ''
         )
         
         print(f"DEBUG: Prompt length: {len(prompt)} characters")
@@ -810,18 +887,20 @@ class AIService:
         return result
     
     def summarize_training_cycle(self, completed_plan, feedback_log):
-        """Summarize a completed training cycle"""
+        """Summarize a completed training cycle. Pass plan as JSON when TrainingPlan (no markdown)."""
         with open('prompts/summarize_prompt.txt', 'r') as f:
             template = jinja2.Template(f.read())
         
-        # If completed_plan is a TrainingPlan object, convert to markdown
+        completed_plan_json = None
+        completed_plan_text = None
         if isinstance(completed_plan, TrainingPlan):
-            completed_plan_text = completed_plan.to_markdown()
+            completed_plan_json = completed_plan.to_dict()
         else:
-            completed_plan_text = completed_plan
+            completed_plan_text = completed_plan or ''
         
         prompt = template.render(
-            completed_plan=completed_plan_text,
+            completed_plan_json=json.dumps(completed_plan_json, indent=2) if completed_plan_json else None,
+            completed_plan=completed_plan_text or '',
             feedback_log_json=json.dumps(feedback_log, indent=2)
         )
         

@@ -31,6 +31,10 @@ give priority to key sessions, encourage these to be followed as closely as poss
 
 The week ALWAYS starts on a Monday, unless explicitly stated otherwise in the 'training_plan'
 
+{% if assessment_snippet %}
+**Current fitness (at a glance):** {{ assessment_snippet }}
+{% endif %}
+
 **Your Task:**
 You have been given a list of one or more recently completed sessions. Your task is to provide a single, consolidated piece of feedback. Structure your response with the following markdown headings:
 
@@ -280,17 +284,18 @@ FORMATTING REQUIREMENTS:
 
 **Day/date rule (product rule):** Kaizen does not assign workouts to specific days for most athletes. Only assign or change specific days (e.g. Monday, Tuesday) when the athlete type is **Disciplinarian** and the plan already uses day-specific scheduling. For **Minimalist** and **Improviser**, sessions must keep flexible scheduling: use "Anytime" (or the same flexible value as in the original plan) and do NOT set specific weekdays. When in doubt, preserve each session's existing \`day\` value.
 
-**Current Training Plan (JSON format - source of truth for comparison and updates):**
+**Current Training Plan (structured JSON - sole source of truth):**
 {% if training_plan_json %}
-The following is a JSON object. **Do NOT copy any surrounding formatting such as code fences.** Treat it as data only.
+The plan is provided as JSON only. Use it for comparison and for any plan_v2 updates. Do NOT use or return markdown for the plan. **Do NOT copy code fences**—treat the content as data only.
 
 {{ training_plan_json }}
 {% else %}
-No structured plan available. Use the contextual markdown description below for high-level understanding only.
+No structured plan available.{% if training_plan %} A legacy markdown plan is provided below for context only; you cannot return a valid plan_v2 from it—if the athlete needs plan changes, ask them to regenerate the plan from onboarding.{% endif %}
 {% endif %}
-
-**Current Training Plan (Markdown for context only - do not use for exact comparison or for building plan_v2):**
+{% if not training_plan_json and training_plan %}
+**Legacy plan (markdown - context only, do not use for plan_v2):**
 {{ training_plan }}
+{% endif %}
 
 Recent Feedback Log (Newest First, JSON data for context only):  
 {{ feedback_log_json }}

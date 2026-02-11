@@ -3,8 +3,41 @@ Utility functions for training plan operations.
 """
 
 from datetime import date, datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from models.training_plan import TrainingPlan, Week
+
+
+def apply_week_calendar_to_plan(plan: TrainingPlan, week_calendar: List[Dict[str, Any]]) -> None:
+    """
+    Overwrite each week's start_date and end_date from the precomputed week calendar.
+    Calendar entries are dicts with week_number, start_date, end_date (ISO strings).
+    Modifies plan in place. Guarantees correct week dates (e.g. Dec→Jan) without relying on AI output.
+    """
+    if not week_calendar or not plan.weeks:
+        return
+
+    # Primary: map by explicit week_number (works when AI follows calendar numbering)
+    by_week = {entry["week_number"]: entry for entry in week_calendar if "week_number" in entry}
+    touched = set()
+    for week in plan.weeks:
+        entry = by_week.get(week.week_number)
+        if entry:
+            week.start_date = entry.get("start_date")
+            week.end_date = entry.get("end_date")
+            touched.add(week.week_number)
+
+    # Fallback: if some weeks weren't updated (e.g. AI used different numbering),
+    # align remaining weeks by position so we still cover the full date range.
+    if len(touched) < len(plan.weeks):
+        # Sort calendar and plan weeks in a stable way
+        sorted_calendar = sorted(week_calendar, key=lambda e: e.get("week_number", 0))
+        # Only align up to the shorter length
+        limit = min(len(sorted_calendar), len(plan.weeks))
+        for idx in range(limit):
+            entry = sorted_calendar[idx]
+            week = plan.weeks[idx]
+            week.start_date = entry.get("start_date")
+            week.end_date = entry.get("end_date")
 
 
 def archive_and_restore_past_weeks(current_plan_v2: Optional[Dict[str, Any]], new_plan_v2: Optional[TrainingPlan]) -> Optional[TrainingPlan]:
