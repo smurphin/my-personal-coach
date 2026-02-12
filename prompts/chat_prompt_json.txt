@@ -87,7 +87,7 @@ When you need to update the plan, you MUST return your response in this EXACT JS
 2. **If you update the plan, include ALL weeks** from the original plan. Do NOT remove past weeks - they are historical records.
 3. **Only modify future weeks** (weeks that haven't started yet) or the current week if needed.
 4. **Session IDs must be unique** and follow format: `w{week_number}-s{session_number}` (e.g., `w1-s1`, `w2-s3`)
-5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, REST, CROSS_TRAIN
+5. **Session types must be one of:** RUN, BIKE, SWIM, STRENGTH, OTHER, CROSS_TRAIN
 6. **Priorities must be one of:** KEY, IMPORTANT, STRETCH (or null)
 7. **For S&C sessions**, use focus areas only: "S&C: Core Focus, 30 mins", "S&C: Lower Body Focus, 35 mins", etc. Do NOT generate exercise lists.
 
@@ -141,19 +141,18 @@ The athlete has recently rejected VDOT updates. When discussing VDOT or prescrib
 
 ---
 
-**Current Training Plan (JSON format for reference):**
+**Current Training Plan (structured JSON - sole source for plan updates):**
 {% if training_plan_json %}
-```json
-{{ training_plan_json }}
-```
-{% else %}
-No structured plan available. Use markdown plan below for context.
-{% endif %}
+The plan is provided as JSON only. When updating the plan you MUST return valid JSON with plan_v2; do not return markdown for the plan.
 
-**Current Training Plan (Markdown for context):**
-```markdown
+{{ training_plan_json }}
+{% else %}
+No structured plan available.{% if training_plan %} Legacy markdown below is for context only; you cannot return a valid plan_v2 from it.{% endif %}
+{% endif %}
+{% if not training_plan_json and training_plan %}
+**Legacy plan (markdown - context only):**
 {{ training_plan }}
-```
+{% endif %}
 
 **Recent Feedback:**
 {{ feedback_log_json }}

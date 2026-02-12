@@ -6,58 +6,102 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2026-02-12
+
+### Added
+
+- Onboarding: choose which sports to include in your plan (Run, Bike, Swim, Strength, Other).
+- Onboarding: LTHR, FTP, and VDOT are pre-filled from your saved metrics when you create another plan.
+- Plan: if you have a recent VDOT (last 4 weeks) it is used for paces; otherwise the plan suggests a VDOT test in early weeks.
+- Plan and chat: a short fitness assessment runs before plan generation and is used to shape the plan and coach replies.
+- Chat: when Garmin is connected, recent HRV, sleep, and body battery trends can inform the coach’s answers.
+- Docs: deployment guide notes that long plan generation routes may need higher timeouts.
+- Onboarding: finishing the form after 4pm local time starts the plan from the next day instead of immediately.
+- App: error screens now show a friendly message with a clear way to try again.
+
+### Changed
+
+- Plan: S&C sessions only appear when you selected Strength at onboarding.
+- Onboarding: sports choices now appear between goal date and weekly hours.
+- Chat: the coach only adds or changes sessions for the sports you selected (e.g. no bike on a run-only plan unless you ask).
+- Feedback: suggested plan changes stay within your selected sports.
+- Plan: Improviser plans now include at least one or two optional (STRETCH) sessions per week.
+- Plan: the overview at the top can include the full zones and VDOT tables again instead of being cut off.
+- Plan: a “zones differ” note under the HR table only appears when the difference is more than a couple of beats, not for small rounding or Zone 3.
+- Dashboard: you see the dashboard when you have an active plan, not only when the legacy plan field is set.
+- Maintenance plan: uses the same generation as the main plan.
+- Plan: the coach chooses how many sessions to schedule within the weekly hours you set.
+- Onboarding: the plan generation screen explains that building a plan can take 1–2 minutes.
+- Dashboard: fitness assessment updates now run in the background and no longer slow the page load.
+
+### Fixed
+
+- Week dates for plans that span December into January now show the correct year for each week.
+- Plan view: the overview at the top no longer truncates the zones and VDOT tables.
+- Plan: the first week of a plan now starts on the chosen start date and is no longer missing.
+- Plan: the coach does not schedule sessions on dates you listed as no-training in upcoming commitments.
+- Chat: Garmin data for context no longer errors when the coach replies.
+
 ## [0.1.7] - 2026-02-06
 
 ### Changed
 
-- Feedback prompt: use a single JSON response schema and clearer quote-escaping rules for `feedback_text`; remove fenced JSON examples from prompt context to reduce malformed JSON responses.
+- Feedback: coach response format was simplified so feedback text is returned reliably.
 
 ### Fixed
 
-- Feedback extraction: improve `extract_feedback_text_by_structure` so it handles whitespace/newlines and generic key names after `feedback_text` without truncating content when JSON is malformed.
-- Webhook processing now uses queued activity IDs so activities outside the 7-day window or missed by the Strava list are still processed.
-- Over-escaped quotes in feedback: normalize literal `\"` to `"` so quotes display correctly in the UI (storage and display).
+- Feedback: full coach feedback is kept even when the response format is slightly wrong.
+- Strava: activities outside the recent week or missed by sync are now included when processing feedback.
+- Feedback: quotes in coach feedback now display correctly in the UI.
 
 ## [0.1.6] - 2026-02-06
 
 ### Added
 
-- Feedback prompt: cycling-specific guidance so HR vs power zone "mismatch" is not framed as an error; when power is absent, analyse on HR only and do not suggest the power meter is broken.
-- Documentation: `docs/cycling-zones-feedback.md` explaining HR (5 zones) vs power (7 zones) and that mismatch is expected.
+- Feedback: cycling analysis no longer treats HR vs power zone mismatch as an error.
+- Feedback: when power is missing, cycling analysis uses HR only instead of suggesting a broken power meter.
+- Docs: added guide on cycling zones (HR vs power) and when mismatch is expected.
 
 ### Changed
 
-- Cycling feedback: prompt reworded to principle-based guidance (primary signal = HR, power as context; coach-like tone) for more meaningful analysis.
+- Feedback: cycling feedback uses principle-based guidance and a coach-like tone.
 
 ### Fixed
 
-- AI_THINKING_LEVEL for Gemini 3: apply thinking level via a supported config path so LOW/MEDIUM/HIGH/MINIMAL from secrets are applied instead of failing when `ThinkingConfig` exports are missing.
+- Config: thinking level (LOW/MEDIUM/HIGH) for Gemini is now applied correctly from environment settings.
 
 ## [0.1.5] - 2026-02-05
 
 ### Added
 
-- Plan archive UI at `/admin/plan_archive` to list and restore snapshots; visibility gated by `ADMIN_ATHLETE_IDS` when set.
-- Plan archive API: `GET /admin/api/plan_archive` and `POST /admin/api/restore_plan_archive` for listing/restoring any tenant by `athlete_id`, protected by `FEEDBACK_TRIGGER_SECRET`.
+- Admin: plan archive page to list and restore plan snapshots, visible only to configured admin athletes.
+- Admin: API to list and restore plan archives per athlete, protected by secret.
 
 ### Changed
 
-- Feedback prompt: plan_v2 JSON is the source of truth for comparison and plan updates; day/date only for Disciplinarian athletes, preserve "Anytime" for Minimalist and Improviser.
+- Feedback: coach uses the same plan source for comparison and updates as the feedback page.
+- Feedback: Disciplinarian plans show day and date; Minimalist and Improviser keep "Anytime".
 
 ### Fixed
 
-- Use structure-based extraction for `feedback_text` when AI returns malformed JSON so full feedback is kept; prompt updated to remind model to escape quotes in JSON strings.
-- Archive current plan before applying chat (JSON or markdown) or reparse updates so the previous good state is never lost to overwrite.
-- Webhook feedback uses plan_v2 and athlete_profile when available so the AI compares against the same source of truth as the feedback page.
-- Plan merge when prepending archived past weeks: drop the first N weeks of the AI plan by count of past weeks (not max week number) so weeks 1–2 and Week 0 are not duplicated; preserve Week 0 when renumbering after merge.
+- Feedback: full coach feedback is kept when the response is malformed.
+- Plan: current plan is archived before applying chat or updates so the previous version can be restored.
+- Strava webhook: coach compares against the same plan and profile as the feedback page.
+- Plan: when merging past weeks into a new plan, duplicate weeks and wrong Week 0 are no longer produced.
 
 ## [0.1.1] - 2026-02-04
 
 ### Fixed
 
-- Prevent JSON feedback extraction from truncating `feedback_text` when the AI returns malformed JSON (e.g. unescaped quotes inside code blocks).
+- Feedback: coach feedback is no longer cut off when the response contains unescaped quotes.
 
-## [0.1.0] - 2025-02-03
+## [0.1.0] - 2026-02-03
 
 ### Added
 

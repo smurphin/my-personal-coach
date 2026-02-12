@@ -62,7 +62,7 @@
             <div class="flex justify-center items-center space-x-4">
                 <a href="{{ url_for('plan.onboarding') }}" class="hover:text-brand-blue transition-colors">Generate New Plan</a>
                 <span>|</span>
-                <a href="/delete_data" class="hover:text-brand-blue transition-colors" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a>
+                <a href="/admin/delete_data" class="hover:text-brand-blue transition-colors" onclick="return confirm('Are you sure you want to permanently delete all your data? This cannot be undone.');">Delete My Data</a>
                 <span>|</span>
                 <a href="{{ url_for('auth.logout') }}" class="hover:text-brand-blue transition-colors">Logout</a>
             </div>

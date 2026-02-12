@@ -20,9 +20,30 @@ Treat `main` as deployed state. Do not commit or push unless the user explicitly
 When making changes that will be deployed:
 
 1. **VERSION** (repo root): Bump per Major.Feature.Patch (v0 = beta, v1 = Strava onboarded)
-2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): section order Added, Changed, Fixed, etc.; keep each bullet as a short, single sentence about the user-visible change (no internal process notes, no long multi-clause paragraphs).
+2. **CHANGELOG.md** (repo root): Add entries under `[Unreleased]` as you work. **You MUST follow the CHANGELOG format guidelines below.**
 
-**Before considering deployable work complete:** Verify you have (1) bumped **VERSION** and (2) added all relevant entries under **`[Unreleased]`** in **CHANGELOG.md**. If you did not do this at the start, do it before finishing the task.
+**Before considering deployable work complete:** Verify you have (1) bumped **VERSION** and (2) added all relevant entries under **`[Unreleased]`** in **CHANGELOG.md** in the correct format. If you did not do this at the start, do it before finishing the task.
+
+### CHANGELOG format (mandatory)
+
+Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). **Every entry must comply:**
+
+- **Section order:** Added, Changed, Deprecated, Removed, Fixed, Security (only include sections that have entries).
+- **One bullet = one short sentence.** No semicolons, no "and" joining two changes, no multi-clause paragraphs.
+- **User-facing only.** Describe what the user sees or experiences. No implementation detail (no "plan_v2", "JSON", "markdown fallback", "parse_ai_response", etc.) unless it is the actual user-visible feature name.
+- **Start with the area or feature** (e.g. "Plan:", "Chat:", "Onboarding:") when it helps clarity; keep the rest of the sentence concise.
+
+**Good examples:**
+- `- Plan: S&C sessions only appear when the athlete selected Strength.`
+- `- Chat and feedback: plan changes are applied only when the coach returns a valid structured plan update.`
+- `- Week date parsing for plans that span December into January now aligns week ranges across year boundaries.`
+
+**Bad examples (do not use):**
+- `- Plan context for AI: when plan_v2 exists, only JSON is sent (no markdown); chat/feedback/dashboard/summarize use structured data first.` (implementation detail; too long; multiple clauses.)
+- `- Archive and inactive plan: summarization uses plan_v2 when available (no markdown to AI); inactive_plan stores and restores plan_v2 so restore stays structured.` (jargon; run-on sentence.)
+- `- Plan generation: JSON-first output; week dates from server calendar; fallback to markdown parser if JSON invalid (#107).` (implementation detail; multiple clauses.)
+
+When in doubt: one short sentence, what the user notices, no internal terminology.
 
 **At commit / push (release finalization):** When the user is ready to commit or push, move **`[Unreleased]`** content into a new release section **`## [X.Y.Z] - YYYY-MM-DD`** (ISO date), where X.Y.Z matches **VERSION**. Leave **`[Unreleased]`** empty. Only include user-facing behavioural changes here (e.g. feedback extraction behaviour, prompt output, APIs, UI), not internal planning documents.
 

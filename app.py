@@ -1,15 +1,56 @@
-from flask import Flask, session
+from flask import Flask, session, render_template, url_for
 from config import Config
 from data_manager import data_manager
 
 def create_app():
     """Application factory"""
     app = Flask(__name__)
-    
+
     # Load configuration
     app.config.from_object(Config)
     Config.init_app(app)
-    
+
+    # Friendly error pages (no raw stack traces)
+    @app.errorhandler(500)
+    def internal_error(e):
+        return render_template(
+            'error.html',
+            title='Something went wrong',
+            message='An unexpected error occurred. Please try again.',
+            retry_url=url_for('plan.onboarding'),
+            retry_label='Back to Set Your Goals'
+        ), 500
+
+    @app.errorhandler(502)
+    def bad_gateway(e):
+        return render_template(
+            'error.html',
+            title='Service temporarily unavailable',
+            message='The server is temporarily unable to respond. Please try again in a moment.',
+            retry_url=url_for('plan.onboarding'),
+            retry_label='Try again'
+        ), 502
+
+    @app.errorhandler(503)
+    def service_unavailable(e):
+        return render_template(
+            'error.html',
+            title='Service temporarily unavailable',
+            message='The server is busy. Please try again in a moment.',
+            retry_url=url_for('plan.onboarding'),
+            retry_label='Try again'
+        ), 503
+
+    @app.errorhandler(504)
+    def gateway_timeout(e):
+        return render_template(
+            'error.html',
+            title='Request took too long',
+            message='Plan generation can take 1–2 minutes. The request timed out before finishing. Please try again; your data has not been changed.',
+            retry_url=url_for('plan.onboarding'),
+            retry_label='Back to Set Your Goals'
+        ), 504
+
     # Register context processor for user data
     @app.context_processor
     def inject_user():

@@ -33,6 +33,10 @@ Here is the recent conversation history with the athlete. Use this for additiona
 There is no recent chat history.
 {% endif %}
 
+{% if assessment_snippet %}
+**CURRENT FITNESS (at a glance):** {{ assessment_snippet }}
+{% endif %}
+
 ...
 Here is the athlete's latest health data from Garmin. Use this to inform your "Weekly Focus" summary. Advise them on their readiness for the week and how they might approach their training based on these recovery metrics.
 
@@ -67,14 +71,16 @@ Your tone should be that of a supportive coach, providing a brief, actionable su
 ...
 
 **INSTRUCTIONS:**
-1.  Review the training plan, latest feedback, and chat history.
+1.  Review the current week's sessions (or plan context), latest feedback, and chat history.
 2.  Write a single, concise paragraph (no more than 3-4 sentences) that:
     - Acknowledges where they are in their plan, taking all context into account.
     - Highlights the most important session(s) for the week.
     - Provides a short, motivational, and context-aware message.
     - Do not use markdown.
 
-**Current Training Plan:**
-```markdown
+**Current week (structured data - use for reference):**
+{% if current_week_json %}
+{{ current_week_json }}
+{% else %}
 {{ training_plan }}
-```
+{% endif %}

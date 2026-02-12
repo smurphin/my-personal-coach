@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title or 'Something went wrong' }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-0 py-8">
+    <div class="bg-brand-gray rounded-xl shadow-lg p-6 sm:p-8 text-center">
+        <h1 class="text-xl sm:text-2xl font-bold text-white mb-3">{{ title or 'Something went wrong' }}</h1>
+        <p class="text-brand-light-gray mb-6">{{ message or 'An unexpected error occurred. Please try again.' }}</p>
+        {% if retry_url %}
+        <a href="{{ retry_url }}" class="inline-block bg-brand-blue text-white font-semibold py-2 px-4 rounded-lg hover:bg-brand-blue-hover transition-colors">
+            {{ retry_label or 'Try again' }}
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

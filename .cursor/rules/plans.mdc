@@ -1,0 +1,18 @@
+---
+description: Where to save plans and how to follow them when the user asks to execute or continue
+alwaysApply: true
+---
+
+# Plans
+
+## Where plans live
+
+- **Save all plans in this workspace** under `.cursor/plans/`.
+- Use a descriptive filename ending in `.plan.md` (e.g. `plan_json_sports_metrics_ux.plan.md`).
+- Plans can use YAML frontmatter (`name`, `overview`, `todos`) for tooling. See `.cursor/plans/README.md` for conventions.
+
+## When the user references a plan
+
+- If the user asks to **execute**, **implement**, **start**, or **continue** a plan (or “do the plan”, “next step”), **read the plan from the path they give** (e.g. `@.cursor/plans/plan_json_sports_metrics_ux.plan.md`) or the plan they’re clearly referring to.
+- Follow the **implementation path** (or “batches by code surface”) in that plan. Prefer batching related changes that touch the same files over strict issue-by-issue order, unless the user asks for a specific issue only.
+- Work **incrementally** with testing after each batch; the user may still **release** the full set as a single feature (one version bump, one CHANGELOG release section).

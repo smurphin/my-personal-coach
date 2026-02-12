@@ -15,9 +15,37 @@ from utils.formatters import format_seconds
 from utils.migration import parse_ai_response_to_v2
 from utils.s_and_c_utils import get_routine_link, load_default_s_and_c_library, process_s_and_c_session
 from utils.vdot_context import prepare_vdot_context
+from utils.week_dates import generate_week_calendar
+from utils.garmin_aggregation import build_garmin_summary
 from routes.api_routes import safe_save_user_data
 
 plan_bp = Blueprint('plan', __name__)
+
+
+def build_recent_training_summary(activities_summary, weeks=6):
+    """
+    Build a compact summary of recent training from Strava activity list (no full analysis).
+    Used to trim plan prompt token usage while still informing the AI of current load.
+    """
+    if not activities_summary or not isinstance(activities_summary, list):
+        return {"summary_text": "No recent activities.", "by_type": {}}
+    cutoff = datetime.now() - timedelta(weeks=weeks)
+    by_type = {}
+    for a in activities_summary:
+        try:
+            start = datetime.strptime(a.get("start_date_local", "")[:10], "%Y-%m-%d")
+            if start < cutoff:
+                continue
+            atype = (a.get("type") or "Other").replace(" ", "_")
+            by_type.setdefault(atype, {"count": 0, "moving_min": 0, "distance_km": 0.0})
+            by_type[atype]["count"] += 1
+            by_type[atype]["moving_min"] += int((a.get("moving_time") or 0) / 60)
+            by_type[atype]["distance_km"] += float((a.get("distance") or 0) / 1000)
+        except (ValueError, TypeError, KeyError):
+            continue
+    parts = [f"{v['count']} {k} ({v['moving_min']} min, {v['distance_km']:.0f} km)" for k, v in sorted(by_type.items())]
+    summary_text = f"Last {weeks} weeks: " + "; ".join(parts) if parts else f"No activities in last {weeks} weeks."
+    return {"summary_text": summary_text, "weeks": weeks, "by_type": by_type}
 
 
 def get_next_monday(include_partial_week=False):
@@ -212,13 +240,13 @@ def onboarding():
         
         # Get existing athlete profile if available
         athlete_profile = user_data.get('athlete_profile') if user_data else None
-        
+
         # For legacy users, check plan_data for lifestyle_context if not in profile
         if user_data and not athlete_profile:
             plan_data = user_data.get('plan_data', {})
             legacy_lifestyle_context = plan_data.get('lifestyle_context')
             legacy_athlete_type = plan_data.get('athlete_type')
-            
+
             # Create temporary profile dict for template prepopulation
             if legacy_lifestyle_context or legacy_athlete_type:
                 athlete_profile = {
@@ -226,11 +254,31 @@ def onboarding():
                     'athlete_type': legacy_athlete_type
                 }
                 print(f"--- Loading legacy profile data for athlete {athlete_id} ---")
-        
-        return render_template("onboarding.html", athlete_profile=athlete_profile)
+
+        # Prefill LTHR/FTP/VDOT from training_metrics for re-onboarding
+        training_metrics_prefill = {}
+        if user_data:
+            metrics = user_data.get('training_metrics', {})
+            if isinstance(metrics.get('lthr'), dict) and metrics['lthr'].get('value') is not None:
+                training_metrics_prefill['lthr_value'] = metrics['lthr']['value']
+            if isinstance(metrics.get('ftp'), dict) and metrics['ftp'].get('value') is not None:
+                training_metrics_prefill['ftp_value'] = metrics['ftp']['value']
+            vdot_obj = metrics.get('vdot')
+            if isinstance(vdot_obj, dict) and vdot_obj.get('value') is not None:
+                training_metrics_prefill['vdot_value'] = int(vdot_obj['value']) if vdot_obj['value'] else None
+                if vdot_obj.get('detected_from', {}).get('date'):
+                    training_metrics_prefill['vdot_date'] = vdot_obj['detected_from']['date'][:10]
+                elif vdot_obj.get('detected_at'):
+                    training_metrics_prefill['vdot_date'] = str(vdot_obj['detected_at'])[:10]
+
+        return render_template(
+            "onboarding.html",
+            athlete_profile=athlete_profile,
+            training_metrics_prefill=training_metrics_prefill
+        )
     except Exception as e:
         print(f"Error loading onboarding: {e}")
-        return render_template("onboarding.html", athlete_profile=None)
+        return render_template("onboarding.html", athlete_profile=None, training_metrics_prefill={})
 
 @plan_bp.route("/generate_plan", methods=['POST'])
 @login_required
@@ -245,12 +293,11 @@ def generate_plan():
 
         # Do not archive existing plan yet - only archive after we have a valid new plan
         # so that 429/API failures don't wipe the current plan
-        had_existing_plan = bool(user_data.get('plan'))
+        had_existing_plan = bool(user_data.get('plan') or user_data.get('plan_v2'))
         
         # Gather user inputs
         lthr_raw = request.form.get('lthr', '').strip()
         ftp_raw = request.form.get('ftp', '').strip()
-        sessions_raw = request.form.get('sessions_per_week', '').strip()
         hours_raw = request.form.get('hours_per_week', '').strip()
         
         # Validate numeric fields
@@ -274,15 +321,6 @@ def generate_plan():
             except ValueError:
                 validation_errors.append('FTP must be a valid number')
         
-        sessions_per_week = None
-        if sessions_raw:
-            try:
-                sessions_per_week = int(sessions_raw)
-                if sessions_per_week <= 0:
-                    validation_errors.append('Sessions per week must be a positive number')
-            except ValueError:
-                validation_errors.append('Sessions per week must be a valid number')
-        
         hours_per_week = None
         if hours_raw:
             try:
@@ -301,6 +339,7 @@ def generate_plan():
         # Save persistent athlete profile separately
         lifestyle_context = request.form.get('lifestyle_context', '').strip() or None
         athlete_type = request.form.get('athlete_type') or None
+        timezone_str_form = (request.form.get('timezone') or '').strip() or None
         
         # Check if we need to migrate from legacy structure
         if not user_data.get('athlete_profile'):
@@ -313,13 +352,22 @@ def generate_plan():
                 athlete_type = plan_data.get('athlete_type')
                 print(f"--- Migrating legacy athlete_type to athlete_profile ---")
         
+        # Sports to include in plan (at least one required)
+        selected_sports = request.form.getlist('sports')
+        if not selected_sports:
+            flash('Please select at least one sport to include in your plan.')
+            return redirect('/onboarding')
+
+        existing_profile = user_data.get('athlete_profile') or {}
         athlete_profile = {
             'lifestyle_context': lifestyle_context,
             'athlete_type': athlete_type,
+            'sports': selected_sports,
+            'timezone': timezone_str_form or existing_profile.get('timezone') or 'Europe/London',
             'updated_at': datetime.now().isoformat()
         }
         user_data['athlete_profile'] = athlete_profile
-        print(f"--- Saved athlete_profile for athlete {athlete_id} ---")
+        print(f"--- Saved athlete_profile for athlete {athlete_id} (sports: {selected_sports}) ---")
         
         # Save unit preferences (per sport)
         unit_run = request.form.get('unit_run', 'km')
@@ -346,12 +394,12 @@ def generate_plan():
         
         user_inputs = {
             'goal': request.form.get('user_goal') or None,
-            'sessions_per_week': sessions_per_week,
             'hours_per_week': hours_per_week,
             'lifestyle_context': combined_context,  # Combined context for AI
             'athlete_type': athlete_type,
             'lthr': lthr,
-            'ftp': ftp
+            'ftp': ftp,
+            'included_sports': selected_sports,
         }
         
         print(f"--- DEBUG user_inputs['goal']: {user_inputs['goal']} ---")
@@ -389,7 +437,29 @@ def generate_plan():
                     print(f"--- Calculated plan duration: {weeks_until_goal} weeks from {plan_start_date} to {goal_date} ---")
             else:
                 print(f"--- Could not calculate plan duration from goal date: {goal_date_str} ---")
-        
+
+            # Late-day onboarding: if plan start is today in the athlete's timezone and it's after 16:00,
+            # treat today as unavailable and start the plan tomorrow (Week 0 from tomorrow onward).
+            if weeks_until_goal and has_partial_week and plan_start_date:
+                profile = user_data.get('athlete_profile') or {}
+                timezone_str = profile.get('timezone') or (request.form.get('timezone') or '').strip()
+                if timezone_str:
+                    try:
+                        from zoneinfo import ZoneInfo
+                        tz = ZoneInfo(timezone_str)
+                        now_in_tz = datetime.now(tz)
+                        today_local = now_in_tz.date()
+                        plan_start_as_date = date_parser.parse(plan_start_date).date()
+                        if plan_start_as_date == today_local and now_in_tz.hour >= 16:
+                            tomorrow = today_local + timedelta(days=1)
+                            tomorrow_str = tomorrow.strftime('%Y-%m-%d')
+                            weeks_until_goal, plan_start_date, goal_date, has_partial_week, days_in_partial_week = calculate_weeks_until_goal(
+                                goal_date_str, start_date=tomorrow_str, include_partial_week=True
+                            )
+                            print(f"--- Late-day onboarding (>= 16:00 local): plan start moved to {plan_start_date} ---")
+                    except Exception as e:
+                        print(f"--- Timezone or 16:00 adjustment skipped: {e} ---")
+
         access_token = user_data['token']['access_token']
 
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
@@ -591,67 +661,96 @@ def generate_plan():
             goal_lower = user_inputs['goal'].lower()
             goal_includes_cycling = 'cycling' in goal_lower or 'triathlon' in goal_lower or 'bike' in goal_lower
         
-        # Analyze activities (only if we have valid activities data)
-        analyzed_activities = []
-        if activities_summary and not isinstance(activities_summary, FlaskResponse):
-            one_week_ago = datetime.now() - timedelta(weeks=1)
-            
-            for activity_summary in activities_summary:
-                activity_date = datetime.strptime(
-                    activity_summary['start_date_local'],
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
-                
-                # Get detailed data for recent activities
-                if activity_date > one_week_ago:
-                    activity_to_process = strava_service.get_activity_detail(
-                        access_token,
-                        activity_summary['id']
-                    )
-                else:
-                    activity_to_process = activity_summary
+        # Recent training summary (trimmed for prompt token usage; no full activity list)
+        recent_training_summary = build_recent_training_summary(
+            activities_summary if not isinstance(activities_summary, FlaskResponse) else None,
+            weeks=6
+        )
 
-                streams = strava_service.get_activity_streams(access_token, activity_to_process['id'])
-                
-                # Build zones dict, ensuring we don't pass None values
-                zones_for_analysis = {}
-                if friel_hr_zones:
-                    zones_for_analysis['heart_rate'] = friel_hr_zones
-                if friel_power_zones:
-                    zones_for_analysis['power'] = friel_power_zones
-                
-                analyzed_activity = training_service.analyze_activity(
-                    activity_to_process,
-                    streams,
-                    zones_for_analysis
+        # Week calendar from plan dates (single source of truth for week ranges)
+        week_calendar = []
+        _plan_start = plan_start_date
+        _weeks = weeks_until_goal
+        if _weeks is None:
+            _plan_start = get_next_monday(include_partial_week=False)
+            _weeks = 6
+        if _plan_start and _weeks:
+            # Respect partial-week semantics from calculate_weeks_until_goal
+            full_weeks = _weeks - 1 if has_partial_week else _weeks
+            if full_weeks < 0:
+                full_weeks = 0
+            try:
+                week_ranges = generate_week_calendar(
+                    _plan_start,
+                    full_weeks,
+                    has_partial_week=has_partial_week,
+                    days_in_partial_week=days_in_partial_week if has_partial_week else None,
                 )
-                
-                # Format time in zones
-                for key, seconds in analyzed_activity["time_in_hr_zones"].items():
-                    analyzed_activity["time_in_hr_zones"][key] = format_seconds(seconds)
-                
-                analyzed_activities.append(analyzed_activity)
+                week_calendar = [w.to_dict() for w in week_ranges]
+            except (ValueError, TypeError) as e:
+                print(f"--- Week calendar build failed: {e} ---")
 
-        # Prepare data for AI
+        # Minimal athlete_stats for prompt (avoid large payloads)
+        athlete_stats_trimmed = {}
+        if athlete_stats and not isinstance(athlete_stats, FlaskResponse) and isinstance(athlete_stats, dict):
+            for k in ("recent_ride_totals", "recent_run_totals", "ytd_ride_totals", "ytd_run_totals", "all_ride_totals", "all_run_totals"):
+                if k in athlete_stats and athlete_stats[k]:
+                    athlete_stats_trimmed[k] = athlete_stats[k]
+
+        # Call A: Training assessment (fresh on new plan) – Garmin summary + AI assessment
+        garmin_summary_for_assessment = None
+        if 'garmin_credentials' in user_data:
+            try:
+                from services.garmin_service import garmin_service
+                creds = user_data['garmin_credentials']
+                stats_range = garmin_service.fetch_date_range(
+                    creds['email'], creds['password'], days=30,
+                    encrypted_tokenstore=creds.get('tokenstore')
+                )
+                if stats_range:
+                    metrics_timeline = garmin_service.extract_metrics_timeline(stats_range)
+                    garmin_summary_for_assessment = build_garmin_summary(metrics_timeline)
+                    print(f"--- Garmin summary built ({len(metrics_timeline)} days) ---")
+            except Exception as e:
+                print(f"--- Garmin fetch for assessment failed: {e} ---")
+        training_metrics_for_assessment = user_data.get('training_metrics') or {}
+        if vdot_data:
+            training_metrics_for_assessment = {**training_metrics_for_assessment, 'vdot_context': vdot_data}
+        print("--- Call A: Generating training assessment ---")
+        assessment = ai_service.generate_assessment(
+            recent_training_summary=recent_training_summary,
+            athlete_stats=athlete_stats_trimmed,
+            training_metrics=training_metrics_for_assessment,
+            garmin_summary=garmin_summary_for_assessment
+        )
+        if assessment:
+            user_data['assessment'] = assessment
+            user_data['assessment_updated_at'] = datetime.now().isoformat()
+            print(f"--- Assessment stored (snippet: {len(assessment.get('current_fitness_snippet', ''))} chars) ---")
+
+        # Prepare data for AI (trimmed: summary not full activity list, minimal stats/zones; includes assessment)
+        # Store upcoming_commitments separately so weekly summary/chat can reference "constraints for this plan"
         final_data_for_ai = {
             "athlete_goal": user_inputs['goal'],
-            "sessions_per_week": user_inputs['sessions_per_week'],
             "hours_per_week": user_inputs['hours_per_week'],
             "lifestyle_context": user_inputs['lifestyle_context'],
+            "upcoming_commitments": upcoming_commitments,
             "athlete_type": user_inputs['athlete_type'],
-            "athlete_stats": athlete_stats,
-            "strava_zones": strava_zones,
+            "included_sports": user_inputs['included_sports'],
+            "recent_training_summary": recent_training_summary,
+            "week_calendar": week_calendar,
+            "athlete_stats": athlete_stats_trimmed,
+            "strava_zones": strava_zones if strava_zones and not isinstance(strava_zones, FlaskResponse) else {},
             "friel_hr_zones": friel_hr_zones,
             "friel_power_zones": friel_power_zones,
             "vdot_data": vdot_data,
             "goal_includes_cycling": goal_includes_cycling,
-            "analyzed_activities": analyzed_activities,
-            # Add calculated duration parameters
             "weeks_until_goal": weeks_until_goal,
             "goal_date": goal_date,
             "plan_start_date": plan_start_date,
             "has_partial_week": has_partial_week,
-            "days_in_partial_week": days_in_partial_week
+            "days_in_partial_week": days_in_partial_week,
+            "assessment": assessment,
         }
 
         print("--- Generating content from Gemini ---")
@@ -671,10 +770,9 @@ def generate_plan():
         # Prepare VDOT context for AI
         vdot_data = prepare_vdot_context(user_data)
         
-        # generate_training_plan already calls parse_ai_response_to_v2 internally
-        # and returns (TrainingPlan, markdown_text) tuple
+        # generate_training_plan returns (TrainingPlan, markdown_text, preamble_markdown)
         try:
-            plan_v2, plan_markdown = ai_service.generate_training_plan(
+            plan_v2, plan_markdown, preamble_markdown = ai_service.generate_training_plan(
                 user_inputs,
                 {
                     'training_history': user_data.get('training_history'),
@@ -699,34 +797,52 @@ def generate_plan():
         print(f"--- Plan generated successfully ---")
 
         # Archive existing plan only now that we have a valid new plan
-        if had_existing_plan and user_data.get('plan'):
+        if had_existing_plan:
             if 'feedback_log' not in user_data:
                 user_data['feedback_log'] = []
             print(f"--- Archiving previous plan for athlete {athlete_id} ---")
-            summary_text = ai_service.summarize_training_cycle(
-                user_data['plan'],
-                user_data['feedback_log']
-            )
-            training_history = user_data.get('training_history', [])
-            training_history.insert(0, {"summary": summary_text})
-            user_data['training_history'] = training_history
+            # Use plan_v2 for summarization when available (structured-data-first)
+            completed_plan_for_summary = None
+            if user_data.get('plan_v2'):
+                try:
+                    from models.training_plan import TrainingPlan
+                    completed_plan_for_summary = TrainingPlan.from_dict(user_data['plan_v2'])
+                except Exception:
+                    pass
+            if completed_plan_for_summary is None and user_data.get('plan'):
+                completed_plan_for_summary = user_data['plan']
+            if completed_plan_for_summary is not None:
+                summary_text = ai_service.summarize_training_cycle(
+                    completed_plan_for_summary,
+                    user_data['feedback_log']
+                )
+                training_history = user_data.get('training_history', [])
+                training_history.insert(0, {"summary": summary_text})
+                user_data['training_history'] = training_history
             if 'archive' not in user_data:
                 user_data['archive'] = []
-            user_data['archive'].insert(0, {
-                'plan': user_data['plan'],
-                'completed_date': datetime.now().isoformat()
-            })
-            del user_data['plan']
+            archive_entry = {'completed_date': datetime.now().isoformat()}
+            if user_data.get('plan') is not None:
+                archive_entry['plan'] = user_data['plan']
+            if user_data.get('plan_v2') is not None:
+                archive_entry['plan_v2'] = user_data['plan_v2']
+            user_data['archive'].insert(0, archive_entry)
+            if 'plan' in user_data:
+                del user_data['plan']
             if 'plan_structure' in user_data:
                 del user_data['plan_structure']
+            if 'plan_v2' in user_data:
+                del user_data['plan_v2']
 
         # No need to call parse_ai_response_to_v2 again - already done above
         plan_structure = None
 
-        # Save both formats
-        user_data['plan'] = plan_markdown  # Markdown for display
-        user_data['plan_structure'] = plan_structure  # Deprecated, kept for backwards compat
+        # Save JSON as primary source of truth; do not store full markdown for new plans
         user_data['plan_v2'] = plan_v2.to_dict() if plan_v2 else None  # Structured sessions
+        # Keep any legacy plan structure field for backwards compatibility only
+        user_data['plan_structure'] = plan_structure
+        if preamble_markdown:
+            final_data_for_ai['plan_preamble_markdown'] = preamble_markdown
         user_data['plan_data'] = final_data_for_ai
         
         # Clear no_active_plan flag if it exists (user is creating a new plan)
@@ -737,14 +853,14 @@ def generate_plan():
         
         safe_save_user_data(athlete_id, user_data)
         
-        # Verify save
+        # Verify save (JSON-first: plan_v2 is the source of truth)
         print(f"--- APP: Verifying save operation by reloading data...")
         verified_user_data = data_manager.load_user_data(athlete_id)
         
-        if 'plan' in verified_user_data:
-            print(f"--- APP: SUCCESS! Reloaded data contains the plan.")
+        if 'plan_v2' in verified_user_data or 'plan' in verified_user_data:
+            print(f"--- APP: SUCCESS! Reloaded data contains the plan (JSON and/or legacy markdown).")
         else:
-            print(f"--- APP: FAILURE! Reloaded data does NOT contain the plan.")
+            print(f"--- APP: FAILURE! Reloaded data does NOT contain the plan_v2 or legacy markdown plan.")
             return "Error: The plan was generated but could not be saved to the database. Please check the logs.", 500
 
         # Success! Redirect to plan page
@@ -777,17 +893,22 @@ def view_plan():
             import markdown
             plan_v2 = TrainingPlan.from_dict(user_data['plan_v2'])
             
-            # Extract preamble from markdown plan (everything before first ### Week)
+            # Preamble: prefer stored AI preamble (coherent overview); else intro block from plan markdown
             plan_preamble_html = None
-            if 'plan' in user_data:
-                plan_markdown = user_data['plan']
-                # Split at first ### Week header
+            stored_preamble = user_data.get('plan_data', {}).get('plan_preamble_markdown')
+            if stored_preamble:
+                plan_preamble_html = markdown.markdown(
+                    stored_preamble,
+                    extensions=['tables', 'fenced_code']
+                )
+            elif 'plan' in user_data:
                 import re
-                parts = re.split(r'\n### Week \d+:', plan_markdown, maxsplit=1)
+                plan_markdown = user_data['plan']
+                # Split at first "## Week" (to_markdown uses "## Week N:", not "### Week")
+                parts = re.split(r'\n## Week \d+:', plan_markdown, maxsplit=1)
                 if len(parts) > 0:
                     preamble_md = parts[0].strip()
                     if preamble_md:
-                        # Convert markdown to HTML
                         plan_preamble_html = markdown.markdown(
                             preamble_md,
                             extensions=['tables', 'fenced_code']
@@ -802,8 +923,10 @@ def view_plan():
                 get_routine_link=get_routine_link
             )
         else:
-            # Fallback to old markdown plan
-            plan_text = user_data['plan']
+            # Fallback to old markdown plan (guard against missing/empty key)
+            plan_text = user_data.get('plan', '') or ''
+            if not plan_text:
+                return render_template('no_plan.html', show_modal=True)
             rendered_plan = render_markdown_with_toc(plan_text)
             
             return render_template(
@@ -890,9 +1013,18 @@ def plan_completion_choice():
                 if 'feedback_log' not in user_data:
                     user_data['feedback_log'] = []
                 
-                # Generate summary of completed plan
+                # Generate summary of completed plan (pass plan_v2 when available so we don't feed markdown to AI)
+                completed_plan_for_summary = None
+                if user_data.get('plan_v2'):
+                    try:
+                        from models.training_plan import TrainingPlan
+                        completed_plan_for_summary = TrainingPlan.from_dict(user_data['plan_v2'])
+                    except Exception:
+                        pass
+                if completed_plan_for_summary is None:
+                    completed_plan_for_summary = user_data['plan']
                 summary_text = ai_service.summarize_training_cycle(
-                    user_data['plan'],
+                    completed_plan_for_summary,
                     user_data['feedback_log']
                 )
                 
@@ -904,16 +1036,20 @@ def plan_completion_choice():
                 # Archive the plan ONLY (not feedback_log - that stays forever)
                 if 'archive' not in user_data:
                     user_data['archive'] = []
-                user_data['archive'].insert(0, {
+                archive_entry = {
                     'plan': user_data['plan'],
                     'completed_date': datetime.now().isoformat()
                     # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
-                })
+                }
+                if user_data.get('plan_v2') is not None:
+                    archive_entry['plan_v2'] = user_data['plan_v2']
+                user_data['archive'].insert(0, archive_entry)
                 
-                # Store the plan as inactive (not deleted) so dashboard can still access it
+                # Store the plan as inactive (not deleted) so dashboard can still access it (include plan_v2 for structured restore)
                 user_data['inactive_plan'] = {
                     'plan': user_data['plan'],
                     'plan_structure': user_data.get('plan_structure'),
+                    'plan_v2': user_data.get('plan_v2'),
                     'completed_date': datetime.now().isoformat()
                 }
                 
@@ -923,6 +1059,8 @@ def plan_completion_choice():
                 # feedback_log stays - never delete it!
                 if 'plan_structure' in user_data:
                     del user_data['plan_structure']
+                if 'plan_v2' in user_data:
+                    del user_data['plan_v2']
             
             safe_save_user_data(athlete_id, user_data)
             flash("You're now going with the flow - no structured training plan. You can create a new plan anytime from the dashboard.")
@@ -994,9 +1132,18 @@ def generate_maintenance_plan():
             
             print(f"--- Found existing plan for athlete {athlete_id}. Generating summary... ---")
             
-            # Generate summary of completed plan
+            # Generate summary of completed plan (pass plan_v2 when available so we don't feed markdown to AI)
+            completed_plan_for_summary = None
+            if user_data.get('plan_v2'):
+                try:
+                    from models.training_plan import TrainingPlan
+                    completed_plan_for_summary = TrainingPlan.from_dict(user_data['plan_v2'])
+                except Exception:
+                    pass
+            if completed_plan_for_summary is None:
+                completed_plan_for_summary = user_data['plan']
             summary_text = ai_service.summarize_training_cycle(
-                user_data['plan'],
+                completed_plan_for_summary,
                 user_data['feedback_log']
             )
             
@@ -1008,11 +1155,14 @@ def generate_maintenance_plan():
             # Archive the plan ONLY (not feedback_log - that stays forever)
             if 'archive' not in user_data:
                 user_data['archive'] = []
-            user_data['archive'].insert(0, {
+            archive_entry = {
                 'plan': user_data['plan'],
                 'completed_date': datetime.now().isoformat()
                 # NOTE: feedback_log is NOT archived - it remains in user_data['feedback_log']
-            })
+            }
+            if user_data.get('plan_v2') is not None:
+                archive_entry['plan_v2'] = user_data['plan_v2']
+            user_data['archive'].insert(0, archive_entry)
             
             # Clear current plan data
             # DO NOT delete feedback_log - it's permanent coaching history
@@ -1064,110 +1214,90 @@ def generate_maintenance_plan():
         plan_start_date = start_date.strftime('%Y-%m-%d')
         goal_date_str = goal_date.strftime('%Y-%m-%d')
         
-        # Prepare user inputs for maintenance plan
-        # Get athlete_type from onboarding (influences session planning), but use form values for sessions/hours
+        # Prepare user inputs for maintenance plan (same shape as main plan so we can use generate_training_plan = JSON-first)
         plan_data = user_data.get('plan_data', {})
+        athlete_profile = user_data.get('athlete_profile', {})
+        included_sports = athlete_profile.get('sports') or plan_data.get('included_sports') or ['Run']
         user_inputs = {
             'goal': f"Maintenance training plan for {weeks} weeks",
-            'sessions_per_week': sessions_per_week,  # From form
-            'hours_per_week': hours_per_week,  # From form
-            'lifestyle_context': None,  # Not used for maintenance plans - keep it bare bones
-            'athlete_type': plan_data.get('athlete_type', 'General'),  # Keep from onboarding
+            'sessions_per_week': sessions_per_week,
+            'hours_per_week': hours_per_week,
+            'lifestyle_context': '',
+            'athlete_type': plan_data.get('athlete_type', 'General'),
+            'included_sports': included_sports,
             'maintenance_weeks': weeks
         }
         
-        # Prepare data for AI - current fitness metrics only, bare bones for maintenance
-        # Filter out any Response objects or None values that shouldn't be there
+        # Week calendar for JSON-first (single source of truth for week dates)
+        week_ranges = generate_week_calendar(plan_start_date, weeks, has_partial_week=False)
+        week_calendar = [w.to_dict() for w in week_ranges]
+        vdot_data = prepare_vdot_context(user_data)
+        
         final_data_for_ai = {
             "athlete_goal": user_inputs['goal'],
             "sessions_per_week": user_inputs['sessions_per_week'],
             "hours_per_week": user_inputs['hours_per_week'],
             "athlete_type": user_inputs['athlete_type'],
-            # Only include current fitness data, not historical analyzed activities or old vdot_data
+            "included_sports": included_sports,
             "athlete_stats": athlete_stats if athlete_stats and not isinstance(athlete_stats, FlaskResponse) else {},
             "strava_zones": strava_zones if strava_zones and not isinstance(strava_zones, FlaskResponse) else {},
-            "friel_hr_zones": friel_hr_zones if friel_hr_zones and not isinstance(friel_hr_zones, FlaskResponse) else None,
-            "friel_power_zones": friel_power_zones if friel_power_zones and not isinstance(friel_power_zones, FlaskResponse) else None,
+            "friel_hr_zones": friel_hr_zones,
+            "friel_power_zones": friel_power_zones,
             "maintenance_weeks": weeks,
-            # Add calculated duration parameters
             "weeks_until_goal": weeks,
             "goal_date": goal_date_str,
-            "plan_start_date": plan_start_date
-            # Explicitly NOT including: analyzed_activities, vdot_data, lifestyle_context (bare bones maintenance plan)
+            "plan_start_date": plan_start_date,
+            "has_partial_week": False,
+            "days_in_partial_week": 0,
+            "week_calendar": week_calendar,
+            "recent_training_summary": {"summary_text": "Maintenance plan - no recent summary.", "by_type": {}},
         }
         
-        # Validate that final_data_for_ai is JSON-serializable before proceeding
-        def is_json_serializable(obj):
-            """Check if an object is JSON serializable"""
-            try:
-                json.dumps(obj)
-                return True
-            except (TypeError, ValueError):
-                return False
-        
         def clean_for_json(obj):
-            """Recursively clean object to make it JSON-serializable"""
             if isinstance(obj, FlaskResponse):
                 return None
-            elif isinstance(obj, dict):
+            if isinstance(obj, dict):
                 return {k: clean_for_json(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
+            if isinstance(obj, list):
                 return [clean_for_json(item) for item in obj]
-            elif not is_json_serializable(obj):
-                # Convert non-serializable objects to strings
+            try:
+                json.dumps(obj)
+                return obj
+            except (TypeError, ValueError):
                 return str(obj)
-            return obj
         
-        # Clean the data structure to ensure it's JSON-serializable
         final_data_for_ai = clean_for_json(final_data_for_ai)
         
-        # Final validation
+        print("--- Generating maintenance plan (JSON-first via generate_training_plan) ---")
+        print(f"--- Requesting {weeks}-week plan from {plan_start_date} to {goal_date_str} ---")
+        
+        # Use same JSON-first flow as main plan generation
         try:
-            json.dumps(final_data_for_ai, indent=4)
-        except TypeError as e:
-            print(f"--- ERROR: final_data_for_ai still contains non-serializable data after cleaning: {e} ---")
-            flash(f"Error preparing data for AI. Please try again.")
+            plan_v2, plan_markdown, _ = ai_service.generate_training_plan(
+                user_inputs,
+                {
+                    'training_history': user_data.get('training_history'),
+                    'final_data_for_ai': final_data_for_ai,
+                    'athlete_id': athlete_id
+                },
+                vdot_data=vdot_data
+            )
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "Resource exhausted" in err_str:
+                flash("Maintenance plan generation failed: the coach service is busy. Please try again in a few minutes.", "error")
+            else:
+                flash(f"Maintenance plan generation failed: {err_str[:200]}", "error")
             return redirect('/generate_maintenance_plan')
         
-        print("--- Generating maintenance plan from Gemini ---")
-        print(f"--- Maintenance plan data being passed: sessions_per_week={user_inputs['sessions_per_week']}, hours_per_week={user_inputs['hours_per_week']}, weeks={weeks} ---")
-        print(f"--- Requesting {weeks}-week plan from {plan_start_date} to {goal_date_str} ---")
-        print(f"--- Athlete type: {user_inputs['athlete_type']} (from onboarding), Lifestyle context: NOT included (bare bones plan) ---")
-        print(f"--- Including training_history summary (last plan summary), NOT including analyzed_activities, vdot_data, or lifestyle_context ---")
+        if plan_v2 is None or len(plan_v2.weeks) == 0:
+            flash("Maintenance plan generation failed: the coach returned an empty plan. Please try again.", "error")
+            return redirect('/generate_maintenance_plan')
         
-        # Generate maintenance plan - pass training_history summary but not old plan details
-        ai_response_text = ai_service.generate_maintenance_plan(
-            user_inputs,
-            {
-                'training_history': user_data.get('training_history'),  # Include summary of last plan
-                'final_data_for_ai': final_data_for_ai
-            }
-        )
-        
-        # Validate duration
-        is_valid, actual_weeks, message = validate_plan_duration(ai_response_text, weeks)
-        if not is_valid:
-            print(f"--- WARNING: Maintenance plan validation failed: {message} ---")
-            flash(f"Warning: Generated plan is {actual_weeks} weeks instead of requested {weeks} weeks.", "warning")
-        
-        # Parse AI response into structured format
-        plan_v2, plan_markdown = parse_ai_response_to_v2(
-            ai_response_text, athlete_id, user_inputs
-        )
-        
-        # Extract plan_structure JSON separately
-        plan_structure = None
-        json_match = re.search(r"```json\n(.*?)```", ai_response_text, re.DOTALL)
-        if json_match:
-            try:
-                plan_structure = json.loads(json_match.group(1).strip())
-            except json.JSONDecodeError:
-                pass
-        
-        # Save both formats
-        user_data['plan'] = plan_markdown  # Markdown for display
-        user_data['plan_structure'] = plan_structure  # Week dates JSON
-        user_data['plan_v2'] = plan_v2.to_dict()  # Structured sessions
+        # Save both formats (plan_v2 already has correct week dates from calendar)
+        # For maintenance plans, also keep JSON as primary; avoid storing full markdown
+        user_data['plan_v2'] = plan_v2.to_dict()
+        user_data['plan_structure'] = None  # Deprecated; week dates are in plan_v2
         user_data['plan_data'] = final_data_for_ai
         user_data['plan_completion_choice'] = None  # Clear the choice
         user_data['plan_completion_prompted'] = False  # Clear the prompt flag
@@ -1180,13 +1310,8 @@ def generate_maintenance_plan():
         
         safe_save_user_data(athlete_id, user_data)
         
-        # Render and return plan
-        rendered_plan = render_markdown_with_toc(plan_markdown)
-        return render_template(
-            'plan.html',
-            plan_content=rendered_plan['content'],
-            plan_toc=rendered_plan['toc']
-        )
+        flash("Your maintenance plan has been generated successfully!", "success")
+        return redirect(url_for('plan.view_plan'))
     
     except Exception as e:
         import traceback

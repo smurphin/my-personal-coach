@@ -182,6 +182,28 @@
                     </p>
                 </div>
             </div>
+
+            <div class="mt-6">
+                <label for="timezone" class="block text-sm font-medium text-brand-light-gray mb-2">
+                    Timezone
+                </label>
+                <select
+                    id="timezone"
+                    name="timezone"
+                    class="w-full md:w-1/2 bg-brand-gray border border-brand-medium-gray rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-blue"
+                >
+                    <option value="Europe/London" {% if timezone == 'Europe/London' %}selected{% endif %}>UK (Europe/London)</option>
+                    <option value="Europe/Dublin" {% if timezone == 'Europe/Dublin' %}selected{% endif %}>Ireland (Europe/Dublin)</option>
+                    <option value="Europe/Paris" {% if timezone == 'Europe/Paris' %}selected{% endif %}>Central Europe (Europe/Paris)</option>
+                    <option value="America/New_York" {% if timezone == 'America/New_York' %}selected{% endif %}>US East (America/New_York)</option>
+                    <option value="America/Los_Angeles" {% if timezone == 'America/Los_Angeles' %}selected{% endif %}>US West (America/Los_Angeles)</option>
+                    <option value="Australia/Sydney" {% if timezone == 'Australia/Sydney' %}selected{% endif %}>Australia (Australia/Sydney)</option>
+                    <option value="UTC" {% if timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                </select>
+                <p class="text-xs text-gray-400 mt-2">
+                    Used for plan start dates, weekly summaries, and “after 4pm” rules when generating new plans.
+                </p>
+            </div>
         </div>
 
         <!-- Lifestyle Context Section -->

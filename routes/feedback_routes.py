@@ -960,6 +960,7 @@ def get_feedback_api():
         print("="*70 + "\n")
         
         # Generate feedback (now returns tuple: feedback_text, plan_update_json, change_summary)
+        assessment = user_data.get('assessment') or {}
         feedback_text, plan_update_json, change_summary = ai_service.generate_feedback(
             training_plan,
             feedback_log,
@@ -968,7 +969,8 @@ def get_feedback_api():
             garmin_data_for_activity,
             incomplete_sessions_text,
             vdot_data=vdot_data,
-            athlete_profile=athlete_profile  # Pass lifestyle context and athlete type
+            athlete_profile=athlete_profile,
+            assessment_snippet=assessment.get('current_fitness_snippet')
         )
         
         print("\n" + "="*70)
@@ -1175,23 +1177,22 @@ def get_feedback_api():
                         print(f"   ✅ Preserved {restored_count} completed sessions from past/current weeks")
                 
                 # CRITICAL: Archive old plan BEFORE overwriting
-                if 'plan' in user_data and user_data.get('plan'):
+                if user_data.get('plan') or user_data.get('plan_v2'):
                     if 'archive' not in user_data:
                         user_data['archive'] = []
-                    
-                    user_data['archive'].insert(0, {
-                        'plan': user_data['plan'],
-                        'plan_v2': user_data.get('plan_v2'),
+                    archive_entry = {
                         'completed_date': datetime.now().isoformat(),
                         'reason': 'regenerated_via_feedback_json'
-                    })
+                    }
+                    if user_data.get('plan') is not None:
+                        archive_entry['plan'] = user_data['plan']
+                    if user_data.get('plan_v2') is not None:
+                        archive_entry['plan_v2'] = user_data['plan_v2']
+                    user_data['archive'].insert(0, archive_entry)
                     print(f"📦 Archived old plan before JSON regeneration (archive now has {len(user_data['archive'])} entries)")
                 
-                # Update plan_v2
+                # Update plan_v2 (JSON as primary source)
                 user_data['plan_v2'] = new_plan_v2_obj.to_dict()
-                
-                # Also update markdown plan for backward compatibility
-                user_data['plan'] = new_plan_v2_obj.to_markdown()
                 
                 # Store change summary for display
                 if change_summary:
@@ -1205,117 +1206,9 @@ def get_feedback_api():
                 print(f"⚠️  Error processing JSON plan update: {e}")
                 import traceback
                 traceback.print_exc()
-                # Fall through to markdown parsing as fallback
         
-        # FALLBACK: Handle markdown plan updates (legacy support)
-        elif '[PLAN_UPDATED]' in feedback_text:
-            match = re.search(r"```markdown\n(.*?)```", feedback_text, re.DOTALL)
-            if match:
-                new_plan_markdown = match.group(1).strip()
-                
-                # CRITICAL: Archive old plan BEFORE overwriting
-                if 'plan' in user_data and user_data.get('plan'):
-                    if 'archive' not in user_data:
-                        user_data['archive'] = []
-                    
-                    # Archive current plan with timestamp
-                    user_data['archive'].insert(0, {
-                        'plan': user_data['plan'],
-                        'plan_v2': user_data.get('plan_v2'),  # Also archive plan_v2
-                        'completed_date': datetime.now().isoformat(),
-                        'reason': 'regenerated_via_feedback'
-                    })
-                    print(f"📦 Archived old plan before regeneration (archive now has {len(user_data['archive'])} entries)")
-                
-                user_data['plan'] = new_plan_markdown
-                print(f"✅ Plan updated via feedback")
-                
-                # Try to update plan_v2
-                try:
-                    # Get current plan_v2 as backup
-                    current_plan_v2 = user_data.get('plan_v2')
-                    
-                    # CRITICAL: Extract completed sessions BEFORE parsing
-                    existing_completed = {}  # session_id -> {completed, strava_activity_id, completed_at}
-                    if current_plan_v2 and 'weeks' in current_plan_v2:
-                        for week in current_plan_v2['weeks']:
-                            for sess in week.get('sessions', []):
-                                if sess.get('completed'):
-                                    existing_completed[sess['id']] = {
-                                        'completed': True,
-                                        'strava_activity_id': sess.get('strava_activity_id'),
-                                        'completed_at': sess.get('completed_at')
-                                    }
-                        print(f"   📋 Preserving {len(existing_completed)} completed sessions")
-                    
-                    from utils.migration import parse_ai_response_to_v2
-                    
-                    user_inputs = {
-                        'goal': user_data.get('goal', ''),
-                        'goal_date': user_data.get('goal_date'),
-                        'plan_start_date': user_data.get('plan_start_date'),
-                        'goal_distance': user_data.get('goal_distance')
-                    }
-                    
-                    # CRITICAL: Preserve plan_structure to maintain week dates
-                    # Without this, weeks get None dates and cause strptime errors
-                    plan_structure = user_data.get('plan_structure')
-                    if plan_structure and 'weeks' in plan_structure:
-                        print(f"   Preserving plan_structure with {len(plan_structure['weeks'])} weeks")
-                        # Create AI response with JSON structure
-                        import json
-                        json_block = f"\n\n```json\n{json.dumps(plan_structure)}\n```"
-                        ai_response_with_structure = new_plan_markdown + json_block
-                        
-                        plan_v2, _ = parse_ai_response_to_v2(
-                            ai_response_with_structure,
-                            athlete_id,
-                            user_inputs
-                        )
-                    else:
-                        # No plan_structure available - parse from markdown only
-                        print(f"   ⚠️  No plan_structure found - parsing markdown only (dates may be None)")
-                        plan_v2, _ = parse_ai_response_to_v2(
-                            new_plan_markdown,
-                            athlete_id,
-                            user_inputs
-                        )
-                    
-                    # Check if parsing succeeded
-                    if plan_v2 and plan_v2.weeks:
-                        total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
-                        
-                        if total_sessions > 0:
-                            # SAFEGUARD: Archive and restore past weeks
-                            from utils.plan_utils import archive_and_restore_past_weeks
-                            plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
-                            
-                            # CRITICAL: Restore completed status for matching sessions
-                            restored_count = 0
-                            for week in plan_v2.weeks:
-                                for sess in week.sessions:
-                                    if sess.id in existing_completed:
-                                        sess.completed = True
-                                        sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
-                                        sess.completed_at = existing_completed[sess.id]['completed_at']
-                                        restored_count += 1
-                            
-                            if restored_count > 0:
-                                print(f"   ✅ Restored {restored_count} completed sessions")
-                            
-                            user_data['plan_v2'] = plan_v2.to_dict()
-                            print(f"   ✅ plan_v2 updated with {total_sessions} sessions")
-                        else:
-                            print(f"   ⚠️  Parser extracted 0 sessions - keeping existing plan_v2")
-                    else:
-                        print(f"   ⚠️  Failed to parse - keeping existing plan_v2")
-                        
-                except Exception as e:
-                    print(f"   ⚠️  Error parsing: {e}")
-                    print(f"      Keeping existing plan_v2")
-            else:
-                print(f"⚠️ [PLAN_UPDATED] marker found but no markdown code block")
-        
+        # Plan updates from feedback require JSON only; we no longer accept or parse markdown plan updates.
+
         # CRITICAL: Verify plan_v2 integrity before saving
         if 'plan_v2' in user_data:
             plan_check = user_data['plan_v2']

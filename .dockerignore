@@ -15,6 +15,7 @@ __pycache__/
 .DS_Store
 
 # Ignore local secrets and environment files
+.secrets/
 .env
 *.env
 

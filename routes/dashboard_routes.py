@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, session, jsonify, url_for, flash
 from datetime import datetime, date, timedelta
+from threading import Thread
 import hashlib
 import os
 import re
@@ -15,8 +16,94 @@ from utils.decorators import login_required
 from utils.s_and_c_utils import get_routine_link
 
 from utils.plan_utils import archive_and_restore_past_weeks
+from utils.garmin_aggregation import build_garmin_summary
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+
+def _assessment_needs_refresh(user_data):
+    """True if assessment is missing or older than 7 days."""
+    updated = user_data.get('assessment_updated_at')
+    if not updated:
+        return True
+    try:
+        updated_naive = updated.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(updated_naive)
+        if dt.tzinfo:
+            dt = dt.replace(tzinfo=None)
+        return (datetime.now() - dt).days >= 7
+    except Exception:
+        return True
+
+
+def _refresh_assessment(athlete_id, user_data):
+    """Run Call A (training assessment) and store result. Uses Strava + Garmin + AI. Returns updated user_data or None on failure."""
+    from flask import Response as FlaskResponse
+    from routes.plan_routes import build_recent_training_summary
+    from utils.vdot_context import prepare_vdot_context
+    access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
+    if not access_token:
+        return None
+    eight_weeks_ago = datetime.now() - timedelta(weeks=8)
+    activities_summary = strava_service.get_recent_activities(
+        access_token, int(eight_weeks_ago.timestamp()), per_page=200
+    )
+    if isinstance(activities_summary, FlaskResponse):
+        return None
+    athlete_stats = strava_service.get_athlete_stats(access_token, athlete_id)
+    if isinstance(athlete_stats, FlaskResponse):
+        athlete_stats = {}
+    athlete_stats_trimmed = {}
+    if isinstance(athlete_stats, dict):
+        for k in ("recent_ride_totals", "recent_run_totals", "ytd_ride_totals", "ytd_run_totals", "all_ride_totals", "all_run_totals"):
+            if k in athlete_stats and athlete_stats[k]:
+                athlete_stats_trimmed[k] = athlete_stats[k]
+    recent_training_summary = build_recent_training_summary(activities_summary, weeks=6)
+    vdot_data = prepare_vdot_context(user_data, debug=False)
+    training_metrics = user_data.get('training_metrics') or {}
+    if vdot_data:
+        training_metrics = {**training_metrics, 'vdot_context': vdot_data}
+    garmin_summary = None
+    if 'garmin_credentials' in user_data:
+        try:
+            creds = user_data['garmin_credentials']
+            stats_range = garmin_service.fetch_date_range(
+                creds['email'], creds['password'], days=30,
+                encrypted_tokenstore=creds.get('tokenstore')
+            )
+            if stats_range:
+                metrics_timeline = garmin_service.extract_metrics_timeline(stats_range)
+                garmin_summary = build_garmin_summary(metrics_timeline)
+        except Exception as e:
+            print(f"Dashboard assessment refresh: Garmin fetch failed: {e}")
+    assessment = ai_service.generate_assessment(
+        recent_training_summary=recent_training_summary,
+        athlete_stats=athlete_stats_trimmed,
+        training_metrics=training_metrics,
+        garmin_summary=garmin_summary
+    )
+    if assessment:
+        user_data['assessment'] = assessment
+        user_data['assessment_updated_at'] = datetime.now().isoformat()
+        data_manager.save_user_data(athlete_id, user_data)
+        print(f"Dashboard: refreshed assessment (snippet {len(assessment.get('current_fitness_snippet', ''))} chars)")
+    return user_data
+
+
+def _refresh_assessment_async(athlete_id):
+    """Fire-and-forget wrapper to refresh assessment in the background."""
+    try:
+        user_data = data_manager.load_user_data(athlete_id)
+        if not user_data:
+            return
+        if not (user_data.get('plan') or user_data.get('plan_v2')):
+            return
+        if not _assessment_needs_refresh(user_data):
+            return
+        print("--- Async assessment refresh: starting in background thread ---")
+        _refresh_assessment(athlete_id, user_data)
+    except Exception as e:
+        print(f"Async assessment refresh failed: {e}")
 
 @dashboard_bp.route("/")
 def index():
@@ -25,7 +112,8 @@ def index():
         athlete_id = session['athlete_id']
         user_data = data_manager.load_user_data(athlete_id)
         
-        if user_data and 'plan' in user_data:
+        # Redirect to dashboard when user has any active plan (markdown or JSON)
+        if user_data and ('plan' in user_data or 'plan_v2' in user_data):
             return redirect("/dashboard")
         elif user_data:
             return redirect("/onboarding")
@@ -68,8 +156,19 @@ def dashboard():
             get_routine_link=get_routine_link
         )
     
-    if not user_data or 'plan' not in user_data:
+    # Require at least one active plan format; otherwise send to onboarding
+    if not user_data or ('plan' not in user_data and 'plan_v2' not in user_data):
         return redirect('/onboarding')
+
+    # Weekly assessment refresh (async, non-blocking):
+    # - If assessment is missing or older than 7 days, kick off a background refresh.
+    # - Dashboard render never waits for this; the refreshed assessment is used on later requests.
+    if user_data.get('plan') or user_data.get('plan_v2'):
+        try:
+            if _assessment_needs_refresh(user_data):
+                Thread(target=_refresh_assessment_async, args=(athlete_id,), daemon=True).start()
+        except Exception as e:
+            print(f"Dashboard: async assessment refresh spawn failed: {e}")
 
     # Check if plan has finished
     plan_finished = False
@@ -89,7 +188,8 @@ def dashboard():
             # AUTO-REPARSE: Check if plan_v2 has weeks with 0 sessions (parsing issue)
             # This can happen if the parser didn't match a new format
             weeks_with_no_sessions = [w for w in plan_v2.weeks if len(w.sessions) == 0]
-            if weeks_with_no_sessions and 'plan' in user_data:
+            plan_md_for_reparse = user_data.get('plan')
+            if weeks_with_no_sessions and plan_md_for_reparse:
                 week_numbers = [w.week_number for w in weeks_with_no_sessions]
                 print(f"⚠️  Detected {len(weeks_with_no_sessions)} weeks with 0 sessions: {week_numbers}")
                 print(f"   Attempting to reparse from markdown...")
@@ -106,7 +206,7 @@ def dashboard():
                     
                     # Reparse from markdown
                     reparsed_plan = migrate_plan_to_v2(
-                        user_data['plan'],
+                        plan_md_for_reparse,
                         plan_data,
                         athlete_id,
                         user_inputs
@@ -327,7 +427,7 @@ def dashboard():
                         'session': day_session.to_dict() if day_session else None
                     })
             
-            # Check if plan is finished
+            # Check if plan is finished (JSON only - no markdown)
             if plan_v2.weeks:
                 last_week = plan_v2.weeks[-1]
                 if last_week.end_date:  # Only check if date exists
@@ -341,6 +441,10 @@ def dashboard():
             else:
                 print("   ⚠️  plan_v2 has no weeks - cannot determine if plan is finished")
                 plan_finished = False
+            
+            # Current week display from JSON only (no markdown)
+            if current_week_obj:
+                current_week_html = render_markdown_with_toc(current_week_obj.to_markdown())['content']
             
         except Exception as e:
             print(f"Error loading plan_v2: {e}")
@@ -357,16 +461,17 @@ def dashboard():
                 except:
                     pass
     
-    # Fallback to markdown if no plan_v2 or error
-    if not current_week_sessions and 'plan' in user_data and user_data.get('plan'):
+    # Fallback to markdown only when we do NOT have plan_v2 (JSON-only when plan_v2 exists)
+    plan_md_fallback = user_data.get('plan') if ('plan' in user_data) else None
+    if 'plan_v2' not in user_data and plan_md_fallback:
         is_finished, last_end_date = training_service.is_plan_finished(
-            user_data['plan'],
+            plan_md_fallback,
             user_data.get('plan_structure')
         )
         plan_finished = is_finished
         
         current_week_text = training_service.get_current_week_plan(
-            user_data['plan'],
+            plan_md_fallback,
             user_data.get('plan_structure')
         )
         current_week_html = render_markdown_with_toc(current_week_text)['content']
@@ -556,12 +661,29 @@ def chat():
     if isinstance(athlete_profile, dict):
         athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
 
+    # Fitness baseline: prefer stored assessment (snippet + garmin_summary) when available; else plan_data + live Garmin fetch
+    plan_data = user_data.get('plan_data', {}) or {}
+    assessment = user_data.get('assessment') or {}
+    fitness_baseline = assessment.get('current_fitness_snippet') or assessment.get('current_fitness_summary') or plan_data.get('recent_training_summary')
+    garmin_summary = None
+    if assessment.get('garmin_summary'):
+        garmin_summary = json.dumps(assessment['garmin_summary'], indent=2)
+    else:
+        try:
+            garmin_raw = garmin_service.fetch_yesterday_data(user_data)
+            if garmin_raw is not None:
+                garmin_summary = json.dumps(garmin_raw, indent=2) if isinstance(garmin_raw, dict) else str(garmin_raw)
+        except Exception as e:
+            print(f"Chat: Could not fetch Garmin data for context: {e}")
+
     ai_response_markdown, plan_update_json, change_summary = ai_service.generate_chat_response(
         training_plan,
         feedback_log,
         chat_history,
         vdot_data=vdot_data,
-        athlete_profile=athlete_profile  # Includes lifestyle, type, and unit preferences
+        athlete_profile=athlete_profile,
+        fitness_baseline=fitness_baseline,
+        garmin_summary=garmin_summary
     )
 
     # CRITICAL: Ensure we're not storing raw JSON - extract response_text if needed
@@ -570,8 +692,7 @@ def chat():
         if (ai_response_markdown.strip().startswith('{') or ai_response_markdown.strip().startswith('```')) and 'response_text' in ai_response_markdown:
             print(f"⚠️  WARNING: ai_response_markdown still looks like JSON, attempting extraction...")
             try:
-                import json
-                # Try to extract from markdown code block or direct JSON
+                # Try to extract from markdown code block or direct JSON (json is module-level import)
                 if ai_response_markdown.strip().startswith('```'):
                     json_match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', ai_response_markdown, re.DOTALL)
                     if json_match:
@@ -714,22 +835,22 @@ def chat():
                     print(f"   ✅ Preserved {restored_count} completed sessions from past/current weeks")
             
             # CRITICAL: Archive old plan BEFORE overwriting (same as feedback/api_routes)
-            if 'plan' in user_data and user_data.get('plan'):
+            if user_data.get('plan') or user_data.get('plan_v2'):
                 if 'archive' not in user_data:
                     user_data['archive'] = []
-                user_data['archive'].insert(0, {
-                    'plan': user_data['plan'],
-                    'plan_v2': user_data.get('plan_v2'),
+                archive_entry = {
                     'completed_date': datetime.now().isoformat(),
                     'reason': 'regenerated_via_chat_json'
-                })
+                }
+                if user_data.get('plan') is not None:
+                    archive_entry['plan'] = user_data['plan']
+                if user_data.get('plan_v2') is not None:
+                    archive_entry['plan_v2'] = user_data['plan_v2']
+                user_data['archive'].insert(0, archive_entry)
                 print(f"📦 Archived old plan before chat JSON update (archive now has {len(user_data['archive'])} entries)")
             
-            # Update plan_v2
+            # Update plan_v2 (JSON is the primary source of truth)
             user_data['plan_v2'] = new_plan_v2_obj.to_dict()
-            
-            # Also update markdown plan for backward compatibility
-            user_data['plan'] = new_plan_v2_obj.to_markdown()
             
             # Store change summary for display
             if change_summary:
@@ -759,122 +880,19 @@ def chat():
 
             print(f"--- Plan updated via JSON! ---")
             print(f"--- New plan has {len(new_plan_v2_obj.weeks)} weeks with {sum(len(w.sessions) for w in new_plan_v2_obj.weeks)} sessions ---")
+            # Invalidate weekly summary cache when plan changed
+            today = datetime.now()
+            week_identifier = f"{today.year}-{today.isocalendar().week}"
+            if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
+                del user_data['weekly_summaries'][week_identifier]
+                print(f"--- Invalidated weekly summary cache for {week_identifier}. ---")
             
         except Exception as e:
             print(f"⚠️  Error processing JSON plan update: {e}")
             import traceback
             traceback.print_exc()
-            # Fall through to markdown parsing as fallback
     
-    # FALLBACK: Check for markdown plan update in response (legacy support)
-    if not plan_update_json:
-        print(f"🔍 Checking for markdown plan update in chat response (length: {len(combined_response)} chars)")
-        match = re.search(r"```\s*markdown\s*\n(.*?)```", combined_response, re.DOTALL)
-        if not match:
-            # Try without requiring newline after markdown keyword
-            match = re.search(r"```\s*markdown\s+(.*?)```", combined_response, re.DOTALL)
-        if not match:
-            # Try with any whitespace
-            match = re.search(r"```\s*markdown\s*(.*?)```", combined_response, re.DOTALL)
-        
-        if match:
-            print(f"✅ Found markdown plan update in chat response!")
-            new_plan_markdown = match.group(1).strip()
-            # CRITICAL: Archive old plan BEFORE overwriting (same as feedback/api_routes)
-            if 'plan' in user_data and user_data.get('plan'):
-                if 'archive' not in user_data:
-                    user_data['archive'] = []
-                user_data['archive'].insert(0, {
-                    'plan': user_data['plan'],
-                    'plan_v2': user_data.get('plan_v2'),
-                    'completed_date': datetime.now().isoformat(),
-                    'reason': 'regenerated_via_chat_markdown'
-                })
-                print(f"📦 Archived old plan before chat markdown update (archive now has {len(user_data['archive'])} entries)")
-            user_data['plan'] = new_plan_markdown
-            print(f"--- Plan updated via markdown (legacy)! ---")
-            print(f"--- New plan length: {len(new_plan_markdown)} characters ---")
-            
-            # Try to update plan_v2 with changes (only if we found a markdown update)
-            try:
-                # Get current plan_v2 as backup
-                current_plan_v2 = user_data.get('plan_v2')
-            
-                # CRITICAL: Extract completed sessions BEFORE parsing
-                existing_completed = {}  # session_id -> {completed, strava_activity_id, completed_at}
-                if current_plan_v2 and 'weeks' in current_plan_v2:
-                    for week in current_plan_v2['weeks']:
-                        for sess in week.get('sessions', []):
-                            if sess.get('completed'):
-                                existing_completed[sess['id']] = {
-                                    'completed': True,
-                                    'strava_activity_id': sess.get('strava_activity_id'),
-                                    'completed_at': sess.get('completed_at')
-                                }
-                    if existing_completed:
-                        print(f"   📋 Preserving {len(existing_completed)} completed sessions")
-                
-                # Try parsing the updated markdown
-                from utils.migration import parse_ai_response_to_v2
-                
-                user_inputs = {
-                    'goal': user_data.get('goal', ''),
-                    'goal_date': user_data.get('goal_date'),
-                    'plan_start_date': user_data.get('plan_start_date'),
-                    'goal_distance': user_data.get('goal_distance')
-                }
-                
-                # Don't attach old plan_structure - let it parse fresh from markdown
-                plan_v2, _ = parse_ai_response_to_v2(
-                    new_plan_markdown,
-                    athlete_id,
-                    user_inputs
-                )
-                
-                # Check if parsing was successful
-                if plan_v2 and plan_v2.weeks:
-                    total_sessions = sum(len(week.sessions) for week in plan_v2.weeks)
-                    
-                    if total_sessions > 0:
-                        # SAFEGUARD: Archive and restore past weeks
-                        plan_v2 = archive_and_restore_past_weeks(current_plan_v2, plan_v2)
-                        
-                        # CRITICAL: Restore completed status for matching sessions
-                        restored_count = 0
-                        for week in plan_v2.weeks:
-                            for sess in week.sessions:
-                                if sess.id in existing_completed:
-                                    sess.completed = True
-                                    sess.strava_activity_id = existing_completed[sess.id]['strava_activity_id']
-                                    sess.completed_at = existing_completed[sess.id]['completed_at']
-                                    restored_count += 1
-                        
-                        if restored_count > 0:
-                            print(f"   ✅ Restored {restored_count} completed sessions")
-                        
-                        # Parsing worked! Update plan_v2
-                        user_data['plan_v2'] = plan_v2.to_dict()
-                        final_week_count = len(plan_v2.weeks)
-                        print(f"✅ plan_v2 updated with {final_week_count} weeks ({total_sessions} sessions)")
-                    else:
-                        # Parsing failed - keep existing plan_v2
-                        print(f"⚠️  Parser extracted 0 sessions from updated markdown")
-                        print(f"   Keeping existing plan_v2 (likely AI update doesn't match session format)")
-                        print(f"   Markdown updated, plan_v2 preserved")
-                else:
-                    print(f"⚠️  Failed to parse updated plan - keeping existing plan_v2")
-                    
-            except Exception as e:
-                print(f"⚠️  Error parsing plan update: {e}")
-                print(f"   Keeping existing plan_v2")
-                # Keep existing plan_v2 - don't break session tracking
-
-    # Invalidate weekly summary cache
-        today = datetime.now()
-        week_identifier = f"{today.year}-{today.isocalendar().week}"
-        if 'weekly_summaries' in user_data and week_identifier in user_data['weekly_summaries']:
-            del user_data['weekly_summaries'][week_identifier]
-            print(f"--- Invalidated weekly summary cache for {week_identifier}. ---")
+    # Plan updates from chat require JSON only; we no longer accept or parse markdown plan updates.
 
     from routes.api_routes import safe_save_user_data
     safe_save_user_data(athlete_id, user_data)
@@ -1068,12 +1086,16 @@ You're currently going with the flow without a structured training plan. When yo
                 'no_plan_mode': True
             })
     
-    if not user_data or 'plan' not in user_data:
+    if not user_data or ('plan' not in user_data and 'plan_v2' not in user_data):
         return jsonify({"error": "Plan not found"}), 404
 
     now = datetime.now()
     week_identifier = f"{now.year}-{now.isocalendar().week}"
-    current_plan_hash = hashlib.sha256(user_data['plan'].encode()).hexdigest()
+    # Hash from plan markdown when present; otherwise from plan_v2 JSON so we don't KeyError
+    plan_for_hash = user_data.get('plan') or ''
+    if not plan_for_hash and user_data.get('plan_v2'):
+        plan_for_hash = json.dumps(user_data['plan_v2'], sort_keys=True)
+    current_plan_hash = hashlib.sha256(plan_for_hash.encode()).hexdigest()
     
     feedback_log = user_data.get('feedback_log', [])
     chat_log = user_data.get('chat_log', [])
@@ -1129,7 +1151,18 @@ You're currently going with the flow without a structured training plan. When yo
     if force_refresh:
         print("CACHE: Generating new summary from AI.")
         try:
-            current_week_text = training_service.get_current_week_plan(user_data['plan'])
+            current_week_json = None
+            current_week_text = None
+            if 'plan_v2' in user_data and user_data['plan_v2']:
+                try:
+                    plan_v2_obj = TrainingPlan.from_dict(user_data['plan_v2'])
+                    current_week_obj = plan_v2_obj.get_current_week()
+                    if current_week_obj:
+                        current_week_json = current_week_obj.to_dict()
+                except Exception as e:
+                    print(f"Warning: Could not get current week from plan_v2: {e}")
+            if not current_week_json:
+                current_week_text = training_service.get_current_week_plan(user_data.get('plan', ''))
             
             # Fetch latest Garmin data
             garmin_data = None
@@ -1142,14 +1175,17 @@ You're currently going with the flow without a structured training plan. When yo
             from utils.vdot_context import prepare_vdot_context
             vdot_data = prepare_vdot_context(user_data, debug=False)  # Disable debug to reduce noise
             
-            # Generate summary with AI
+            # Generate summary with AI (pass structured JSON when available; use stored assessment snippet when available)
+            assessment = user_data.get('assessment') or {}
             weekly_summary = ai_service.generate_weekly_summary(
                 current_week_text,
                 user_data.get('plan_data', {}).get('athlete_goal', 'your goal'),
-                feedback_log[0].get('feedback_markdown') if feedback_log else None,
-                chat_log,
-                garmin_data,
-                vdot_data=vdot_data  # Pass VDOT data to prevent AI from using old values
+                latest_feedback=feedback_log[0].get('feedback_markdown') if feedback_log else None,
+                chat_history=chat_log,
+                garmin_health_stats=garmin_data,
+                vdot_data=vdot_data,
+                current_week_json=current_week_json,
+                assessment_snippet=assessment.get('current_fitness_snippet')
             )
             
             if not weekly_summary or not weekly_summary.strip():
@@ -1261,6 +1297,7 @@ def settings():
     # Onboarding stores: athlete_profile.lifestyle_context (combined field)
     # Settings needs: lifestyle.training_constraints for display
     lifestyle = {}
+    timezone = 'Europe/London'
     if 'athlete_profile' in user_data:
         profile = user_data['athlete_profile']
         print(f"DEBUG Settings GET: athlete_profile exists")
@@ -1271,6 +1308,7 @@ def settings():
             'training_constraints': profile.get('lifestyle_context', ''),  # Display combined field
             'athlete_type': profile.get('athlete_type', 'IMPROVISER')  # Use saved value
         }
+        timezone = profile.get('timezone', 'Europe/London')
         print(f"  athlete_type being sent to template: {lifestyle['athlete_type']}")
     elif 'lifestyle' in user_data:
         # Fallback to old structure if it exists
@@ -1290,6 +1328,7 @@ def settings():
     return render_template(
         'settings.html',
         lifestyle=lifestyle,
+        timezone=timezone,
         vdot=vdot,
         vdot_source=vdot_source,
         vdot_date=vdot_date,
@@ -1315,12 +1354,13 @@ def update_settings():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     
-    # Update athlete_profile with lifestyle context
+    # Update athlete_profile with lifestyle context and timezone
     # Combine all three fields back into lifestyle_context
     work_pattern = request.form.get('work_pattern', '').strip()
     family_commitments = request.form.get('family_commitments', '').strip()
     training_constraints = request.form.get('training_constraints', '').strip()
     athlete_type = request.form.get('athlete_type', 'IMPROVISER')
+    timezone_str = (request.form.get('timezone') or '').strip() or None
     
     # Combine into single lifestyle_context field
     context_parts = []
@@ -1333,10 +1373,13 @@ def update_settings():
     
     lifestyle_context = "\n\n".join(context_parts) if context_parts else None
     
-    # Save to athlete_profile (matches onboarding structure)
+    # Save to athlete_profile (matches onboarding structure), preserving existing fields
+    existing_profile = user_data.get('athlete_profile') or {}
     user_data['athlete_profile'] = {
         'lifestyle_context': lifestyle_context,
         'athlete_type': athlete_type,
+        'sports': existing_profile.get('sports') or ['Run'],
+        'timezone': timezone_str or existing_profile.get('timezone') or 'Europe/London',
         'updated_at': datetime.now().isoformat()
     }
     
@@ -1618,7 +1661,12 @@ def reparse_plan():
         return jsonify({'success': False, 'error': 'Not authenticated'}), 401
     
     user_data = data_manager.load_user_data(athlete_id)
-    if not user_data or 'plan' not in user_data:
+    if not user_data:
+        return jsonify({'success': False, 'error': 'No user data'}), 400
+    plan_md = user_data.get('plan')
+    if not plan_md and user_data.get('plan_v2'):
+        return jsonify({'success': False, 'error': 'No markdown plan to reparse. Your plan is in structured format; use chat to request changes.'}), 400
+    if not plan_md:
         return jsonify({'success': False, 'error': 'No plan found to reparse'}), 400
     
     try:
@@ -1650,7 +1698,7 @@ def reparse_plan():
         
         # Reparse from markdown
         reparsed_plan = migrate_plan_to_v2(
-            user_data['plan'],
+            plan_md,
             plan_data,
             athlete_id,
             user_inputs
@@ -1667,15 +1715,18 @@ def reparse_plan():
                     restored_count += 1
         
         # Archive old plan before replacing (so reparse can be rolled back)
-        if 'plan' in user_data and user_data.get('plan'):
+        if user_data.get('plan') or user_data.get('plan_v2'):
             if 'archive' not in user_data:
                 user_data['archive'] = []
-            user_data['archive'].insert(0, {
-                'plan': user_data['plan'],
-                'plan_v2': user_data.get('plan_v2'),
+            archive_entry = {
                 'completed_date': datetime.now().isoformat(),
                 'reason': 'reparse_plan_v2'
-            })
+            }
+            if user_data.get('plan') is not None:
+                archive_entry['plan'] = user_data['plan']
+            if user_data.get('plan_v2') is not None:
+                archive_entry['plan_v2'] = user_data['plan_v2']
+            user_data['archive'].insert(0, archive_entry)
             print(f"📦 Archived old plan before reparse (archive now has {len(user_data['archive'])} entries)")
         
         # Update plan_v2
