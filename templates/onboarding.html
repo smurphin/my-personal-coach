@@ -11,7 +11,7 @@
             <div class="loader mx-auto mb-4"></div>
             <h2 class="text-xl sm:text-2xl font-bold text-white mb-2">Building Your Personalized Plan...</h2>
             <p class="text-brand-light-gray text-sm sm:text-base">
-                <span id="tutorial-intro">While you wait, here's how to get the most out of kAIzen Coach</span>
+                <span id="tutorial-intro">Plan generation can take 1–2 minutes while we analyze your recent Strava history and training metrics.</span>
             </p>
         </div>
 
@@ -264,17 +264,9 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                        <label for="sessions_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">Sessions per week</label>
-                        <input type="number" id="sessions_per_week" name="sessions_per_week" min="1" max="14" required value="{{ request.form.get('sessions_per_week', 5) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
-                        <p class="mt-1 text-xs text-gray-400">How many sessions can you realistically, consistently, commit to each week?</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-
-                    <div>
                         <label for="hours_per_week" class="block text-sm font-medium text-brand-light-gray mb-1">Hours per week</label>
                         <input type="number" id="hours_per_week" name="hours_per_week" min="1" max="40" step="0.5" required value="{{ request.form.get('hours_per_week', 7) }}" class="w-full bg-brand-dark border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-brand-blue focus:border-brand-blue transition">
-                        <p class="mt-1 text-xs text-gray-400">How many hours can you realistically, consistently, commit to each week?</p>
+                        <p class="mt-1 text-xs text-gray-400">How many hours can you realistically, consistently, commit to each week? The coach will choose the number of sessions based on this and your schedule details below.</p>
                     </div>
                 </div>
 
@@ -373,12 +365,39 @@
                             </select>
                         </div>
                     </div>
+
+                    <div class="mt-4">
+                        <label for="timezone" class="block text-sm font-medium text-brand-light-gray mb-2">
+                            Timezone
+                        </label>
+                        {% set current_timezone = request.form.get('timezone') or (athlete_profile.get('timezone') if athlete_profile and athlete_profile.get('timezone') else 'Europe/London') %}
+                        <select
+                            id="timezone"
+                            name="timezone"
+                            data-has-timezone="{{ '1' if athlete_profile and athlete_profile.get('timezone') else '0' }}"
+                            class="w-full bg-brand-gray border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-brand-blue focus:border-brand-blue transition"
+                        >
+                            <option value="Europe/London" {% if current_timezone == 'Europe/London' %}selected{% endif %}>UK (Europe/London)</option>
+                            <option value="Europe/Dublin" {% if current_timezone == 'Europe/Dublin' %}selected{% endif %}>Ireland (Europe/Dublin)</option>
+                            <option value="Europe/Paris" {% if current_timezone == 'Europe/Paris' %}selected{% endif %}>Central Europe (Europe/Paris)</option>
+                            <option value="America/New_York" {% if current_timezone == 'America/New_York' %}selected{% endif %}>US East (America/New_York)</option>
+                            <option value="America/Los_Angeles" {% if current_timezone == 'America/Los_Angeles' %}selected{% endif %}>US West (America/Los_Angeles)</option>
+                            <option value="Australia/Sydney" {% if current_timezone == 'Australia/Sydney' %}selected{% endif %}>Australia (Australia/Sydney)</option>
+                            <option value="UTC" {% if current_timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-400">
+                            Used to keep plan dates and times aligned with your local timezone.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="pt-2 sm:pt-4">
                     <button type="submit" class="w-full bg-brand-blue text-white font-bold py-3 px-4 text-base sm:text-lg rounded-lg hover:bg-brand-blue-hover transition-colors duration-300">
                         Analyze My Strava & Build My Plan
                     </button>
+                    <p class="mt-3 text-xs text-gray-400 text-center">
+                        Plan generation usually takes 1–2 minutes. Keep this tab open while your plan is being built.
+                    </p>
                 </div>
             </form>
         </div>
@@ -386,6 +405,25 @@
 </div>
 
 <script>
+// Use browser timezone as a sensible default when athlete has not set one yet
+(function() {
+    var tzSelect = document.getElementById('timezone');
+    if (tzSelect && tzSelect.getAttribute('data-has-timezone') === '0' && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        try {
+            var browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            if (browserTz) {
+                // Only override if the option exists; otherwise keep default (Europe/London)
+                for (var i = 0; i < tzSelect.options.length; i++) {
+                    if (tzSelect.options[i].value === browserTz) {
+                        tzSelect.value = browserTz;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+})();
+
 // Tutorial Carousel Management
 let currentSlide = 0;
 const totalSlides = 5;

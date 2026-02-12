@@ -8,16 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2026-02-12
+
+### Added
+
 - Onboarding: choose which sports to include in your plan (Run, Bike, Swim, Strength, Other).
 - Onboarding: LTHR, FTP, and VDOT are pre-filled from your saved metrics when you create another plan.
 - Plan: if you have a recent VDOT (last 4 weeks) it is used for paces; otherwise the plan suggests a VDOT test in early weeks.
 - Plan and chat: a short fitness assessment runs before plan generation and is used to shape the plan and coach replies.
 - Chat: when Garmin is connected, recent HRV, sleep, and body battery trends can inform the coach’s answers.
+- Docs: deployment guide notes that long plan generation routes may need higher timeouts.
+- Onboarding: finishing the form after 4pm local time starts the plan from the next day instead of immediately.
+- App: error screens now show a friendly message with a clear way to try again.
 
 ### Changed
 
 - Plan: S&C sessions only appear when you selected Strength at onboarding.
-- Onboarding: sports choices sit between goal date and sessions per week.
+- Onboarding: sports choices now appear between goal date and weekly hours.
 - Chat: the coach only adds or changes sessions for the sports you selected (e.g. no bike on a run-only plan unless you ask).
 - Feedback: suggested plan changes stay within your selected sports.
 - Plan: Improviser plans now include at least one or two optional (STRETCH) sessions per week.
@@ -25,6 +36,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Plan: a “zones differ” note under the HR table only appears when the difference is more than a couple of beats, not for small rounding or Zone 3.
 - Dashboard: you see the dashboard when you have an active plan, not only when the legacy plan field is set.
 - Maintenance plan: uses the same generation as the main plan.
+- Plan: the coach chooses how many sessions to schedule within the weekly hours you set.
+- Onboarding: the plan generation screen explains that building a plan can take 1–2 minutes.
+- Dashboard: fitness assessment updates now run in the background and no longer slow the page load.
 
 ### Fixed
 

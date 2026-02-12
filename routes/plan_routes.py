@@ -298,7 +298,6 @@ def generate_plan():
         # Gather user inputs
         lthr_raw = request.form.get('lthr', '').strip()
         ftp_raw = request.form.get('ftp', '').strip()
-        sessions_raw = request.form.get('sessions_per_week', '').strip()
         hours_raw = request.form.get('hours_per_week', '').strip()
         
         # Validate numeric fields
@@ -322,15 +321,6 @@ def generate_plan():
             except ValueError:
                 validation_errors.append('FTP must be a valid number')
         
-        sessions_per_week = None
-        if sessions_raw:
-            try:
-                sessions_per_week = int(sessions_raw)
-                if sessions_per_week <= 0:
-                    validation_errors.append('Sessions per week must be a positive number')
-            except ValueError:
-                validation_errors.append('Sessions per week must be a valid number')
-        
         hours_per_week = None
         if hours_raw:
             try:
@@ -349,6 +339,7 @@ def generate_plan():
         # Save persistent athlete profile separately
         lifestyle_context = request.form.get('lifestyle_context', '').strip() or None
         athlete_type = request.form.get('athlete_type') or None
+        timezone_str_form = (request.form.get('timezone') or '').strip() or None
         
         # Check if we need to migrate from legacy structure
         if not user_data.get('athlete_profile'):
@@ -367,10 +358,12 @@ def generate_plan():
             flash('Please select at least one sport to include in your plan.')
             return redirect('/onboarding')
 
+        existing_profile = user_data.get('athlete_profile') or {}
         athlete_profile = {
             'lifestyle_context': lifestyle_context,
             'athlete_type': athlete_type,
             'sports': selected_sports,
+            'timezone': timezone_str_form or existing_profile.get('timezone') or 'Europe/London',
             'updated_at': datetime.now().isoformat()
         }
         user_data['athlete_profile'] = athlete_profile
@@ -401,7 +394,6 @@ def generate_plan():
         
         user_inputs = {
             'goal': request.form.get('user_goal') or None,
-            'sessions_per_week': sessions_per_week,
             'hours_per_week': hours_per_week,
             'lifestyle_context': combined_context,  # Combined context for AI
             'athlete_type': athlete_type,
@@ -445,7 +437,29 @@ def generate_plan():
                     print(f"--- Calculated plan duration: {weeks_until_goal} weeks from {plan_start_date} to {goal_date} ---")
             else:
                 print(f"--- Could not calculate plan duration from goal date: {goal_date_str} ---")
-        
+
+            # Late-day onboarding: if plan start is today in the athlete's timezone and it's after 16:00,
+            # treat today as unavailable and start the plan tomorrow (Week 0 from tomorrow onward).
+            if weeks_until_goal and has_partial_week and plan_start_date:
+                profile = user_data.get('athlete_profile') or {}
+                timezone_str = profile.get('timezone') or (request.form.get('timezone') or '').strip()
+                if timezone_str:
+                    try:
+                        from zoneinfo import ZoneInfo
+                        tz = ZoneInfo(timezone_str)
+                        now_in_tz = datetime.now(tz)
+                        today_local = now_in_tz.date()
+                        plan_start_as_date = date_parser.parse(plan_start_date).date()
+                        if plan_start_as_date == today_local and now_in_tz.hour >= 16:
+                            tomorrow = today_local + timedelta(days=1)
+                            tomorrow_str = tomorrow.strftime('%Y-%m-%d')
+                            weeks_until_goal, plan_start_date, goal_date, has_partial_week, days_in_partial_week = calculate_weeks_until_goal(
+                                goal_date_str, start_date=tomorrow_str, include_partial_week=True
+                            )
+                            print(f"--- Late-day onboarding (>= 16:00 local): plan start moved to {plan_start_date} ---")
+                    except Exception as e:
+                        print(f"--- Timezone or 16:00 adjustment skipped: {e} ---")
+
         access_token = user_data['token']['access_token']
 
         print(f"--- Fetching Strava data for athlete {athlete_id} ---")
@@ -718,7 +732,6 @@ def generate_plan():
         # Store upcoming_commitments separately so weekly summary/chat can reference "constraints for this plan"
         final_data_for_ai = {
             "athlete_goal": user_inputs['goal'],
-            "sessions_per_week": user_inputs['sessions_per_week'],
             "hours_per_week": user_inputs['hours_per_week'],
             "lifestyle_context": user_inputs['lifestyle_context'],
             "upcoming_commitments": upcoming_commitments,

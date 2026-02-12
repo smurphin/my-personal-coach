@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, session, jsonify, url_for, flash
 from datetime import datetime, date, timedelta
+from threading import Thread
 import hashlib
 import os
 import re
@@ -88,6 +89,22 @@ def _refresh_assessment(athlete_id, user_data):
         print(f"Dashboard: refreshed assessment (snippet {len(assessment.get('current_fitness_snippet', ''))} chars)")
     return user_data
 
+
+def _refresh_assessment_async(athlete_id):
+    """Fire-and-forget wrapper to refresh assessment in the background."""
+    try:
+        user_data = data_manager.load_user_data(athlete_id)
+        if not user_data:
+            return
+        if not (user_data.get('plan') or user_data.get('plan_v2')):
+            return
+        if not _assessment_needs_refresh(user_data):
+            return
+        print("--- Async assessment refresh: starting in background thread ---")
+        _refresh_assessment(athlete_id, user_data)
+    except Exception as e:
+        print(f"Async assessment refresh failed: {e}")
+
 @dashboard_bp.route("/")
 def index():
     """Landing page / dashboard redirect"""
@@ -143,10 +160,15 @@ def dashboard():
     if not user_data or ('plan' not in user_data and 'plan_v2' not in user_data):
         return redirect('/onboarding')
 
-    # Weekly assessment refresh: if assessment is missing or older than 7 days, run Call A and save
-    if (user_data.get('plan') or user_data.get('plan_v2')) and _assessment_needs_refresh(user_data):
-        _refresh_assessment(athlete_id, user_data)
-        user_data = data_manager.load_user_data(athlete_id)
+    # Weekly assessment refresh (async, non-blocking):
+    # - If assessment is missing or older than 7 days, kick off a background refresh.
+    # - Dashboard render never waits for this; the refreshed assessment is used on later requests.
+    if user_data.get('plan') or user_data.get('plan_v2'):
+        try:
+            if _assessment_needs_refresh(user_data):
+                Thread(target=_refresh_assessment_async, args=(athlete_id,), daemon=True).start()
+        except Exception as e:
+            print(f"Dashboard: async assessment refresh spawn failed: {e}")
 
     # Check if plan has finished
     plan_finished = False
@@ -1275,6 +1297,7 @@ def settings():
     # Onboarding stores: athlete_profile.lifestyle_context (combined field)
     # Settings needs: lifestyle.training_constraints for display
     lifestyle = {}
+    timezone = 'Europe/London'
     if 'athlete_profile' in user_data:
         profile = user_data['athlete_profile']
         print(f"DEBUG Settings GET: athlete_profile exists")
@@ -1285,6 +1308,7 @@ def settings():
             'training_constraints': profile.get('lifestyle_context', ''),  # Display combined field
             'athlete_type': profile.get('athlete_type', 'IMPROVISER')  # Use saved value
         }
+        timezone = profile.get('timezone', 'Europe/London')
         print(f"  athlete_type being sent to template: {lifestyle['athlete_type']}")
     elif 'lifestyle' in user_data:
         # Fallback to old structure if it exists
@@ -1304,6 +1328,7 @@ def settings():
     return render_template(
         'settings.html',
         lifestyle=lifestyle,
+        timezone=timezone,
         vdot=vdot,
         vdot_source=vdot_source,
         vdot_date=vdot_date,
@@ -1329,12 +1354,13 @@ def update_settings():
     athlete_id = session['athlete_id']
     user_data = data_manager.load_user_data(athlete_id)
     
-    # Update athlete_profile with lifestyle context
+    # Update athlete_profile with lifestyle context and timezone
     # Combine all three fields back into lifestyle_context
     work_pattern = request.form.get('work_pattern', '').strip()
     family_commitments = request.form.get('family_commitments', '').strip()
     training_constraints = request.form.get('training_constraints', '').strip()
     athlete_type = request.form.get('athlete_type', 'IMPROVISER')
+    timezone_str = (request.form.get('timezone') or '').strip() or None
     
     # Combine into single lifestyle_context field
     context_parts = []
@@ -1347,10 +1373,13 @@ def update_settings():
     
     lifestyle_context = "\n\n".join(context_parts) if context_parts else None
     
-    # Save to athlete_profile (matches onboarding structure)
+    # Save to athlete_profile (matches onboarding structure), preserving existing fields
+    existing_profile = user_data.get('athlete_profile') or {}
     user_data['athlete_profile'] = {
         'lifestyle_context': lifestyle_context,
         'athlete_type': athlete_type,
+        'sports': existing_profile.get('sports') or ['Run'],
+        'timezone': timezone_str or existing_profile.get('timezone') or 'Europe/London',
         'updated_at': datetime.now().isoformat()
     }
     

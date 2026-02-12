@@ -324,7 +324,6 @@ class AIService:
         
         prompt = template.render(
             athlete_goal=user_inputs['goal'],
-            sessions_per_week=user_inputs['sessions_per_week'],
             hours_per_week=user_inputs.get('hours_per_week'),
             athlete_type=user_inputs['athlete_type'],
             lifestyle_context=user_inputs['lifestyle_context'],
