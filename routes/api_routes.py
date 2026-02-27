@@ -604,14 +604,25 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             descriptive_name = f"Feedback for activities: {', '.join(activity_names)}"
     
     all_activity_ids = [s['id'] for s in analyzed_sessions]
+    primary_activity_id = int(analyzed_sessions[0]['id'])
+    # Always persist a string so the key exists in storage (some serializers omit empty strings)
+    feedback_markdown_value = (feedback_text and str(feedback_text).strip()) or "(Feedback could not be generated for this activity.)"
     
     new_log_entry = {
-        "activity_id": int(analyzed_sessions[0]['id']),
+        "activity_id": primary_activity_id,
         "activity_name": descriptive_name,
         "activity_date": format_activity_date(analyzed_sessions[0].get('start_date', '')),
-        "feedback_markdown": feedback_text,  # Use feedback_text from tuple
+        "feedback_markdown": feedback_markdown_value,
         "logged_activity_ids": all_activity_ids
     }
+    
+    # When the same activity is processed twice in quick succession (e.g. two webhook timer runs),
+    # replace any existing entry for this activity instead of inserting a duplicate.
+    def _entry_matches_activity(entry, aid):
+        if entry.get('activity_id') == aid:
+            return True
+        return aid in entry.get('logged_activity_ids', [])
+    feedback_log[:] = [e for e in feedback_log if not _entry_matches_activity(e, primary_activity_id)]
     
     # region agent log
     try:
