@@ -15,6 +15,9 @@ import json
 
 feedback_bp = Blueprint('feedback', __name__)
 
+# Stored when webhook feedback generation fails; treat as empty so we show a friendly message
+FEEDBACK_EMPTY_PLACEHOLDER = "(Feedback could not be generated for this activity.)"
+
 
 def _normalize_escaped_quotes(text):
     """Replace literal backslash-quote in feedback text with quote for display (model sometimes over-escapes in JSON)."""
@@ -241,12 +244,20 @@ def view_specific_feedback(activity_id):
         if entry_activity_id == activity_id or activity_id in logged_ids:
             print(f"--- MATCH FOUND at index {idx} ---")
             
-            # Extract feedback_text from JSON if needed
-            feedback_markdown = extract_feedback_text_from_json(entry['feedback_markdown'])
-            
-            # Process feedback to extract plan updates
-            processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
-            feedback_html = render_markdown_with_toc(processed_markdown)['content']
+            # Extract feedback_text from JSON if needed (entry may lack 'feedback_markdown' if save failed)
+            raw = entry.get('feedback_markdown', '')
+            feedback_markdown = extract_feedback_text_from_json(raw) if raw else ''
+            if not (feedback_markdown and str(feedback_markdown).strip()) or feedback_markdown.strip() == FEEDBACK_EMPTY_PLACEHOLDER:
+                fallback = (
+                    "This feedback entry could not be loaded. It may have been generated during a temporary issue; "
+                    "re-sync the activity or request feedback again to regenerate it."
+                )
+                processed_markdown, plan_html = process_feedback_markdown(fallback)
+                feedback_html = render_markdown_with_toc(processed_markdown)['content']
+            else:
+                # Process feedback to extract plan updates
+                processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
+                feedback_html = render_markdown_with_toc(processed_markdown)['content']
             
             # Append plan HTML if it exists
             if plan_html:
@@ -359,17 +370,18 @@ def get_feedback_api():
                 logged_ids = entry.get('logged_activity_ids', [])
                 
                 if entry_activity_id == requested_activity_id or requested_activity_id in logged_ids:
+                    raw_entry_md = entry.get('feedback_markdown', '')
                     print(f"🔍 Processing feedback for activity_id {requested_activity_id}")
-                    print(f"   Raw feedback_markdown type: {type(entry['feedback_markdown'])}")
-                    print(f"   Raw feedback_markdown length: {len(str(entry['feedback_markdown']))}")
-                    print(f"   Raw feedback_markdown preview: {str(entry['feedback_markdown'])[:200]}...")
+                    print(f"   Raw feedback_markdown type: {type(raw_entry_md)}")
+                    print(f"   Raw feedback_markdown length: {len(str(raw_entry_md))}")
+                    print(f"   Raw feedback_markdown preview: {str(raw_entry_md)[:200]}...")
                     
                     # region agent log
                     try:
                         import json as _json
                         import hashlib as _hashlib
                         import time as _time
-                        raw_markdown = str(entry['feedback_markdown'])
+                        raw_markdown = str(raw_entry_md)
                         _log_entry = {
                             "sessionId": "debug-session",
                             "runId": "pre-fix",
@@ -390,7 +402,7 @@ def get_feedback_api():
                     # endregion
                     
                     # Extract feedback_text from JSON if needed
-                    feedback_markdown = extract_feedback_text_from_json(entry['feedback_markdown'])
+                    feedback_markdown = extract_feedback_text_from_json(raw_entry_md) if raw_entry_md else ''
                     
                     print(f"   After extraction - feedback_markdown type: {type(feedback_markdown)}")
                     print(f"   After extraction - feedback_markdown length: {len(str(feedback_markdown))}")
@@ -421,7 +433,12 @@ def get_feedback_api():
                         pass
                     # endregion
                     
-                    # Process feedback to extract plan updates
+                    # Process feedback to extract plan updates (handle empty if entry was saved without content)
+                    if not (feedback_markdown and str(feedback_markdown).strip()) or (feedback_markdown or "").strip() == FEEDBACK_EMPTY_PLACEHOLDER:
+                        feedback_markdown = (
+                            "This feedback entry could not be loaded. It may have been generated during a temporary issue; "
+                            "re-sync the activity or request feedback again to regenerate it."
+                        )
                     processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                     feedback_html = render_markdown_with_toc(processed_markdown)['content']
                     
@@ -445,8 +462,10 @@ def get_feedback_api():
             # Allow viewing existing feedback, but not generating new
             if feedback_log:
                 # Extract feedback_text from JSON if needed
-                feedback_markdown = extract_feedback_text_from_json(feedback_log[0]['feedback_markdown'])
-                
+                raw0 = feedback_log[0].get('feedback_markdown', '')
+                feedback_markdown = extract_feedback_text_from_json(raw0) if raw0 else ''
+                if not (feedback_markdown and str(feedback_markdown).strip()) or (feedback_markdown or "").strip() == FEEDBACK_EMPTY_PLACEHOLDER:
+                    feedback_markdown = "This feedback entry could not be loaded. Re-sync or request feedback again to regenerate it."
                 # Show most recent existing feedback instead of blocking
                 processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                 feedback_html = render_markdown_with_toc(processed_markdown)['content']
@@ -491,8 +510,10 @@ def get_feedback_api():
         if not new_activities_to_process:
             if feedback_log:
                 # Extract feedback_text from JSON if needed
-                feedback_markdown = extract_feedback_text_from_json(feedback_log[0]['feedback_markdown'])
-                
+                raw0 = feedback_log[0].get('feedback_markdown', '')
+                feedback_markdown = extract_feedback_text_from_json(raw0) if raw0 else ''
+                if not (feedback_markdown and str(feedback_markdown).strip()) or (feedback_markdown or "").strip() == FEEDBACK_EMPTY_PLACEHOLDER:
+                    feedback_markdown = "This feedback entry could not be loaded. Re-sync or request feedback again to regenerate it."
                 # Process feedback to extract plan updates
                 processed_markdown, plan_html = process_feedback_markdown(feedback_markdown)
                 feedback_html = render_markdown_with_toc(processed_markdown)['content']

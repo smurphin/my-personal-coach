@@ -265,6 +265,25 @@ class AIService:
                 print(f"⚠️  AI_THINKING_LEVEL={Config.AI_THINKING_LEVEL} not applied: could not build ThinkingConfig")
         return GenerationConfig(**cfg) if cfg else None
 
+    def _response_to_text(self, response):
+        """Extract full text from a generate_content response, handling multiple content parts."""
+        try:
+            return response.text
+        except Exception as e:
+            err_str = str(e)
+            if "Multiple content parts" in err_str or "multiple content parts" in err_str.lower():
+                # Gemini can return multiple parts (e.g. JSON block + reasoning); concatenate all text parts
+                out = []
+                if response.candidates:
+                    c = response.candidates[0]
+                    if getattr(c, "content", None) and getattr(c.content, "parts", None):
+                        for part in c.content.parts:
+                            if getattr(part, "text", None):
+                                out.append(part.text)
+                if out:
+                    return "\n".join(out)
+            raise
+
     def generate_content(self, prompt_text, **kwargs):
         """Generate content from a prompt. Retries on 429 (rate limit); re-raises after retries."""
         import time
@@ -275,7 +294,7 @@ class AIService:
         for attempt in range(3):
             try:
                 response = self.model.generate_content(prompt_text, **kwargs)
-                return getattr(response, "text", str(response))
+                return self._response_to_text(response)
             except Exception as e:
                 last_error = e
                 err_str = str(e)

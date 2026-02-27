@@ -12,6 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+## [0.2.1] - 2026-02-19
+
+### Fixed
+
+- Feedback: viewing an entry with no content shows a short message instead of an error.
+- Feedback: generation no longer saves empty entries when the AI returns an unexpected response format.
+- Feedback: when the same activity is updated twice in quick succession, the latest feedback replaces the previous one instead of creating a duplicate entry.
+- Feedback: when generation fails, a short fallback message is stored so the entry always has content to show.
+
 ## [0.2.0] - 2026-02-12
 
 ### Added
