@@ -206,6 +206,17 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             streams,
             zones_for_analysis
         )
+
+        # Override distance unit preference with athlete's settings when available
+        unit_prefs = user_data.get('unit_preferences', {}) or {}
+        activity_type = (activity.get('type') or '').upper()
+        preferred_unit = None
+        if activity_type in ['RUN', 'VIRTUALRUN', 'TRAIL_RUN', 'TRAILRUN']:
+            preferred_unit = unit_prefs.get('run')
+        elif activity_type in ['RIDE', 'VIRTUALRIDE', 'EBIKERIDE']:
+            preferred_unit = unit_prefs.get('ride')
+        if preferred_unit in ['km', 'miles']:
+            analyzed_session['distance_unit_preference'] = preferred_unit
         
         raw_time_in_zones = analyzed_session["time_in_hr_zones"].copy()
         
@@ -513,7 +524,7 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
         training_plan = user_data.get('plan')
         print("ℹ️  Using markdown plan for feedback generation (plan_v2 not found)")
     
-    # Athlete profile so AI respects type (Minimalist/Improviser/Disciplinarian) and day flexibility
+    # Athlete profile so AI respects type (Minimalist/Improviser/Disciplinarian), day flexibility, and unit preferences
     athlete_profile = user_data.get('athlete_profile', {})
     if not athlete_profile:
         plan_data = user_data.get('plan_data', {}) or {}
@@ -521,6 +532,13 @@ def _process_webhook_activities(athlete_id, user_data, access_token, new_activit
             'lifestyle_context': plan_data.get('lifestyle_context'),
             'athlete_type': plan_data.get('athlete_type'),
         }
+    unit_prefs = user_data.get('unit_preferences', {
+        'run': 'km',
+        'ride': 'km',
+        'swim': 'meters'
+    })
+    if isinstance(athlete_profile, dict):
+        athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
     
     feedback_log = user_data.get('feedback_log', [])
     
