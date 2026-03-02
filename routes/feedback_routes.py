@@ -324,6 +324,15 @@ def get_feedback_api():
                 'lifestyle_context': plan_data.get('lifestyle_context'),
                 'athlete_type': plan_data.get('athlete_type')
             }
+
+        # Attach unit preferences so AI can respect km vs miles for each sport
+        unit_prefs = user_data.get('unit_preferences', {
+            'run': 'km',
+            'ride': 'km',
+            'swim': 'meters'
+        })
+        if isinstance(athlete_profile, dict):
+            athlete_profile = {**athlete_profile, 'unit_preferences': unit_prefs}
         
         # Ensure token is valid (refresh if needed)
         access_token = strava_service.ensure_valid_token(athlete_id, user_data, data_manager)
@@ -576,6 +585,17 @@ def get_feedback_api():
                 streams,
                 zones_for_analysis
             )
+
+            # Override distance unit preference with athlete's settings when available
+            unit_prefs = user_data.get('unit_preferences', {}) or {}
+            activity_type = (activity.get('type') or '').upper()
+            preferred_unit = None
+            if activity_type in ['RUN', 'VIRTUALRUN', 'TRAIL_RUN', 'TRAILRUN']:
+                preferred_unit = unit_prefs.get('run')
+            elif activity_type in ['RIDE', 'VIRTUALRIDE', 'EBIKERIDE']:
+                preferred_unit = unit_prefs.get('ride')
+            if preferred_unit in ['km', 'miles']:
+                analyzed_session['distance_unit_preference'] = preferred_unit
             
             # Debug: Log laps/splits data for interval sessions
             if analyzed_session.get("intervals_detected", {}).get("has_intervals"):

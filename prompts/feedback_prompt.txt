@@ -15,6 +15,19 @@ Their lifestyle context is: "{{ athlete_profile.lifestyle_context }}"
 **Sports in this plan:** The plan only includes: {{ athlete_profile.sports | join(', ') }}. When suggesting plan changes or comparing sessions, only prescribe or reference these sports. Do not add sessions for sports they did not select (e.g. no "Easy Spin" or cycling in a run-only plan).
 {% endif %}
 
+{% if athlete_profile.unit_preferences %}
+The athlete's **unit preferences** are:
+- Running: {{ athlete_profile.unit_preferences.run or 'km' }}
+- Cycling: {{ athlete_profile.unit_preferences.ride or 'km' }}
+- Swimming: {{ athlete_profile.unit_preferences.swim or 'meters' }}
+
+**CRITICAL UNIT RULES:**
+- For any **running** paces or distances, use the running unit preference above (e.g., if it is "miles", describe paces as min/mile and distances in miles).
+- For any **cycling** distances, use the cycling unit preference above.
+- For any **swimming** distances, use the swimming unit preference above (typically metres).
+- Do NOT switch units unless explicitly asked by the athlete; default to these preferences in all responses involving distance or pace.
+{% endif %}
+
 You MUST take this profile into account when providing feedback and regenerating the training plan. For example, a "Minimalist" should receive fewer, more focused sessions with more "stretch" sessions they can fit in when schedule allows. An "Improviser" needs flexibility in weekly structure with clear "key" sessions but options for "important" and "stretch" sessions depending on life demands. Use the lifestyle context to make sessions realistic and achievable, recognizing the constraints and opportunities in their life.
 {% endif %}
 
@@ -196,15 +209,25 @@ You have been given a list of one or more recently completed sessions. Your task
 {% endif %}
 
 **Training Paces (from Jack Daniels' tables - use these EXACTLY):**
-- Easy: {{ vdot_data.easy_pace }}
-- Marathon: {{ vdot_data.marathon_pace }}
-- Threshold: {{ vdot_data.threshold_pace }}
-- Interval: {{ vdot_data.interval_pace }}
-- Repetition: {{ vdot_data.repetition_pace }}
+{% if athlete_profile and athlete_profile.unit_preferences and athlete_profile.unit_preferences.run == 'miles' %}
+{# User prefers miles for running - show miles first, km as reference #}
+- Easy: {{ vdot_data.easy_pace_mile or 'N/A' }} per mile{% if vdot_data.easy_pace_km %} ({{ vdot_data.easy_pace_km }} per km){% endif %}
+- Marathon: {{ vdot_data.marathon_pace_mile or 'N/A' }} per mile{% if vdot_data.marathon_pace_km %} ({{ vdot_data.marathon_pace_km }} per km){% endif %}
+- Threshold: {{ vdot_data.threshold_pace_mile or 'N/A' }} per mile{% if vdot_data.threshold_pace_km %} ({{ vdot_data.threshold_pace_km }} per km){% endif %}
+- Interval (VO2max): {{ vdot_data.interval_pace_mile or 'N/A' }} per mile{% if vdot_data.interval_pace_km %} ({{ vdot_data.interval_pace_km }} per km){% endif %}
+- Repetition: {{ vdot_data.repetition_pace_mile or 'N/A' }} per mile{% if vdot_data.repetition_pace_km %} ({{ vdot_data.repetition_pace_km }} per km){% endif %}
+{% else %}
+{# User prefers km (default) - show km first, miles as reference #}
+- Easy: {{ vdot_data.easy_pace_km or vdot_data.easy_pace or 'N/A' }} per km{% if vdot_data.easy_pace_mile %} ({{ vdot_data.easy_pace_mile }} per mile){% endif %}
+- Marathon: {{ vdot_data.marathon_pace_km or vdot_data.marathon_pace or 'N/A' }} per km{% if vdot_data.marathon_pace_mile %} ({{ vdot_data.marathon_pace_mile }} per mile){% endif %}
+- Threshold: {{ vdot_data.threshold_pace_km or vdot_data.threshold_pace or 'N/A' }} per km{% if vdot_data.threshold_pace_mile %} ({{ vdot_data.threshold_pace_mile }} per mile){% endif %}
+- Interval (VO2max): {{ vdot_data.interval_pace_km or 'N/A' }} per km{% if vdot_data.interval_pace_mile %} ({{ vdot_data.interval_pace_mile }} per mile){% endif %}
+- Repetition: {{ vdot_data.repetition_pace_km or 'N/A' }} per km{% if vdot_data.repetition_pace_mile %} ({{ vdot_data.repetition_pace_mile }} per mile){% endif %}
+{% endif %}
 
 **ABSOLUTE REQUIREMENTS - READ CAREFULLY:**
 1. **NEVER calculate or estimate VDOT yourself** - the value above ({{ vdot_data.current_vdot|int }}) is calculated from Jack Daniels' authoritative tables
-2. **NEVER calculate or estimate training paces** - use the EXACT paces listed above
+2. **NEVER calculate or estimate training paces** - use the EXACT paces listed above (in the primary unit shown before the parentheses)
 3. **NEVER say "I calculate your VDOT to be..." or "Based on this performance, your VDOT is..."** - simply reference the value above
 4. **NEVER suggest a different VDOT** - use ONLY the value provided above ({{ vdot_data.current_vdot|int }})
 5. If the athlete's performance seems inconsistent with their current VDOT, note this but DO NOT recalculate VDOT
